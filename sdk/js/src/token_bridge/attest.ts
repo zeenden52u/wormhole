@@ -68,7 +68,7 @@ export async function attestFromSolana(
     )
   );
   const transaction = new Transaction().add(transferIx, ix);
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
   transaction.partialSign(messageKey);

@@ -1,4 +1,11 @@
-import { AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
+import {
+  AccountLayout,
+  createCloseAccountInstruction,
+  createInitializeAccountInstruction,
+  createTransferInstruction,
+  getMinimumBalanceForRentExemptAccount,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import {
   Connection,
   Keypair,
@@ -82,7 +89,7 @@ export async function redeemAndUnwrapOnSolana(
     parsedPayload.amount *
     BigInt(WSOL_DECIMALS - MAX_VAA_DECIMALS) *
     BigInt(10);
-  const rentBalance = await Token.getMinBalanceRentForExemptAccount(connection);
+  const rentBalance = await getMinimumBalanceForRentExemptAccount(connection);
   const mintPublicKey = new PublicKey(WSOL_ADDRESS);
   const payerPublicKey = new PublicKey(payerAddress);
   const ancillaryKeypair = Keypair.generate();
@@ -106,33 +113,28 @@ export async function redeemAndUnwrapOnSolana(
   });
 
   //Initialize the account as a WSOL account, with the original payerAddress as owner
-  const initAccountIx = await Token.createInitAccountInstruction(
-    TOKEN_PROGRAM_ID,
-    mintPublicKey,
+  const initAccountIx = await createInitializeAccountInstruction(
     ancillaryKeypair.publicKey,
+    mintPublicKey,
     payerPublicKey
   );
 
   //Send in the amount of wSOL which we want converted to SOL
-  const balanceTransferIx = Token.createTransferInstruction(
-    TOKEN_PROGRAM_ID,
+  const balanceTransferIx = createTransferInstruction(
     targetPublicKey,
     ancillaryKeypair.publicKey,
     payerPublicKey,
-    [],
-    new u64(targetAmount.toString(16), 16)
+    targetAmount
   );
 
   //Close the ancillary account for cleanup. Payer address receives any remaining funds
-  const closeAccountIx = Token.createCloseAccountInstruction(
-    TOKEN_PROGRAM_ID,
-    ancillaryKeypair.publicKey, //account to close
-    payerPublicKey, //Remaining funds destination
-    payerPublicKey, //authority
-    []
+  const closeAccountIx = createCloseAccountInstruction(
+    ancillaryKeypair.publicKey,
+    payerPublicKey,
+    payerPublicKey
   );
 
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   const transaction = new Transaction();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
@@ -184,7 +186,7 @@ export async function redeemOnSolana(
     );
   }
   const transaction = new Transaction().add(...ixs);
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
   return transaction;

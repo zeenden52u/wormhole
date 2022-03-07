@@ -13,7 +13,7 @@ export default async function createPool(
   const { create_pool } = await importMigrationWasm();
   const ix = ixFromRust(create_pool(program_id, payer, from_mint, to_mint));
   const transaction = new Transaction().add(ix);
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
   return transaction;

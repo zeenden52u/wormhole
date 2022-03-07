@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+## Changed
+
+Updated @solana/spl-token to ^1.36.0
+
+Updated @solana/web3.js to ^0.2.0
+
 ## 0.2.1
 
 ### Added

@@ -182,7 +182,7 @@ export async function postVaa(
       return ixFromRust(v);
     });
     let transaction = new Transaction().add(ixs[0], ixs[1]);
-    const { blockhash } = await connection.getRecentBlockhash();
+    const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = new PublicKey(payer);
     transaction.partialSign(signature_set);
@@ -197,7 +197,7 @@ export async function postVaa(
     post_vaa_ix(bridge_id, payer, signature_set.publicKey.toString(), vaa)
   );
   let transaction = new Transaction().add(ix);
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payer);
 

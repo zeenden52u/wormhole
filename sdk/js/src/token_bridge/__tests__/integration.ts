@@ -2,9 +2,8 @@ import { parseUnits } from "@ethersproject/units";
 import { NodeHttpTransport } from "@improbable-eng/grpc-web-node-http-transport";
 import { describe, expect, jest, test } from "@jest/globals";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  Token,
-  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import {
@@ -161,9 +160,7 @@ describe("Integration Tests", () => {
               hexToUint8Array(nativeToHexString(TEST_ERC20, CHAIN_ID_ETH) || "")
             )) || ""
           );
-          const recipient = await Token.getAssociatedTokenAddress(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
+          const recipient = await getAssociatedTokenAddress(
             solanaMintKey,
             keypair.publicKey
           );
@@ -173,16 +170,14 @@ describe("Integration Tests", () => {
           );
           if (!associatedAddressInfo) {
             const transaction = new Transaction().add(
-              await Token.createAssociatedTokenAccountInstruction(
-                ASSOCIATED_TOKEN_PROGRAM_ID,
-                TOKEN_PROGRAM_ID,
-                solanaMintKey,
+              await createAssociatedTokenAccountInstruction(
+                keypair.publicKey,
                 recipient,
-                keypair.publicKey, // owner
-                keypair.publicKey // payer
+                keypair.publicKey,
+                solanaMintKey
               )
             );
-            const { blockhash } = await connection.getRecentBlockhash();
+            const { blockhash } = await connection.getLatestBlockhash();
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = keypair.publicKey;
             // sign, send, and confirm transaction
@@ -359,9 +354,7 @@ describe("Integration Tests", () => {
           const payerAddress = keypair.publicKey.toString();
           // find the associated token account
           const fromAddress = (
-            await Token.getAssociatedTokenAddress(
-              ASSOCIATED_TOKEN_PROGRAM_ID,
-              TOKEN_PROGRAM_ID,
+            await getAssociatedTokenAddress(
               new PublicKey(TEST_SOLANA_TOKEN),
               keypair.publicKey
             )

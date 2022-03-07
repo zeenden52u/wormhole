@@ -1,8 +1,7 @@
 import { parseUnits } from "@ethersproject/units";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  Token,
-  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { ethers } from "ethers";
@@ -40,9 +39,7 @@ export async function transferFromEthToSolana(): Promise<string> {
       hexToUint8Array(nativeToHexString(TEST_ERC20, CHAIN_ID_ETH) || "")
     )) || ""
   );
-  const recipient = await Token.getAssociatedTokenAddress(
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-    TOKEN_PROGRAM_ID,
+  const recipient = await getAssociatedTokenAddress(
     solanaMintKey,
     keypair.publicKey
   );
@@ -50,16 +47,14 @@ export async function transferFromEthToSolana(): Promise<string> {
   const associatedAddressInfo = await connection.getAccountInfo(recipient);
   if (!associatedAddressInfo) {
     const transaction = new Transaction().add(
-      await Token.createAssociatedTokenAccountInstruction(
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-        TOKEN_PROGRAM_ID,
-        solanaMintKey,
+      await createAssociatedTokenAccountInstruction(
+        keypair.publicKey,
         recipient,
-        keypair.publicKey, // owner
-        keypair.publicKey // payer
+        keypair.publicKey,
+        solanaMintKey
       )
     );
-    const { blockhash } = await connection.getRecentBlockhash();
+    const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = keypair.publicKey;
     // sign, send, and confirm transaction

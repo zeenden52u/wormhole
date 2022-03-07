@@ -1,4 +1,4 @@
-import { Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createApproveInstruction } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { MsgExecuteContract } from "@terra-money/terra.js";
 import { ethers, Overrides } from "ethers";
@@ -59,13 +59,11 @@ export async function transferFromSolana(
     transfer_wrapped_ix,
     approval_authority_address,
   } = await importNftWasm();
-  const approvalIx = Token.createApproveInstruction(
-    TOKEN_PROGRAM_ID,
+  const approvalIx = createApproveInstruction(
     new PublicKey(fromAddress),
     new PublicKey(approval_authority_address(tokenBridgeAddress)),
     new PublicKey(payerAddress),
-    [],
-    Number(1)
+    1
   );
   let messageKey = Keypair.generate();
   const isSolanaNative =
@@ -104,7 +102,7 @@ export async function transferFromSolana(
         )
   );
   const transaction = new Transaction().add(transferIx, approvalIx, ix);
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
   transaction.partialSign(messageKey);

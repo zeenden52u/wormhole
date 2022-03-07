@@ -3,11 +3,7 @@ import axios from "axios";
 import Web3 from 'web3';
 import { NodeHttpTransport } from "@improbable-eng/grpc-web-node-http-transport";
 import { describe, expect, jest, test } from "@jest/globals";
-import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  Token,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 import {
   MsgInstantiateContract,
 } from "@terra-money/terra.js";
@@ -220,9 +216,7 @@ describe("Integration Tests", () => {
         const { parse_vaa } = await importCoreWasm();
 
         const fromAddress = (
-          await Token.getAssociatedTokenAddress(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
+          await getAssociatedTokenAddress(
             new PublicKey(TEST_SOLANA_TOKEN),
             keypair.publicKey
           )

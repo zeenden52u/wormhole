@@ -47,7 +47,6 @@ export function parseSequenceFromLogTerra(info: TxInfo): string {
       });
     });
   });
-  console.log("Terra Sequence: ", sequence);
   return sequence.toString();
 }
 

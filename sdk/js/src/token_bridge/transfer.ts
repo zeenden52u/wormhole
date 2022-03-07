@@ -1,4 +1,11 @@
-import { AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
+import {
+  AccountLayout,
+  createApproveInstruction,
+  createCloseAccountInstruction,
+  createInitializeAccountInstruction,
+  getMinimumBalanceForRentExemptAccount,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import {
   Connection,
   Keypair,
@@ -7,7 +14,7 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import { MsgExecuteContract } from "@terra-money/terra.js";
-import { BigNumber, ethers, Overrides, PayableOverrides } from "ethers";
+import { ethers, Overrides, PayableOverrides } from "ethers";
 import { isNativeDenom } from "..";
 import {
   Bridge__factory,
@@ -183,7 +190,7 @@ export async function transferNativeSol(
   relayerFee: BigInt = BigInt(0)
 ) {
   //https://github.com/solana-labs/solana-program-library/blob/master/token/js/client/token.js
-  const rentBalance = await Token.getMinBalanceRentForExemptAccount(connection);
+  const rentBalance = await getMinimumBalanceForRentExemptAccount(connection);
   const mintPublicKey = new PublicKey(WSOL_ADDRESS);
   const payerPublicKey = new PublicKey(payerAddress);
   const ancillaryKeypair = Keypair.generate();
@@ -204,10 +211,9 @@ export async function transferNativeSol(
     toPubkey: ancillaryKeypair.publicKey,
   });
   //Initialize the account as a WSOL account, with the original payerAddress as owner
-  const initAccountIx = await Token.createInitAccountInstruction(
-    TOKEN_PROGRAM_ID,
-    mintPublicKey,
+  const initAccountIx = await createInitializeAccountInstruction(
     ancillaryKeypair.publicKey,
+    mintPublicKey,
     payerPublicKey
   );
 
@@ -220,13 +226,11 @@ export async function transferNativeSol(
     bridgeAddress,
     payerAddress
   );
-  const approvalIx = Token.createApproveInstruction(
-    TOKEN_PROGRAM_ID,
+  const approvalIx = createApproveInstruction(
     ancillaryKeypair.publicKey,
     new PublicKey(approval_authority_address(tokenBridgeAddress)),
     payerPublicKey, //owner
-    [],
-    new u64(amount.toString(16), 16)
+    amount.valueOf()
   );
   let messageKey = Keypair.generate();
 
@@ -247,15 +251,13 @@ export async function transferNativeSol(
   );
 
   //Close the ancillary account for cleanup. Payer address receives any remaining funds
-  const closeAccountIx = Token.createCloseAccountInstruction(
-    TOKEN_PROGRAM_ID,
+  const closeAccountIx = createCloseAccountInstruction(
     ancillaryKeypair.publicKey, //account to close
     payerPublicKey, //Remaining funds destination
-    payerPublicKey, //authority
-    []
+    payerPublicKey //authority
   );
 
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   const transaction = new Transaction();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
@@ -295,13 +297,11 @@ export async function transferFromSolana(
     transfer_wrapped_ix,
     approval_authority_address,
   } = await importTokenWasm();
-  const approvalIx = Token.createApproveInstruction(
-    TOKEN_PROGRAM_ID,
+  const approvalIx = createApproveInstruction(
     new PublicKey(fromAddress),
     new PublicKey(approval_authority_address(tokenBridgeAddress)),
     new PublicKey(fromOwnerAddress || payerAddress),
-    [],
-    new u64(amount.toString(16), 16)
+    amount.valueOf()
   );
   let messageKey = Keypair.generate();
   const isSolanaNative =
@@ -341,7 +341,7 @@ export async function transferFromSolana(
         )
   );
   const transaction = new Transaction().add(transferIx, approvalIx, ix);
-  const { blockhash } = await connection.getRecentBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(payerAddress);
   transaction.partialSign(messageKey);

@@ -24,7 +24,7 @@ export async function sendAndConfirmTransactionsWithRetry(
     let transaction = unsignedTransactions[currentIndex];
     let signed = null;
     try {
-      const { blockhash } = await connection.getRecentBlockhash();
+      const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = new PublicKey(payer);
     } catch (e) {

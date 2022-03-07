@@ -10,6 +10,10 @@
 - Ethereum
 - Terra
 - Binance Smart Chain
+- Polygon
+- Avalanche
+- Oasis
+- Fantom
 
 Wormhole is, at its base layer, a very simple protocol. A Wormhole smart contract has been deployed on each of the supported blockchains, and users can emit messages in the Wormhole Network by submitting data to the smart contracts. These messages are quite simple and only have the following six fields.
 
@@ -176,9 +180,7 @@ const solanaMintKey = new PublicKey(
     hexToUint8Array(nativeToHexString(tokenAddress, CHAIN_ID_ETH) || "")
   )) || ""
 );
-const recipientAddress = await Token.getAssociatedTokenAddress(
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
+const recipientAddress = await getAssociatedTokenAddress(
   solanaMintKey,
   walletAddress
 );
