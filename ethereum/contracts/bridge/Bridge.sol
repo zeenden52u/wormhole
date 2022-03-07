@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../libraries/external/BytesLib.sol";
+import "../Shutdownable.sol";
 
 import "./BridgeGetters.sol";
 import "./BridgeSetters.sol";
@@ -17,8 +18,13 @@ import "./BridgeGovernance.sol";
 import "./token/Token.sol";
 import "./token/TokenImplementation.sol";
 
-contract Bridge is BridgeGovernance, ReentrancyGuard {
+contract Bridge is BridgeGovernance, Shutdownable, ReentrancyGuard {
     using BytesLib for bytes;
+
+    // This is required by Shutdownable.
+    function getWH() public virtual override view returns (IWormhole) {
+        return wormhole();
+    }
 
     // Produce a AssetMeta message for a given token
     function attestToken(address tokenAddress, uint32 nonce) public payable returns (uint64 sequence){
@@ -62,6 +68,8 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
     }
 
     function wrapAndTransferETH(uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) public payable returns (uint64 sequence) {
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         uint wormholeFee = wormhole().messageFee();
 
         require(wormholeFee < msg.value, "value is smaller than wormhole fee");
