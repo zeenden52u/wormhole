@@ -11,7 +11,7 @@ contract ShutdownStructs {
     }
 }
 
-abstract contract Shutdownable {
+abstract contract ShutdownSwitch {
     function numVotesToDisable() public view returns (uint16) {
         return votesToDisable;
     }
@@ -82,7 +82,10 @@ abstract contract Shutdownable {
             emit ShutdownVoteCast(msg.sender, _enabled, numDisabled, newEnabledFlag);
         }
 
-        votesToDisable = numDisabled;
+        if (votesToDisable != numDisabled) {
+            votesToDisable = numDisabled;
+        }
+
         if (newEnabledFlag != enabled) {
             enabled = newEnabledFlag;
             emit ShutdownStatusChanged(newEnabledFlag, numDisabled);
