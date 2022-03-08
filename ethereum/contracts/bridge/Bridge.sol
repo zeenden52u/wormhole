@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../libraries/external/BytesLib.sol";
-import "../Shutdownable.sol";
+import "../ShutdownSwitch.sol";
 
 import "./BridgeGetters.sol";
 import "./BridgeSetters.sol";
@@ -18,16 +18,18 @@ import "./BridgeGovernance.sol";
 import "./token/Token.sol";
 import "./token/TokenImplementation.sol";
 
-contract Bridge is BridgeGovernance, Shutdownable, ReentrancyGuard {
+contract Bridge is BridgeGovernance, ShutdownSwitch, ReentrancyGuard {
     using BytesLib for bytes;
 
-    // This is required by Shutdownable.
+    // This is required by ShutdownSwitch.
     function getWH() public virtual override view returns (IWormhole) {
         return wormhole();
     }
 
     // Produce a AssetMeta message for a given token
     function attestToken(address tokenAddress, uint32 nonce) public payable returns (uint64 sequence){
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         // decimals, symbol & token are not part of the core ERC20 token standard, so we need to support contracts that dont implement them
         (,bytes memory queriedDecimals) = tokenAddress.staticcall(abi.encodeWithSignature("decimals()"));
         (,bytes memory queriedSymbol) = tokenAddress.staticcall(abi.encodeWithSignature("symbol()"));
@@ -100,6 +102,8 @@ contract Bridge is BridgeGovernance, Shutdownable, ReentrancyGuard {
 
     // Initiate a Transfer
     function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) public payable nonReentrant returns (uint64 sequence) {
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         // determine token parameters
         uint16 tokenChain;
         bytes32 tokenAddress;
@@ -185,6 +189,8 @@ contract Bridge is BridgeGovernance, Shutdownable, ReentrancyGuard {
     }
 
     function updateWrapped(bytes memory encodedVm) external returns (address token) {
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole().parseAndVerifyVM(encodedVm);
 
         require(valid, reason);
@@ -205,6 +211,8 @@ contract Bridge is BridgeGovernance, Shutdownable, ReentrancyGuard {
     }
 
     function createWrapped(bytes memory encodedVm) external returns (address token) {
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole().parseAndVerifyVM(encodedVm);
 
         require(valid, reason);
@@ -253,10 +261,14 @@ contract Bridge is BridgeGovernance, Shutdownable, ReentrancyGuard {
     }
 
     function completeTransfer(bytes memory encodedVm) public {
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         _completeTransfer(encodedVm, false);
     }
 
     function completeTransferAndUnwrapETH(bytes memory encodedVm) public {
+        require(enabledFlag(), "transfers are temporarily disabled");
+
         _completeTransfer(encodedVm, true);
     }
 

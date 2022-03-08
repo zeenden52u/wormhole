@@ -361,7 +361,7 @@ yargs(hideBin(process.argv))
                 throw new Error("unknown governance action")
         }
     })
-    .command('eth cast_shutdown_vote [vote]', 'vote to enable / disable transaction processing', (yargs) => {
+    .command('cast_shutdown_vote_on_evm [vote]', 'vote to enable / disable transaction processing', (yargs) => {
         return yargs
             .positional('vote', {
                 describe: '"enable" or "disable", where disable will vote to disable transaction processing"',
@@ -404,6 +404,41 @@ yargs(hideBin(process.argv))
         console.log("Casting vote to " + vote + " transaction processing.");
         console.log("Hash: " + (await tb.castShutdownVote(enable)).hash)
         console.log("Transaction processing is currently " + (await tb.enabledFlag() ? "enabled" : "disabled") + ", there are " + (await tb.numVotesToDisable() + " votes to disable"));
+    })
+    .command('query_shutdown_status_on_evm', 'query the current shutdown status', (yargs) => {
+        return yargs
+            .positional('vote', {
+                describe: '"enable" or "disable", where disable will vote to disable transaction processing"',
+                type: "string",
+                required: true
+            })
+            .option('rpc', {
+                alias: 'u',
+                type: 'string',
+                description: 'URL of the ETH RPC',
+                default: "http://localhost:8545"
+            })
+            .option('bridge', {
+                alias: 'b',
+                type: 'string',
+                description: 'Bridge address',
+                default: "0x0290FB167208Af455bB137780163b7B7a9a10C16"
+            })
+            .option('key', {
+                alias: 'k',
+                type: 'string',
+                description: 'Private key of the guardian',
+                default: "0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0"
+            })
+    }, async (argv: any) => {
+        const bridge = await importCoreWasm()
+
+        let provider = new ethers.providers.JsonRpcProvider(argv.rpc)
+        let signer = new ethers.Wallet(argv.key, provider)
+        let t = new BridgeImplementation__factory(signer);
+        let tb = t.attach(argv.bridge);
+
+        console.log("Current shutdown status: " + ((await tb.enabledFlag()) ? "enabled" : "disabled") + ", numVotesToDisabled: " + (await tb.numVotesToDisable()));
     })
     .argv;
 

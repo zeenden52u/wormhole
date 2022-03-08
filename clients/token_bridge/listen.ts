@@ -75,7 +75,7 @@ function zeroPadBytes(value, length) {
 }
 
 yargs(hideBin(process.argv))
-    .command('eth listen_for_shutdown_votes', 'listen for shutdown vote events', (yargs) => {
+    .command('listen_for_shutdown_votes_from_evm', 'listen for shutdown vote events', (yargs) => {
         return yargs
             .option('rpc', {
                 alias: 'u',
