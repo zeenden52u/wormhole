@@ -376,9 +376,13 @@ yargs(hideBin(process.argv))
                 description: 'Private key of the guardian',
                 default: "0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0"
             })
+            .option('nonce', {
+                alias: 'n',
+                type: 'string',
+                description: 'Nonce to send with the vote for testing purposes, default is \"auto\", which means query for the correct value',
+                default: "auto"
+            })            
     }, async (argv: any) => {
-        const bridge = await importCoreWasm()
-
         let provider = new ethers.providers.JsonRpcProvider(argv.rpc)
         let signer = new ethers.Wallet(argv.key, provider)
         let t = new BridgeImplementation__factory(signer);
@@ -391,8 +395,11 @@ yargs(hideBin(process.argv))
         } else if (vote !== "disable") {
             throw new Error("[" + vote + "] is an invalid vote, must be \"enable\" or \"disable\"");
         }
-        console.log("Casting vote to " + vote + " transaction processing.");
-        console.log("Hash: " + (await tb.castShutdownVote(enable)).hash)
+
+        let nonce: ethers.ethers.BigNumber = (argv.nonce == "auto") ? (await tb.nonce()) : ethers.ethers.BigNumber.from(argv.nonce);
+
+        console.log("Casting vote to " + vote + " transaction processing using nonce " + nonce + ".");
+        console.log("Hash: " + (await tb.castShutdownVote(nonce, enable)).hash)
         console.log("Transaction processing is currently " + (await tb.enabledFlag() ? "enabled" : "disabled") + ", there are " + (await tb.numVotesToDisable() + " votes to disable"));
     })
     .command('query_shutdown_status_on_evm', 'query the current shutdown status', (yargs) => {

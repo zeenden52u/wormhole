@@ -18,13 +18,8 @@ import "./BridgeGovernance.sol";
 import "./token/Token.sol";
 import "./token/TokenImplementation.sol";
 
-contract Bridge is BridgeGovernance, ShutdownSwitch, ReentrancyGuard {
+contract Bridge is BridgeGovernance, ReentrancyGuard {
     using BytesLib for bytes;
-
-    // This is required by ShutdownSwitch.
-    function getWH() public virtual override view returns (IWormhole) {
-        return wormhole();
-    }
 
     // Produce a AssetMeta message for a given token
     function attestToken(address tokenAddress, uint32 nonce) public payable returns (uint64 sequence){
