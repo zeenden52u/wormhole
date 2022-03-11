@@ -358,6 +358,12 @@ yargs(hideBin(process.argv))
                 type: "string",
                 required: true
             })
+            .option('chain', {
+                alias: 'c',
+                type: 'number',
+                description: 'chain id on which the vote will be cast',
+                default: "2"
+            })            
             .option('rpc', {
                 alias: 'u',
                 type: 'string',
@@ -396,10 +402,8 @@ yargs(hideBin(process.argv))
             throw new Error("[" + vote + "] is an invalid vote, must be \"enable\" or \"disable\"");
         }
 
-        let nonce: ethers.ethers.BigNumber = (argv.nonce == "auto") ? (await tb.nonce()) : ethers.ethers.BigNumber.from(argv.nonce);
-
-        console.log("Casting vote to " + vote + " transaction processing using nonce " + nonce + ".");
-        console.log("Hash: " + (await tb.castShutdownVote(nonce, enable)).hash)
+        console.log("Casting vote to " + vote + " transfers on chain " + argv.chain + ".");
+        console.log("Hash: " + (await tb.castShutdownVote(argv.chain, enable)).hash)
         console.log("Transaction processing is currently " + (await tb.enabledFlag() ? "enabled" : "disabled") + ", there are " + (await tb.numVotesToDisable() + " votes to disable"));
     })
     .command('query_shutdown_status_on_evm', 'query the current shutdown status', (yargs) => {
@@ -435,7 +439,11 @@ yargs(hideBin(process.argv))
         let t = new BridgeImplementation__factory(signer);
         let tb = t.attach(argv.bridge);
 
-        console.log("Current shutdown status: " + ((await tb.enabledFlag()) ? "enabled" : "disabled") + ", numVotesToDisabled: " + (await tb.numVotesToDisable()));
+        console.log("Current shutdown status: " +
+            ((await tb.enabledFlag()) ? "enabled" : "disabled") +
+            ", numVotesToDisable: " +
+            (await tb.numVotesToDisable())
+        );
     })
     .argv;
 
