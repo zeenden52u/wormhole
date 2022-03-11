@@ -20,18 +20,14 @@ abstract contract ShutdownSwitch {
         return enabled;
     }
 
-    function nonce() public view returns (uint256){
-        return nonces[msg.sender];
-    }
-
     event ShutdownVoteCast(address indexed voter, bool votedToEnable, uint16 numVotesToDisable, bool enableFlag);
     event ShutdownStatusChanged(bool enabledFlag, uint16 numVotesToDisable);
 
     function getWH() public virtual view returns (IWormhole);
+    function getChainId() public virtual view returns (uint16);
 
     uint16 constant REQUIRED_NO_VOTES = 1;
 
-    mapping(address => uint256) nonces;
     ShutdownStructs.VoterEntry[20] voters;
     uint32 guardianSetIndex = 0;
     uint16 votesToDisable = 0;
@@ -45,12 +41,15 @@ abstract contract ShutdownSwitch {
         enabled = true;
     }
 
-    // Called by the voter's client to update their votes.
-    function castShutdownVote(uint256 _nonce, bool _enabled) public {
-        require(isRegisteredVoter(msg.sender), "you are not a registered voter");
+    modifier isEnabled() {
+        require(enabledFlag(), "transfers are temporarily disabled");
+        _;
+    }
 
-        uint256 expectedNonce = nonces[msg.sender];
-        require(expectedNonce == _nonce, "invalid nonce");
+    // Called by the voter's client to update their votes.
+    function castShutdownVote(uint16 _chainId, bool _enabled) public {
+        require(_chainId == getChainId(), "invalid chain id");
+        require(isRegisteredVoter(msg.sender), "you are not a registered voter");
 
         // Our set of voters is the set of guardians. If the guardian set has changed, rebuild our set of voters, setting all votes to enabled.
         uint32 gsi = getWH().getCurrentGuardianSetIndex();
@@ -104,8 +103,6 @@ abstract contract ShutdownSwitch {
             enabled = newEnabledFlag;
             emit ShutdownStatusChanged(newEnabledFlag, numDisabled);
         }
-
-        nonces[msg.sender] = expectedNonce + 1;
     }
 
     function isRegisteredVoter(address voter) public view returns(bool) {

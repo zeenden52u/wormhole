@@ -61,4 +61,9 @@ contract BridgeSetters is BridgeState, ShutdownSwitch {
     function getWH() public virtual override view returns (IWormhole) {
         return IWormhole(_state.wormhole);
     }
+
+    // This is required by ShutdownSwitch.
+    function getChainId() public virtual override view returns (uint16) {
+        return _state.provider.chainId;
+    }
 }
