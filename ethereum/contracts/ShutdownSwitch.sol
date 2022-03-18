@@ -12,6 +12,10 @@ contract ShutdownStructs {
 }
 
 abstract contract ShutdownSwitch {
+    function requiredVotesToDisable() public view returns (uint16) {
+        return requiredNoVotes;
+    }
+
     function numVotesToDisable() public view returns (uint16) {
         return votesToDisable;
     }
@@ -31,12 +35,14 @@ abstract contract ShutdownSwitch {
     ShutdownStructs.VoterEntry[20] voters;
     uint32 guardianSetIndex = 0;
     uint16 votesToDisable = 0;
+    uint16 requiredNoVotes = 0;
     bool voterSetInitialized = false;
     bool enabled = true;
 
     function setUpShutdownSwitch() internal {
         guardianSetIndex = 0;
         votesToDisable = 0;
+        requiredNoVotes = 0;
         voterSetInitialized = false;
         enabled = true;
     }
@@ -56,6 +62,10 @@ abstract contract ShutdownSwitch {
         if ((guardianSetIndex != gsi) || (! voterSetInitialized)) {
             voterSetInitialized = true;
             Structs.GuardianSet memory gs = getWH().getGuardianSet(gsi);
+
+            uint256 quorum = ((gs.keys.length * 10 / 3) * 2) / 10 + 1;
+            requiredNoVotes = uint16(gs.keys.length - quorum + 1);
+
             for (uint idx = 0; (idx < voters.length); idx++) {
                 if (idx < gs.keys.length) {
                     voters[idx].key = gs.keys[idx];
@@ -90,7 +100,7 @@ abstract contract ShutdownSwitch {
             }
         }
 
-        bool newEnabledFlag = (numDisabled < REQUIRED_NO_VOTES);
+        bool newEnabledFlag = (numDisabled < requiredNoVotes);
         if (somethingChanged) {
             emit ShutdownVoteCast(msg.sender, _enabled, numDisabled, newEnabledFlag);
         }

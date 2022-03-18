@@ -452,7 +452,9 @@ yargs(hideBin(process.argv))
         console.log("Current shutdown status: " +
             ((await tb.enabledFlag()) ? "enabled" : "disabled") +
             ", numVotesToDisable: " +
-            (await tb.numVotesToDisable())
+            (await tb.numVotesToDisable()) +
+            ", requiredVotesTodisable: " +
+            (await tb.requiredVotesToDisable())
         );
     })
     .argv;
