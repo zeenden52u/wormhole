@@ -155,6 +155,8 @@ contract("ShutdownSwitch", function () {
          assert.equal((await initialized.methods.enabledFlag().call()), true)
     })
 
+    let vaa = null;
+
     it("should reject transfers when they are disabled", async function () {
         const accounts = await web3.eth.getAccounts();
         const initialized = new web3.eth.Contract(BridgeImplementationFullABI, TokenBridge.address);
@@ -213,19 +215,7 @@ contract("ShutdownSwitch", function () {
         const log = (await wormhole.getPastEvents('LogMessagePublished', {
             fromBlock: 'latest'
         }))[0].returnValues
-        let vaa = log.payload.substr(2);
-
-        // Redeem of this transfer should not be blocked by shutdown switch. It will instead fail with
-        // "no quorum", but that's okay for this test, since that check happens after the enable check.
-        try {
-            await initialized.methods.completeTransfer("0x" + vaa).send({
-                value: 0,
-                from: accounts[0],
-                gasLimit: 2000000
-            })
-        } catch (error) {
-            assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert no quorum")
-        }            
+        vaa = log.payload.substr(2);          
 
         // Cast two votes to disable transfers.
         await initialized.methods.castShutdownVote(testChainId, false).send({
@@ -267,18 +257,7 @@ contract("ShutdownSwitch", function () {
             transferShouldFail = true
         }
 
-        assert.ok(transferShouldFail)
-
-        // This redeem should be blocked by shutdown switch rather than "no quorum".
-        try {
-            await initialized.methods.completeTransfer("0x" + vaa).send({
-                value: 0,
-                from: accounts[0],
-                gasLimit: 2000000
-            })
-        } catch (error) {
-            assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert transfers are temporarily disabled")
-        }           
+        assert.ok(transferShouldFail)         
 
         // Change one vote to enabled and our status should change back to enabled.
         await initialized.methods.castShutdownVote(testChainId, true).send({
@@ -302,7 +281,70 @@ contract("ShutdownSwitch", function () {
             value: 0,
             from: accounts[0],
             gasLimit: 2000000
+        });      
+    })
+
+    it("should reject redeems when they are disabled", async function () {
+        // This test assumes the previous test initialized the vaa variable.
+        assert.ok(vaa != null)
+
+        const accounts = await web3.eth.getAccounts();
+        const initialized = new web3.eth.Contract(BridgeImplementationFullABI, TokenBridge.address);
+        clearAllVotes(initialized, accounts);
+        assert.equal((await initialized.methods.enabledFlag().call()), true)
+
+        // Redeem of this transfer should not be blocked by shutdown switch. It will instead fail with
+        // "no quorum", but that's okay for this test, since that check happens after the enable check.
+        try {
+            await initialized.methods.completeTransfer("0x" + vaa).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            })
+        } catch (error) {
+            assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert no quorum")
+        }            
+
+        // Cast two votes to disable transfers.
+        await initialized.methods.castShutdownVote(testChainId, false).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 2000000
         });
+
+        assert.equal((await initialized.methods.numVotesToDisable().call()), 1)
+        assert.equal((await initialized.methods.enabledFlag().call()), true)
+
+        await initialized.methods.castShutdownVote(testChainId, false).send({
+            value: 0,
+            from: accounts[1],
+            gasLimit: 2000000
+        });
+        
+        // Make sure transfers are now disabled.
+        assert.equal((await initialized.methods.numVotesToDisable().call()), 2)
+        assert.equal((await initialized.methods.enabledFlag().call()), false)
+
+        // This redeem should be blocked by shutdown switch rather than "no quorum".
+        try {
+            await initialized.methods.completeTransfer("0x" + vaa).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            })
+        } catch (error) {
+            assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert transfers are temporarily disabled")
+        }           
+
+        // Change one vote to enabled and our status should change back to enabled.
+        await initialized.methods.castShutdownVote(testChainId, true).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 2000000
+        });
+
+        assert.equal((await initialized.methods.numVotesToDisable().call()), 1)
+        assert.equal((await initialized.methods.enabledFlag().call()), true)
 
         // The redeem should be back to being blocked by "no quorum" rather than by shutdown switch.
         try {
