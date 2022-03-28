@@ -87,13 +87,21 @@ yargs(hideBin(process.argv))
         let t = new BridgeImplementation__factory(signer);
         let tb = t.attach(argv.bridge);
 
+        let numVotesToDisable = await tb.numVotesToDisable();
         console.log("Current shutdown status: " +
             ((await tb.enabledFlag()) ? "enabled" : "disabled") +
             ", numVotesToDisable: " +
-            (await tb.numVotesToDisable()) +
+            numVotesToDisable +
             ", requiredVotesTodisable: " +
             (await tb.requiredVotesToDisable())
         );
+
+        if (numVotesToDisable > 0) {
+            let voters = await tb.currentVotesToDisable();
+            for (let voter of voters) {
+                console.log("[" + voter + "] is voting to disable");
+            }
+        }
     })
     .command('listen_for_events_from_evm', 'listen for shutdown vote events', (yargs) => {
         return yargs
