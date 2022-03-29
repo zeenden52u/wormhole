@@ -58,7 +58,7 @@ yargs(hideBin(process.argv))
 
         console.log("Casting vote to " + vote + " transfers.");
         console.log("Hash: " + (await tb.castShutdownVote(enable)).hash)
-        console.log("Transaction processing is currently " + (await tb.enabledFlag() ? "enabled" : "disabled") + ", there are " + (await tb.numVotesToDisable() + " votes to disable"));
+        console.log("Transaction processing is currently " + (await tb.enabledFlag() ? "enabled" : "disabled") + ", there are " + (await tb.numVotesToShutdown() + " votes to disable"));
     })
     .command('query_status_on_evm', 'query the current shutdown status', (yargs) => {
         return yargs
@@ -87,17 +87,17 @@ yargs(hideBin(process.argv))
         let t = new BridgeImplementation__factory(signer);
         let tb = t.attach(argv.bridge);
 
-        let numVotesToDisable = await tb.numVotesToDisable();
-        console.log("Current shutdown status: " +
+        let numVotesToShutdown = await tb.numVotesToShutdown();
+        console.log("Current transfer status: " +
             ((await tb.enabledFlag()) ? "enabled" : "disabled") +
-            ", numVotesToDisable: " +
-            numVotesToDisable +
-            ", requiredVotesTodisable: " +
-            (await tb.requiredVotesToDisable())
+            ", numVotesToShutdown: " +
+            numVotesToShutdown +
+            ", requiredVotesToShutdown: " +
+            (await tb.requiredVotesToShutdown())
         );
 
-        if (numVotesToDisable > 0) {
-            let voters = await tb.currentVotesToDisable();
+        if (numVotesToShutdown > 0) {
+            let voters = await tb.currentVotesToShutdown();
             for (let voter of voters) {
                 console.log("[" + voter + "] is voting to disable");
             }
@@ -133,21 +133,21 @@ yargs(hideBin(process.argv))
 
         console.log("Listening for shutdown vote events.");
 
-        tb.on('ShutdownVoteCast', function(voter, votedToEnable, numVotesToDisable, enabledFlag, rawEvent) {
+        tb.on('ShutdownVoteCast', function(voter, votedToEnable, numVotesToShutdown, enabledFlag, rawEvent) {
             console.log(new Date().toString() + ": ShutdownVoteCast:");
             console.log("   voter: [" + voter);
             console.log("   vote: " + votedToEnable);
-            console.log("   numVotesToDisable: " + numVotesToDisable);
+            console.log("   numVotesToShutdown: " + numVotesToShutdown);
             console.log("   enabledFlag: " + enabledFlag);
             console.log("   sourceBridge: " + rawEvent.address);
             console.log("   txHash: " + rawEvent.transactionHash);
             console.log("");
         });
 
-        tb.on('ShutdownStatusChanged', function(enabledFlag, numVotesToDisable, rawEvent) {
+        tb.on('ShutdownStatusChanged', function(enabledFlag, numVotesToShutdown, rawEvent) {
             console.log(new Date().toString() + ": ShutdownStatusChanged:");
             console.log("   enabledFlag: " + enabledFlag);
-            console.log("   numVotesToDisable: " + numVotesToDisable);
+            console.log("   numVotesToShutdown: " + numVotesToShutdown);
             console.log("   sourceBridge: " + rawEvent.address);
             console.log("   txHash: " + rawEvent.transactionHash);
             console.log("");
