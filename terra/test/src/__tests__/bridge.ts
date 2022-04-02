@@ -25,6 +25,8 @@ const CONSISTENCY_LEVEL = 0;
 const WASM_WORMHOLE = "../artifacts/wormhole.wasm";
 const WASM_WRAPPED_ASSET = "../artifacts/cw20_wrapped.wasm";
 const WASM_TOKEN_BRIDGE = "../artifacts/token_bridge_terra.wasm";
+const WASM_MOCK_BRIDGE_INTEGRATION =
+  "../artifacts/mock_bridge_integration.wasm";
 
 // global map of contract addresses for all tests
 const contracts = new Map<string, string>();
@@ -42,10 +44,17 @@ const contracts = new Map<string, string>();
     > should deposit and log transfers correctly
     > should deposit and log fee token transfers correctly
     > should transfer out locked assets for a valid transfer vm
+    > should deposit and log transfer with payload correctly
+    > should transfer out locked assets for a valid transfer with payload vm
     > should mint bridged assets wrappers on transfer from another chain and handle fees correctly
+    > should handle additional data on token bridge transfer with payload in single transaction when feeRecipient == transferRecipient
+    > should not allow a redemption from msg.sender other than 'to' on token bridge transfer with payload
+    > should allow a redemption from msg.sender == 'to' on token bridge transfer with payload and check that sender recieves fee
     > should burn bridged assets wrappers on transfer to another chain
     > should handle ETH deposits correctly (uusd)
     > should handle ETH withdrawals and fees correctly (uusd)
+    > should handle ETH deposits with payload correctly (uusd)
+    > should handle ETH withdrawals with payload correctly (uusd)
     > should revert on transfer out of a total of > max(uint64) tokens
     
 */
@@ -92,8 +101,19 @@ describe("Bridge Tests", () => {
           wrapped_asset_code_id: wrappedAssetCodeId,
         });
 
+        // mock bridge integration
+        const mockBridgeIntegration = await deploy(
+          client,
+          wallet,
+          WASM_MOCK_BRIDGE_INTEGRATION,
+          {
+            wormhole_contract: wormhole,
+            token_bridge_contract: tokenBridge,
+          }
+        );
         contracts.set("wormhole", wormhole);
         contracts.set("tokenBridge", tokenBridge);
+        contracts.set("mockBridgeIntegration", mockBridgeIntegration);
         done();
       } catch (e) {
         console.error(e);
@@ -320,6 +340,189 @@ describe("Bridge Tests", () => {
       } catch (e) {
         console.error(e);
         done("Failed to Complete Transfer (native denom)");
+      }
+    })();
+  });
+    // transfer with payload tests
+  test("Initiate Transfer With Payload (native denom)", (done) => {
+    (async () => {
+      try {
+        const [client, wallet] = await makeProviderAndWallet();
+
+        const tokenBridge = contracts.get("tokenBridge")!;
+
+        // transfer uusd
+        const denom = "uusd";
+        const recipientAddress =
+          "0000000000000000000000004206942069420694206942069420694206942069";
+        const amount = "100000000"; // one benjamin
+        const relayerFee = "1000000"; // one dolla
+        const myPayload = "ABC";
+
+        const walletAddress = wallet.key.accAddress;
+
+        // need to deposit before initiating transfer
+        const deposit = new MsgExecuteContract(
+          wallet.key.accAddress,
+          tokenBridge,
+          {
+            deposit_tokens: {},
+          },
+          { [denom]: amount }
+        );
+
+        const initiateTransferWithPayload = new MsgExecuteContract(
+          walletAddress,
+          tokenBridge as string,
+          {
+            initiate_transfer_with_payload: {
+              asset: {
+                amount,
+                info: {
+                  native_token: {
+                    denom,
+                  },
+                },
+              },
+              recipient_chain: 2,
+              recipient: Buffer.from(recipientAddress, "hex").toString(
+                "base64"
+              ),
+              fee: relayerFee,
+              payload: Buffer.from(myPayload, "hex").toString("base64"),
+              nonce: 69,
+            },
+          }
+        );
+
+        // check balances
+        let balanceBefore = new Int(0);
+        {
+          const [balance] = await client.bank.balance(tokenBridge);
+          const coin = balance.get(denom);
+          if (coin !== undefined) {
+            balanceBefore = new Int(coin.amount);
+          }
+        }
+
+        // execute outbound transfer with payload
+        const receipt = await transactWithoutMemo(client, wallet, [
+          deposit,
+          initiateTransferWithPayload,
+        ]);
+        console.info("receipt txHash", receipt.txhash);
+
+        let balanceAfter: Int;
+        {
+          const [balance] = await client.bank.balance(tokenBridge);
+          const coin = balance.get(denom);
+          expect(!coin).toBeFalsy();
+
+          balanceAfter = new Int(coin!.amount);
+        }
+        expect(
+          balanceBefore.add(new Int(amount)).eq(balanceAfter)
+        ).toBeTruthy();
+
+        done();
+      } catch (e) {
+        console.error(e);
+        done("Failed to Initiate Transfer With Payload (native denom)");
+      }
+    })();
+  });
+  test("Complete Transfer With Payload (native denom)", (done) => {
+    (async () => {
+      try {
+        const [client, wallet] = await makeProviderAndWallet();
+
+        const tokenBridge = contracts.get("tokenBridge")!;
+        const mockBridgeIntegration = contracts.get("mockBridgeIntegration")!;
+
+        const denom = "uusd";
+        const amount = "100000000"; // one benjamin
+        const relayerFee = "1000000"; // one dolla
+
+        //const expectedAmount = new Int(amount).sub(new Int(relayerFee));
+        const expectedAmount = new Int(amount);
+
+        const walletAddress = wallet.key.accAddress;
+
+        // check balances
+        let balanceBefore = new Int(0);
+        {
+          const [balance] = await client.bank.balance(mockBridgeIntegration);
+          const coin = balance.get(denom);
+          if (coin !== undefined) {
+            balanceBefore = new Int(coin.amount);
+          }
+        }
+
+        const encodedTo = nativeToHex(mockBridgeIntegration);
+        console.log("encodedTo", encodedTo);
+        const ustAddress =
+          "0100000000000000000000000000000000000000000000000000000075757364";
+
+        const vaaPayload = makeTransferVaaPayload(
+          3,
+          amount,
+          ustAddress,
+          encodedTo,
+          3,
+          relayerFee,
+          "ABC"
+        );
+        console.info("vaaPayload", vaaPayload);
+
+        const timestamp = 1;
+        const nonce = 1;
+        const sequence = 2;
+
+        const signedVaa = signAndEncodeVaa(
+          timestamp,
+          nonce,
+          FOREIGN_CHAIN,
+          FOREIGN_TOKEN_BRIDGE,
+          sequence,
+          vaaPayload,
+          TEST_SIGNER_PKS,
+          GUARDIAN_SET_INDEX,
+          CONSISTENCY_LEVEL
+        );
+        console.info("signedVaa", signedVaa);
+
+        const submitVaa = new MsgExecuteContract(
+          walletAddress,
+          mockBridgeIntegration,
+          {
+            complete_transfer_with_payload: {
+              data: Buffer.from(signedVaa, "hex").toString("base64"),
+            },
+          }
+        );
+
+        // execute inbound transfer with signed vaa
+        const receipt = await transactWithoutMemo(client, wallet, [submitVaa]);
+        console.info("receipt txHash", receipt.txhash);
+
+        let balanceAfter: Int;
+        {
+          const [balance] = await client.bank.balance(mockBridgeIntegration);
+          const coin = balance.get(denom);
+          expect(!coin).toBeFalsy();
+
+          balanceAfter = new Int(coin!.amount);
+        }
+        console.info(balanceBefore, balanceAfter);
+        expect(
+          //balanceBefore.add(new Int(expectedAmount)).eq(balanceAfter)
+          balanceBefore.add(expectedAmount).eq(balanceAfter)
+        ).toBeTruthy();
+
+        done();
+      } catch (e) {
+        console.error(e);
+        done("Failed to Complete Transfer With Payload (native denom)");
       }
     })();
   });
