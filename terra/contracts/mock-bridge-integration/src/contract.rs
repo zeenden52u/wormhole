@@ -7,14 +7,12 @@ use cosmwasm_std::{
     DepsMut,
     Env,
     MessageInfo,
-    QueryRequest,
     Reply,
     Response,
     StdError,
     StdResult,
     SubMsg,
     WasmMsg,
-    WasmQuery,
 };
 
 use crate::{
@@ -31,13 +29,14 @@ use crate::{
     },
 };
 
-use token_bridge_terra::msg::ExecuteMsg::SubmitVaa;
+use token_bridge_terra::{
+    msg::ExecuteMsg as TokenBridgeExecuteMsg,
+    state::TransferWithPayloadInfo,
+    contract::verify_and_parse_vaa,
+};
 use wormhole::{
-    msg::QueryMsg as WormholeQueryMsg,
     state::ParsedVAA,
 };
-
-type HumanAddr = String;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
@@ -63,7 +62,9 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        ExecuteMsg::CompleteTransferWithPayload { data } => complete_transfer_with_payload(deps, env, info, &data),
+        ExecuteMsg::CompleteTransferWithPayload { data } => {
+            complete_transfer_with_payload(deps, env, info, &data)
+        },
     }
 }
 
@@ -74,48 +75,34 @@ fn complete_transfer_with_payload(
     data: &Binary,
 ) -> StdResult<Response> {
     let cfg = config_read(deps.storage).load()?;
-    
-    let messages = vec![SubMsg::reply_on_success(
+
+    let mut messages = vec![SubMsg::reply_on_success(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: cfg.token_bridge_contract,
-            msg: to_binary(&SubmitVaa { data: data.clone() })?,
+            msg: to_binary(&TokenBridgeExecuteMsg::CompleteTransferWithPayload {
+                data: data.clone(), relayer: info.sender.to_string()
+            })?,
             funds: vec![],
         }),
         1,
-    )];
+    ),];
 
-    // TODO: add counter to number of transfers made (to be queried)
+    let parsed: ParsedVAA = verify_and_parse_vaa(
+        deps.branch(), cfg.wormhole_contract, env.block.time.seconds(), data)?;
+    let transfer_payload = TransferWithPayloadInfo::get_payload(&parsed.payload);
 
     Ok(Response::new()
         .add_submessages(messages)
-        .add_attribute("action", "complete_transfer_with_payload"))
+        .add_attribute("action", "complete_transfer_with_payload")
+        .add_attribute("transfer_payload", Binary::from(transfer_payload).to_base64()))
 }
 
-// TODO: add reply
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> StdResult<Response> {
-    // TODO: do something more meaningful in the mock?
-    Ok(Response::default().add_attribute("action", "dummy_reply"))
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
-    //match msg {
-    //    QueryMsg::WrappedRegistry { chain, address } => {
-    //        to_binary(&query_wrapped_registry(deps, chain, address.as_slice())?)
-    //    }
-    //}
-    to_binary(b"hey")
-}
-
-fn parse_vaa(deps: DepsMut, block_time: u64, data: &Binary) -> StdResult<ParsedVAA> {
-    let cfg = config_read(deps.storage).load()?;
-    let vaa: ParsedVAA = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: cfg.wormhole_contract.clone(),
-        msg: to_binary(&WormholeQueryMsg::VerifyVAA {
-            vaa: data.clone(),
-            block_time,
-        })?,
-    }))?;
-    Ok(vaa)
+    Err(StdError::generic_err("not implemented"))
 }

@@ -61,6 +61,11 @@ pub enum ExecuteMsg {
         asset_info: AssetInfo,
         nonce: u32,
     },
+
+    CompleteTransferWithPayload {
+        data: Binary,
+        relayer: HumanAddr,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

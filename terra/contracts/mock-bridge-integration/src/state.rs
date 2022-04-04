@@ -4,11 +4,7 @@ use serde::{
     Serialize,
 };
 
-use cosmwasm_std::{
-    StdError,
-    StdResult,
-    Storage,
-};
+use cosmwasm_std::Storage;
 use cosmwasm_storage::{
     singleton,
     singleton_read,
@@ -33,12 +29,4 @@ pub fn config(storage: &mut dyn Storage) -> Singleton<Config> {
 
 pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<Config> {
     singleton_read(storage, CONFIG_KEY)
-}
-
-pub struct Action;
-
-impl Action {
-    pub const TRANSFER: u8 = 1;
-    pub const ATTEST_META: u8 = 2;
-    pub const TRANSFER_WITH_PAYLOAD: u8 = 3;
 }

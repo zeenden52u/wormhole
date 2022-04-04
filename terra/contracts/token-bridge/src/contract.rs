@@ -251,10 +251,19 @@ pub fn coins_after_tax(deps: DepsMut, coins: Vec<Coin>) -> StdResult<Vec<Coin>> 
     Ok(res)
 }
 
-pub fn parse_vaa(deps: DepsMut, block_time: u64, data: &Binary) -> StdResult<ParsedVAA> {
+fn parse_vaa(deps: DepsMut, block_time: u64, data: &Binary) -> StdResult<ParsedVAA> {
     let cfg = config_read(deps.storage).load()?;
+    verify_and_parse_vaa(deps, cfg.wormhole_contract, block_time, data)
+}
+
+pub fn verify_and_parse_vaa(
+    deps: DepsMut,
+    wormhole_contract: HumanAddr,
+    block_time: u64,
+    data: &Binary,
+) -> StdResult<ParsedVAA> {
     let vaa: ParsedVAA = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: cfg.wormhole_contract.clone(),
+        contract_addr: wormhole_contract,
         msg: to_binary(&WormholeQueryMsg::VerifyVAA {
             vaa: data.clone(),
             block_time,
@@ -308,10 +317,16 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ),
         ExecuteMsg::DepositTokens {} => deposit_tokens(deps, env, info),
         ExecuteMsg::WithdrawTokens { asset } => withdraw_tokens(deps, env, info, asset),
-        ExecuteMsg::SubmitVaa { data } => submit_vaa(deps, env, info, &data),
+        ExecuteMsg::SubmitVaa { data } => {
+            let sender = info.sender.to_string();
+            submit_vaa(deps, env, info, &data, &sender)
+        },
         ExecuteMsg::CreateAssetMeta { asset_info, nonce } => {
             handle_create_asset_meta(deps, env, info, asset_info, nonce)
         }
+        ExecuteMsg::CompleteTransferWithPayload { data, relayer } => {
+            handle_complete_transfer_with_payload(deps, env, info, &data, &relayer)
+        },
     }
 }
 
@@ -558,11 +573,52 @@ fn handle_create_asset_meta_native_token(
         .add_attribute("meta.block_time", env.block.time.seconds().to_string()))
 }
 
+fn handle_complete_transfer_with_payload(
+    mut deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    data: &Binary,
+    relayer_address: &HumanAddr,
+) -> StdResult<Response> {
+    let state = config_read(deps.storage).load()?;
+
+    let vaa = parse_vaa(deps.branch(), env.block.time.seconds(), data)?;
+    let data = vaa.payload;
+
+    if vaa_archive_check(deps.storage, vaa.hash.as_slice()) {
+        return ContractError::VaaAlreadyExecuted.std_err();
+    }
+    vaa_archive_add(deps.storage, vaa.hash.as_slice())?;
+
+    // check if vaa is from governance
+    if state.gov_chain == vaa.emitter_chain && state.gov_address == vaa.emitter_address {
+        return ContractError::InvalidVAAAction.std_err();
+    }
+
+    let message = TokenBridgeMessage::deserialize(&data)?;
+
+    match message.action {
+        Action::TRANSFER_WITH_PAYLOAD => handle_complete_transfer(
+            deps,
+            env,
+            info,
+            vaa.emitter_chain,
+            vaa.emitter_address,
+            TransferType::WithPayload { payload: () },
+            &message.payload,
+            relayer_address,
+        ),
+        _ => ContractError::InvalidVAAAction.std_err(),
+    }
+}
+
+
 fn submit_vaa(
     mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
     data: &Binary,
+    relayer_address: &HumanAddr,
 ) -> StdResult<Response> {
     let state = config_read(deps.storage).load()?;
 
@@ -590,6 +646,7 @@ fn submit_vaa(
             vaa.emitter_address,
             TransferType::WithoutPayload,
             &message.payload,
+            relayer_address,
         ),
         Action::TRANSFER_WITH_PAYLOAD => handle_complete_transfer(
             deps,
@@ -599,6 +656,7 @@ fn submit_vaa(
             vaa.emitter_address,
             TransferType::WithPayload { payload: () },
             &message.payload,
+            relayer_address,
         ),
         Action::ATTEST_META => handle_attest_meta(
             deps,
@@ -674,6 +732,7 @@ fn handle_complete_transfer(
     emitter_address: Vec<u8>,
     transfer_type: TransferType<()>,
     data: &Vec<u8>,
+    relayer_address: &HumanAddr,
 ) -> StdResult<Response> {
     let transfer_info = TransferInfo::deserialize(&data)?;
     match transfer_info.token_address.as_slice()[0] {
@@ -685,6 +744,7 @@ fn handle_complete_transfer(
             emitter_address,
             transfer_type,
             data,
+            relayer_address,
         ),
         _ => handle_complete_transfer_token(
             deps,
@@ -694,6 +754,7 @@ fn handle_complete_transfer(
             emitter_address,
             transfer_type,
             data,
+            relayer_address,
         ),
     }
 }
@@ -706,6 +767,7 @@ fn handle_complete_transfer_token(
     emitter_address: Vec<u8>,
     transfer_type: TransferType<()>,
     data: &Vec<u8>,
+    relayer_address: &HumanAddr,
 ) -> StdResult<Response> {
     let transfer_info = match transfer_type {
         TransferType::WithoutPayload => TransferInfo::deserialize(&data)?,
@@ -772,7 +834,7 @@ fn handle_complete_transfer_token(
                 messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: contract_addr.clone(),
                     msg: to_binary(&WrappedMsg::Mint {
-                        recipient: info.sender.to_string(),
+                        recipient: relayer_address.to_string(),
                         amount: Uint128::from(fee),
                     })?,
                     funds: vec![],
@@ -822,7 +884,7 @@ fn handle_complete_transfer_token(
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
                 msg: to_binary(&TokenMsg::Transfer {
-                    recipient: info.sender.to_string(),
+                    recipient: relayer_address.to_string(),
                     amount: Uint128::from(fee),
                 })?,
                 funds: vec![],
@@ -846,6 +908,7 @@ fn handle_complete_transfer_token_native(
     emitter_address: Vec<u8>,
     transfer_type: TransferType<()>,
     data: &Vec<u8>,
+    relayer_address: &HumanAddr,
 ) -> StdResult<Response> {
     let transfer_info = match transfer_type {
         TransferType::WithoutPayload => TransferInfo::deserialize(&data)?,
@@ -910,7 +973,7 @@ fn handle_complete_transfer_token_native(
 
     if fee != 0 {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: info.sender.to_string(),
+            to_address: relayer_address.to_string(),
             amount: coins_after_tax(deps, vec![coin(fee, &denom)])?,
         }));
     }
