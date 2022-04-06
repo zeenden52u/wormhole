@@ -846,7 +846,9 @@ fn handle_complete_transfer_token(
                 .add_attribute("action", "complete_transfer_wrapped")
                 .add_attribute("contract", contract_addr)
                 .add_attribute("recipient", recipient)
-                .add_attribute("amount", amount.to_string()))
+                .add_attribute("amount", amount.to_string())
+                .add_attribute("relayer", relayer_address)
+                .add_attribute("fee", fee.to_string()))
         } else {
             Err(StdError::generic_err("Wrapped asset not deployed. To deploy, invoke CreateWrapped with the associated AssetMeta"))
         };
@@ -896,7 +898,9 @@ fn handle_complete_transfer_token(
             .add_attribute("action", "complete_transfer_native")
             .add_attribute("recipient", recipient)
             .add_attribute("contract", contract_addr)
-            .add_attribute("amount", amount.to_string()))
+            .add_attribute("amount", amount.to_string())
+            .add_attribute("relayer", relayer_address)
+            .add_attribute("fee", fee.to_string()))
     }
 }
 
@@ -983,7 +987,9 @@ fn handle_complete_transfer_token_native(
         .add_attribute("action", "complete_transfer_terra_native")
         .add_attribute("recipient", recipient)
         .add_attribute("denom", denom)
-        .add_attribute("amount", amount.to_string()))
+        .add_attribute("amount", amount.to_string())
+        .add_attribute("relayer", relayer_address)
+        .add_attribute("fee", fee.to_string()))
 }
 
 fn handle_initiate_transfer(
