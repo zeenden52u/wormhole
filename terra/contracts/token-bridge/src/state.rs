@@ -254,7 +254,7 @@ impl TransferWithPayloadInfo {
         [self.transfer_info.serialize(), self.payload.clone()].concat()
     }
     pub fn get_payload(data: &Vec<u8>) -> Vec<u8> {
-        return data[132..].to_vec();
+        return data[133..].to_vec();
     }
 }
 
