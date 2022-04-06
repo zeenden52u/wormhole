@@ -1,15 +1,19 @@
 import { describe, expect, jest, test } from "@jest/globals";
 import { Bech32, toHex } from "@cosmjs/encoding";
+import {
+  getNativeBalance,
+  makeProviderAndWallet,
+  transactWithoutMemo,
+} from "../helpers/client";
+import { storeCode, deploy } from "../instantiate";
 import { Int, MsgExecuteContract } from "@terra-money/terra.js";
-
-import { makeProviderAndWallet, transactWithoutMemo } from "../helpers/client";
 import {
   makeGovernanceVaaPayload,
   makeTransferVaaPayload,
   signAndEncodeVaa,
   TEST_SIGNER_PKS,
 } from "../helpers/vaa";
-import { storeCode, deploy } from "../instantiate";
+import { computeGasPaid, parseEventsFromLog } from "../helpers/receipt";
 
 jest.setTimeout(60000);
 
@@ -443,25 +447,13 @@ describe("Bridge Tests", () => {
         const amount = "100000000"; // one benjamin
         const relayerFee = "1000000"; // one dolla
 
-        //const expectedAmount = new Int(amount).sub(new Int(relayerFee));
-        const expectedAmount = new Int(amount);
-
         const walletAddress = wallet.key.accAddress;
-
-        // check balances
-        let balanceBefore = new Int(0);
-        {
-          const [balance] = await client.bank.balance(mockBridgeIntegration);
-          const coin = balance.get(denom);
-          if (coin !== undefined) {
-            balanceBefore = new Int(coin.amount);
-          }
-        }
 
         const encodedTo = nativeToHex(mockBridgeIntegration);
         console.log("encodedTo", encodedTo);
         const ustAddress =
           "0100000000000000000000000000000000000000000000000000000075757364";
+        const additionalPayload = "All your base are belong to us";
 
         const vaaPayload = makeTransferVaaPayload(
           3,
@@ -470,7 +462,7 @@ describe("Bridge Tests", () => {
           encodedTo,
           3,
           relayerFee,
-          "ABC"
+          additionalPayload
         );
         console.info("vaaPayload", vaaPayload);
 
@@ -491,6 +483,18 @@ describe("Bridge Tests", () => {
         );
         console.info("signedVaa", signedVaa);
 
+        // check balances before execute
+        const walletBalanceBefore = await getNativeBalance(
+          client,
+          walletAddress,
+          denom
+        );
+        const contractBalanceBefore = await getNativeBalance(
+          client,
+          mockBridgeIntegration,
+          denom
+        );
+
         const submitVaa = new MsgExecuteContract(
           walletAddress,
           mockBridgeIntegration,
@@ -505,19 +509,51 @@ describe("Bridge Tests", () => {
         const receipt = await transactWithoutMemo(client, wallet, [submitVaa]);
         console.info("receipt txHash", receipt.txhash);
 
-        let balanceAfter: Int;
-        {
-          const [balance] = await client.bank.balance(mockBridgeIntegration);
-          const coin = balance.get(denom);
-          expect(!coin).toBeFalsy();
+        // check wallet (relayer) balance change
+        const walletBalanceAfter = await getNativeBalance(
+          client,
+          walletAddress,
+          denom
+        );
+        const gasPaid = computeGasPaid(receipt);
+        const walletExpectedChange = new Int(relayerFee).sub(gasPaid);
 
-          balanceAfter = new Int(coin!.amount);
-        }
-        console.info(balanceBefore, balanceAfter);
+        // due to rounding, we should expect the balances to reconcile
+        // within 1 unit (equivalent to 1e-6 uusd). Best-case scenario
+        // we end up with slightly more balance than expected
+        const reconciled = walletBalanceAfter
+          .minus(walletExpectedChange)
+          .minus(walletBalanceBefore);
         expect(
-          //balanceBefore.add(new Int(expectedAmount)).eq(balanceAfter)
-          balanceBefore.add(expectedAmount).eq(balanceAfter)
+          reconciled.greaterThanOrEqualTo("0") &&
+            reconciled.lessThanOrEqualTo("1")
         ).toBeTruthy();
+
+        // check contract balance change
+        const contractBalanceAfter = await getNativeBalance(
+          client,
+          mockBridgeIntegration,
+          denom
+        );
+        const contractExpectedChange = new Int(amount).sub(relayerFee);
+        expect(
+          contractBalanceBefore
+            .add(contractExpectedChange)
+            .eq(contractBalanceAfter)
+        ).toBeTruthy();
+
+        // verify payload
+        const events = parseEventsFromLog(receipt);
+        const response: any[] = events.find((event) => {
+          return event.type == "wasm";
+        }).attributes;
+
+        const transferPayloadResponse = response.find((item) => {
+          return item.key == "transfer_payload";
+        });
+        expect(
+          Buffer.from(transferPayloadResponse.value, "base64").toString()
+        ).toEqual(additionalPayload);
 
         done();
       } catch (e) {
