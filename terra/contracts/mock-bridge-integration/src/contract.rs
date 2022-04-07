@@ -7,12 +7,14 @@ use cosmwasm_std::{
     DepsMut,
     Env,
     MessageInfo,
+    QueryRequest,
     Reply,
     Response,
     StdError,
     StdResult,
     SubMsg,
     WasmMsg,
+    WasmQuery,
 };
 
 use crate::{
@@ -30,12 +32,11 @@ use crate::{
 };
 
 use token_bridge_terra::{
-    msg::ExecuteMsg as TokenBridgeExecuteMsg,
-    state::TransferWithPayloadInfo,
-    contract::verify_and_parse_vaa,
-};
-use wormhole::{
-    state::ParsedVAA,
+    msg::{
+        ExecuteMsg as TokenBridgeExecuteMsg,
+        QueryMsg as TokenBridgeQueryMessage,
+    },
+    msg::TransferInfoResponse,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -70,13 +71,13 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
 
 fn complete_transfer_with_payload(
     mut deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     data: &Binary,
 ) -> StdResult<Response> {
     let cfg = config_read(deps.storage).load()?;
 
-    let mut messages = vec![SubMsg::reply_on_success(
+    let messages = vec![SubMsg::reply_on_success(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: cfg.token_bridge_contract,
             msg: to_binary(&TokenBridgeExecuteMsg::CompleteTransferWithPayload {
@@ -87,14 +88,15 @@ fn complete_transfer_with_payload(
         1,
     ),];
 
-    let parsed: ParsedVAA = verify_and_parse_vaa(
-        deps.branch(), cfg.wormhole_contract, env.block.time.seconds(), data)?;
-    let transfer_payload = TransferWithPayloadInfo::get_payload(&parsed.payload);
+    //let parsed: ParsedVAA = verify_and_parse_vaa(
+    //    deps.branch(), cfg.wormhole_contract, env.block.time.seconds(), data)?;
+    //let transfer_payload = TransferWithPayloadInfo::get_payload(&parsed.payload);
+    let transfer_info = parse_transfer_vaa(deps.as_ref(), data)?;
 
     Ok(Response::new()
         .add_submessages(messages)
         .add_attribute("action", "complete_transfer_with_payload")
-        .add_attribute("transfer_payload", Binary::from(transfer_payload).to_base64()))
+        .add_attribute("transfer_payload", Binary::from(transfer_info.payload).to_base64()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -105,4 +107,18 @@ pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> StdResult<Response> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
     Err(StdError::generic_err("not implemented"))
+}
+
+pub fn parse_transfer_vaa(
+    deps: Deps,
+    data: &Binary,
+) -> StdResult<TransferInfoResponse> {
+    let cfg = config_read(deps.storage).load()?;
+    let transfer_info: TransferInfoResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: cfg.token_bridge_contract,
+        msg: to_binary(&TokenBridgeQueryMessage::TransferInfo {
+            vaa: data.clone(),
+        })?,
+    }))?;
+    Ok(transfer_info)
 }

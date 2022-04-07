@@ -1,5 +1,8 @@
 use crate::{
-    msg::WrappedRegistryResponse,
+    msg::{
+        WrappedRegistryResponse,
+        TransferInfoResponse,
+    },
     state::TransferWithPayloadInfo,
 };
 use cosmwasm_std::{
@@ -251,13 +254,13 @@ pub fn coins_after_tax(deps: DepsMut, coins: Vec<Coin>) -> StdResult<Vec<Coin>> 
     Ok(res)
 }
 
-fn parse_vaa(deps: DepsMut, block_time: u64, data: &Binary) -> StdResult<ParsedVAA> {
+fn parse_vaa(deps: Deps, block_time: u64, data: &Binary) -> StdResult<ParsedVAA> {
     let cfg = config_read(deps.storage).load()?;
     verify_and_parse_vaa(deps, cfg.wormhole_contract, block_time, data)
 }
 
 pub fn verify_and_parse_vaa(
-    deps: DepsMut,
+    deps: Deps,
     wormhole_contract: HumanAddr,
     block_time: u64,
     data: &Binary,
@@ -582,7 +585,7 @@ fn handle_complete_transfer_with_payload(
 ) -> StdResult<Response> {
     let state = config_read(deps.storage).load()?;
 
-    let vaa = parse_vaa(deps.branch(), env.block.time.seconds(), data)?;
+    let vaa = parse_vaa(deps.as_ref(), env.block.time.seconds(), data)?;
     let data = vaa.payload;
 
     if vaa_archive_check(deps.storage, vaa.hash.as_slice()) {
@@ -591,7 +594,7 @@ fn handle_complete_transfer_with_payload(
     vaa_archive_add(deps.storage, vaa.hash.as_slice())?;
 
     // check if vaa is from governance
-    if state.gov_chain == vaa.emitter_chain && state.gov_address == vaa.emitter_address {
+    if is_governance_emitter(&state, vaa.emitter_chain, &vaa.emitter_address) {
         return ContractError::InvalidVAAAction.std_err();
     }
 
@@ -622,7 +625,7 @@ fn submit_vaa(
 ) -> StdResult<Response> {
     let state = config_read(deps.storage).load()?;
 
-    let vaa = parse_vaa(deps.branch(), env.block.time.seconds(), data)?;
+    let vaa = parse_vaa(deps.as_ref(), env.block.time.seconds(), data)?;
     let data = vaa.payload;
 
     if vaa_archive_check(deps.storage, vaa.hash.as_slice()) {
@@ -631,7 +634,7 @@ fn submit_vaa(
     vaa_archive_add(deps.storage, vaa.hash.as_slice())?;
 
     // check if vaa is from governance
-    if state.gov_chain == vaa.emitter_chain && state.gov_address == vaa.emitter_address {
+    if is_governance_emitter(&state, vaa.emitter_chain, &vaa.emitter_address) {
         return handle_governance_payload(deps, env, &data);
     }
 
@@ -1340,10 +1343,13 @@ fn handle_initiate_transfer_native_token(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::WrappedRegistry { chain, address } => {
             to_binary(&query_wrapped_registry(deps, chain, address.as_slice())?)
+        },
+        QueryMsg::TransferInfo { vaa } => {
+            to_binary(&query_transfer_info(deps, env, &vaa)?)
         }
     }
 }
@@ -1358,6 +1364,41 @@ pub fn query_wrapped_registry(
     match wrapped_asset_read(deps.storage).load(&asset_id) {
         Ok(address) => Ok(WrappedRegistryResponse { address }),
         Err(_) => ContractError::AssetNotFound.std_err(),
+    }
+}
+
+fn query_transfer_info(
+    deps: Deps,
+    env: Env,
+    vaa: &Binary,
+) -> StdResult<TransferInfoResponse> {
+    let cfg = config_read(deps.storage).load()?;
+
+    let parsed = parse_vaa(deps, env.block.time.seconds(), vaa)?;
+    let data = parsed.payload;
+
+    // check if vaa is from governance
+    if is_governance_emitter(&cfg, parsed.emitter_chain, &parsed.emitter_address) {
+        return ContractError::InvalidVAAAction.std_err();
+    }
+
+    let message = TokenBridgeMessage::deserialize(&data)?;
+    match message.action {
+        Action::ATTEST_META => ContractError::InvalidVAAAction.std_err(),
+        _ => {
+            let info = TransferWithPayloadInfo::deserialize(&message.payload)?;
+            let core = info.transfer_info;
+
+            Ok(TransferInfoResponse {
+                amount: core.amount.1.into(),
+                token_address: core.token_address,
+                token_chain: core.token_chain,
+                recipient: core.recipient,
+                recipient_chain: core.recipient_chain,
+                fee: core.fee.1.into(),
+                payload: info.payload,
+            })
+        }
     }
 }
 
@@ -1379,6 +1420,10 @@ fn build_native_id(denom: &str) -> Vec<u8> {
     asset_address.reverse();
     assert_eq!(asset_address.len(), 20);
     asset_address
+}
+
+fn is_governance_emitter(cfg: &ConfigInfo, emitter_chain: u16, emitter_address: &Vec<u8>) -> bool {
+    cfg.gov_chain == emitter_chain && cfg.gov_address == emitter_address.clone()
 }
 
 #[cfg(test)]
@@ -1417,7 +1462,7 @@ mod tests {
             44u8, 56u8, 53u8, 44u8, 49u8, 48u8, 57u8, 93u8,
         ];
         let b = Binary::from(x.clone());
-        let y = b.into();
+        let y: Vec<u8> = b.into();
         assert_eq!(x, y);
         Ok(())
     }
