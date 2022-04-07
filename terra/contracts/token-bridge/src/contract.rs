@@ -143,7 +143,7 @@ pub fn instantiate(
     // Save general wormhole info
     let state = ConfigInfo {
         gov_chain: msg.gov_chain,
-        gov_address: msg.gov_address.as_slice().to_vec(),
+        gov_address: msg.gov_address.into(),
         wormhole_contract: msg.wormhole_contract,
         wrapped_asset_code_id: msg.wrapped_asset_code_id,
     };
@@ -290,7 +290,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             info,
             asset,
             recipient_chain,
-            recipient.as_slice().to_vec(),
+            recipient.into(),
             fee,
             TransferType::WithoutPayload,
             nonce,
@@ -308,10 +308,10 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             info,
             asset,
             recipient_chain,
-            recipient.as_slice().to_vec(),
+            recipient.into(),
             fee,
             TransferType::WithPayload {
-                payload: payload.as_slice().to_vec(),
+                payload: payload.into(),
             },
             nonce,
         ),
@@ -1082,7 +1082,7 @@ fn handle_initiate_transfer_token(
             let wrapped_token_info: WrappedAssetInfoResponse =
                 deps.querier.custom_query(&request)?;
             asset_chain = wrapped_token_info.asset_chain;
-            asset_address = wrapped_token_info.asset_address.as_slice().to_vec();
+            asset_address = wrapped_token_info.asset_address.into();
 
             let transfer_info = TransferInfo {
                 token_chain: asset_chain,
@@ -1417,7 +1417,7 @@ mod tests {
             44u8, 56u8, 53u8, 44u8, 49u8, 48u8, 57u8, 93u8,
         ];
         let b = Binary::from(x.clone());
-        let y = b.as_slice().to_vec();
+        let y = b.into();
         assert_eq!(x, y);
         Ok(())
     }
