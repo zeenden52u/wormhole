@@ -88,9 +88,6 @@ fn complete_transfer_with_payload(
         1,
     ),];
 
-    //let parsed: ParsedVAA = verify_and_parse_vaa(
-    //    deps.branch(), cfg.wormhole_contract, env.block.time.seconds(), data)?;
-    //let transfer_payload = TransferWithPayloadInfo::get_payload(&parsed.payload);
     let transfer_info = parse_transfer_vaa(deps.as_ref(), data)?;
 
     Ok(Response::new()
