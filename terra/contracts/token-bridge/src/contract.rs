@@ -1,10 +1,54 @@
-use crate::{
-    msg::{
-        WrappedRegistryResponse,
-        TransferInfoResponse,
-    },
-    state::TransferWithPayloadInfo,
+use cw20::{
+    BalanceResponse,
+    TokenInfoResponse,
 };
+use cw20_base::msg::{
+    ExecuteMsg as TokenMsg,
+    QueryMsg as TokenQuery,
+};
+use cw20_wrapped::msg::{
+    ExecuteMsg as WrappedMsg,
+    InitHook,
+    InstantiateMsg as WrappedInit,
+    QueryMsg as WrappedQuery,
+    WrappedAssetInfoResponse,
+};
+use sha3::{
+    Digest,
+    Keccak256,
+};
+use std::{
+    cmp::{
+        max,
+        min,
+    },
+    str::FromStr,
+};
+use terraswap::asset::{
+    Asset,
+    AssetInfo,
+};
+
+use wormhole::{
+    byte_utils::{
+        extend_address_to_32,
+        extend_string_to_32,
+        get_string_from_32,
+        ByteUtils,
+    },
+    error::ContractError,
+    msg::{
+        ExecuteMsg as WormholeExecuteMsg,
+        QueryMsg as WormholeQueryMsg,
+    },
+    state::{
+        vaa_archive_add,
+        vaa_archive_check,
+        GovernancePacket,
+        ParsedVAA,
+    }
+};
+
 use cosmwasm_std::{
     coin,
     entry_point,
@@ -37,6 +81,8 @@ use crate::{
         InstantiateMsg,
         MigrateMsg,
         QueryMsg,
+        TransferInfoResponse,
+        WrappedRegistryResponse,
     },
     state::{
         bridge_contracts,
@@ -60,63 +106,9 @@ use crate::{
         TokenBridgeMessage,
         TransferInfo,
         TransferState,
+        TransferWithPayloadInfo,
         UpgradeContract,
     },
-};
-use wormhole::{
-    byte_utils::{
-        extend_address_to_32,
-        extend_string_to_32,
-        get_string_from_32,
-        ByteUtils,
-    },
-    error::ContractError,
-};
-
-use cw20_base::msg::{
-    ExecuteMsg as TokenMsg,
-    QueryMsg as TokenQuery,
-};
-
-use wormhole::msg::{
-    ExecuteMsg as WormholeExecuteMsg,
-    QueryMsg as WormholeQueryMsg,
-};
-
-use wormhole::state::{
-    vaa_archive_add,
-    vaa_archive_check,
-    GovernancePacket,
-    ParsedVAA,
-};
-
-use cw20::{
-    BalanceResponse,
-    TokenInfoResponse,
-};
-
-use cw20_wrapped::msg::{
-    ExecuteMsg as WrappedMsg,
-    InitHook,
-    InstantiateMsg as WrappedInit,
-    QueryMsg as WrappedQuery,
-    WrappedAssetInfoResponse,
-};
-use terraswap::asset::{
-    Asset,
-    AssetInfo,
-};
-
-use sha3::{
-    Digest,
-    Keccak256,
-};
-use std::{
-    cmp::{
-        max,
-        min,
-    },
-    str::FromStr,
 };
 
 type HumanAddr = String;
