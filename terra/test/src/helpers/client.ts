@@ -1,6 +1,5 @@
 import {
   BlockTxBroadcastResult,
-  Coins,
   Int,
   LCDClient,
   MnemonicKey,
