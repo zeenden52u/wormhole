@@ -224,14 +224,11 @@ describe("Bridge Tests", () => {
         );
 
         // check balances
-        let balanceBefore = new Int(0);
-        {
-          const [balance] = await client.bank.balance(tokenBridge);
-          const coin = balance.get(denom);
-          if (coin !== undefined) {
-            balanceBefore = new Int(coin.amount);
-          }
-        }
+        const balanceBefore = await getNativeBalance(
+          client,
+          tokenBridge,
+          denom
+        );
 
         // execute outbound transfer
         const receipt = await transactWithoutMemo(client, wallet, [
@@ -240,17 +237,8 @@ describe("Bridge Tests", () => {
         ]);
         console.info("receipt", receipt.txhash);
 
-        let balanceAfter: Int;
-        {
-          const [balance] = await client.bank.balance(tokenBridge);
-          const coin = balance.get(denom);
-          expect(!coin).toBeFalsy();
-
-          balanceAfter = new Int(coin!.amount);
-        }
-        expect(
-          balanceBefore.add(new Int(amount)).eq(balanceAfter)
-        ).toBeTruthy();
+        const balanceAfter = await getNativeBalance(client, tokenBridge, denom);
+        expect(balanceBefore.add(amount).eq(balanceAfter)).toBeTruthy();
 
         done();
       } catch (e) {
@@ -271,18 +259,7 @@ describe("Bridge Tests", () => {
         const relayerFee = "1000000"; // one dolla
 
         const walletAddress = wallet.key.accAddress;
-          const recipient = "terra17lmam6zguazs5q5u6z5mmx76uj63gldnse2pdp";
-          
-        // check balances
-        let balanceBefore = new Int(0);
-        {
-          const [balance] = await client.bank.balance(recipient);
-          const coin = balance.get(denom);
-          if (coin !== undefined) {
-            balanceBefore = new Int(coin.amount);
-          }
-        }
-
+        const recipient = "terra17lmam6zguazs5q5u6z5mmx76uj63gldnse2pdp"; // test2
         const encodedTo = nativeToHex(recipient);
         console.log("encodedTo", encodedTo);
         const ustAddress =
@@ -316,6 +293,23 @@ describe("Bridge Tests", () => {
         );
         console.info("signedVaa", signedVaa);
 
+        // check balances
+        const walletBalanceBefore = await getNativeBalance(
+          client,
+          walletAddress,
+          denom
+        );
+        const recipientBalanceBefore = await getNativeBalance(
+          client,
+          recipient,
+          denom
+        );
+        const bridgeBalanceBefore = await getNativeBalance(
+          client,
+          tokenBridge,
+          denom
+        );
+
         const submitVaa = new MsgExecuteContract(walletAddress, tokenBridge, {
           submit_vaa: {
             data: Buffer.from(signedVaa, "hex").toString("base64"),
@@ -326,18 +320,47 @@ describe("Bridge Tests", () => {
         const receipt = await transactWithoutMemo(client, wallet, [submitVaa]);
         console.info("receipt", receipt.txhash);
 
-        let balanceAfter: Int;
-        {
-          const [balance] = await client.bank.balance(recipient);
-          const coin = balance.get(denom);
-          expect(!coin).toBeFalsy();
+        // check wallet (relayer) balance change
+        const walletBalanceAfter = await getNativeBalance(
+          client,
+          walletAddress,
+          denom
+        );
+        const gasPaid = computeGasPaid(receipt);
+        const walletExpectedChange = new Int(relayerFee).sub(gasPaid);
 
-          balanceAfter = new Int(coin!.amount);
-        }          
-          const expectedAmount = (new Int(amount)).sub(relayerFee);
+        // due to rounding, we should expect the balances to reconcile
+        // within 1 unit (equivalent to 1e-6 uusd). Best-case scenario
+        // we end up with slightly more balance than expected
+        const reconciled = walletBalanceAfter
+          .minus(walletExpectedChange)
+          .minus(walletBalanceBefore);
         expect(
-          //balanceBefore.add(new Int(expectedAmount)).eq(balanceAfter)
-          balanceBefore.add(expectedAmount).eq(balanceAfter)
+          reconciled.greaterThanOrEqualTo("0") &&
+            reconciled.lessThanOrEqualTo("1")
+        ).toBeTruthy();
+
+        const recipientBalanceAfter = await getNativeBalance(
+          client,
+          recipient,
+          denom
+        );
+        const recipientExpectedChange = new Int(amount).sub(relayerFee);
+        expect(
+          recipientBalanceBefore
+            .add(recipientExpectedChange)
+            .eq(recipientBalanceAfter)
+        ).toBeTruthy();
+
+        // cehck bridge balance change
+        const bridgeExpectedChange = new Int(amount);
+        const bridgeBalanceAfter = await getNativeBalance(
+          client,
+          tokenBridge,
+          denom
+        );
+        expect(
+          bridgeBalanceBefore.sub(bridgeExpectedChange).eq(bridgeBalanceAfter)
         ).toBeTruthy();
 
         done();
@@ -347,7 +370,7 @@ describe("Bridge Tests", () => {
       }
     })();
   });
-    // transfer with payload tests
+  // transfer with payload tests
   test("Initiate Transfer With Payload (native denom)", (done) => {
     (async () => {
       try {
@@ -400,14 +423,11 @@ describe("Bridge Tests", () => {
         );
 
         // check balances
-        let balanceBefore = new Int(0);
-        {
-          const [balance] = await client.bank.balance(tokenBridge);
-          const coin = balance.get(denom);
-          if (coin !== undefined) {
-            balanceBefore = new Int(coin.amount);
-          }
-        }
+        const balanceBefore = await getNativeBalance(
+          client,
+          tokenBridge,
+          denom
+        );
 
         // execute outbound transfer with payload
         const receipt = await transactWithoutMemo(client, wallet, [
@@ -416,17 +436,8 @@ describe("Bridge Tests", () => {
         ]);
         console.info("receipt txHash", receipt.txhash);
 
-        let balanceAfter: Int;
-        {
-          const [balance] = await client.bank.balance(tokenBridge);
-          const coin = balance.get(denom);
-          expect(!coin).toBeFalsy();
-
-          balanceAfter = new Int(coin!.amount);
-        }
-        expect(
-          balanceBefore.add(new Int(amount)).eq(balanceAfter)
-        ).toBeTruthy();
+        const balanceAfter = await getNativeBalance(client, tokenBridge, denom);
+        expect(balanceBefore.add(amount).eq(balanceAfter)).toBeTruthy();
 
         done();
       } catch (e) {
@@ -494,6 +505,11 @@ describe("Bridge Tests", () => {
           mockBridgeIntegration,
           denom
         );
+        const bridgeBalanceBefore = await getNativeBalance(
+          client,
+          tokenBridge,
+          denom
+        );
 
         const submitVaa = new MsgExecuteContract(
           walletAddress,
@@ -540,6 +556,17 @@ describe("Bridge Tests", () => {
           contractBalanceBefore
             .add(contractExpectedChange)
             .eq(contractBalanceAfter)
+        ).toBeTruthy();
+
+        // cehck bridge balance change
+        const bridgeExpectedChange = new Int(amount);
+        const bridgeBalanceAfter = await getNativeBalance(
+          client,
+          tokenBridge,
+          denom
+        );
+        expect(
+          bridgeBalanceBefore.sub(bridgeExpectedChange).eq(bridgeBalanceAfter)
         ).toBeTruthy();
 
         // verify payload
