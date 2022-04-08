@@ -1,7 +1,4 @@
-use cosmwasm_std::{
-    Binary,
-    StdResult,
-};
+use cosmwasm_std::StdResult;
 
 use crate::state::{GuardianAddress, GuardianSetInfo, ParsedVAA};
 
