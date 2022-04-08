@@ -1386,8 +1386,9 @@ fn query_transfer_info(
 }
 
 pub fn build_asset_id(chain: u16, address: &[u8]) -> Vec<u8> {
-    let mut asset_id: Vec<u8> = vec![];
-    asset_id.extend_from_slice(&chain.to_be_bytes());
+    let chain = &chain.to_be_bytes();
+    let mut asset_id = Vec::with_capacity(chain.len() + address.len());
+    asset_id.extend_from_slice(chain);
     asset_id.extend_from_slice(address);
 
     let mut hasher = Keccak256::new();
@@ -1397,11 +1398,11 @@ pub fn build_asset_id(chain: u16, address: &[u8]) -> Vec<u8> {
 
 // Produce a 20 byte asset "address" from a native terra denom.
 pub fn build_native_id(denom: &str) -> Vec<u8> {
-    let mut asset_address: Vec<u8> = denom.as_bytes().to_vec();
-    asset_address.reverse();
-    asset_address.extend(vec![0u8; 20 - denom.len()]);
-    asset_address.reverse();
-    assert_eq!(asset_address.len(), 20);
+    let n = denom.len();
+    assert!(n < 20);
+    let mut asset_address = Vec::with_capacity(20);
+    asset_address.resize(20 - n, 0u8);
+    asset_address.extend_from_slice(denom.as_bytes());
     asset_address
 }
 
