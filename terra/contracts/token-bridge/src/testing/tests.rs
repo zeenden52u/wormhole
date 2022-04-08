@@ -9,7 +9,7 @@ use crate::contract::{
 };
 
 #[test]
-fn test_me() -> StdResult<()> {
+fn binary_check() -> StdResult<()> {
     let x = vec![
         1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 96u8, 180u8, 94u8, 195u8, 0u8, 0u8,
         0u8, 1u8, 0u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 38u8,
