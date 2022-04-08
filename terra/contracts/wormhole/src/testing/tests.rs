@@ -79,7 +79,7 @@ fn deserialize_round_1() -> StdResult<()> {
         164u8,  44u8,  82u8, 103u8,  33u8, 170u8, 183u8, 178u8,
         188u8, 204u8,  35u8,  53u8,  78u8, 148u8, 160u8, 153u8,
         122u8, 252u8,  84u8, 211u8,  26u8, 204u8, 128u8, 215u8,
-         37u8, 232u8, 222u8, 186u8, 222u8, 186u8,  98u8, 94u8,
+         37u8, 232u8, 222u8, 186u8, 222u8, 186u8,  98u8,  94u8,
     ];
     assert_eq!(parsed.hash, hash, "parsed.hash != expected");
 
@@ -130,13 +130,13 @@ fn deserialize_round_2() -> StdResult<()> {
     assert_eq!(parsed.consistency_level, consistency_level, "parsed.consistency_level != expected");
 
     let payload = vec![
-          1u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8, 0u8,
-          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8, 0u8,
-          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8, 0u8,
+          1u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,
+          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,
+          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,
           0u8,   0u8,   0u8,   0u8,   0u8,   5u8, 245u8, 225u8,
-          0u8,   1u8,   0u8,   0u8,   0u8,   0u8,   0u8, 0u8,
-          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8, 0u8,
-          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8, 0u8,
+          0u8,   1u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,
+          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,
+          0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8,
           0u8,   0u8,   0u8,   0u8,   0u8, 117u8, 117u8, 115u8,
         100u8,   0u8,   3u8,   0u8,   0u8,   0u8,   0u8,   0u8,
           0u8,   0u8,   0u8,   0u8,   0u8,   0u8,   0u8, 247u8,
