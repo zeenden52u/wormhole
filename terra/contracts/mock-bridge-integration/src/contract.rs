@@ -69,6 +69,16 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
     }
 }
 
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> StdResult<Response> {
+    Ok(Response::default())
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
+    Err(StdError::generic_err("not implemented"))
+}
+
 fn complete_transfer_with_payload(
     mut deps: DepsMut,
     _env: Env,
@@ -96,17 +106,7 @@ fn complete_transfer_with_payload(
         .add_attribute("transfer_payload", Binary::from(transfer_info.payload).to_base64()))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> StdResult<Response> {
-    Ok(Response::default())
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
-    Err(StdError::generic_err("not implemented"))
-}
-
-pub fn parse_transfer_vaa(
+fn parse_transfer_vaa(
     deps: Deps,
     data: &Binary,
 ) -> StdResult<TransferInfoResponse> {

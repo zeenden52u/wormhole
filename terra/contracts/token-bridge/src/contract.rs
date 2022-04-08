@@ -248,17 +248,8 @@ pub fn coins_after_tax(deps: DepsMut, coins: Vec<Coin>) -> StdResult<Vec<Coin>> 
 
 fn parse_vaa(deps: Deps, block_time: u64, data: &Binary) -> StdResult<ParsedVAA> {
     let cfg = config_read(deps.storage).load()?;
-    verify_and_parse_vaa(deps, cfg.wormhole_contract, block_time, data)
-}
-
-pub fn verify_and_parse_vaa(
-    deps: Deps,
-    wormhole_contract: HumanAddr,
-    block_time: u64,
-    data: &Binary,
-) -> StdResult<ParsedVAA> {
     let vaa: ParsedVAA = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: wormhole_contract,
+        contract_addr: cfg.wormhole_contract,
         msg: to_binary(&WormholeQueryMsg::VerifyVAA {
             vaa: data.clone(),
             block_time,
@@ -1406,7 +1397,7 @@ fn build_asset_id(chain: u16, address: &[u8]) -> Vec<u8> {
 
 // Produce a 20 byte asset "address" from a native terra denom.
 fn build_native_id(denom: &str) -> Vec<u8> {
-    let mut asset_address: Vec<u8> = denom.clone().as_bytes().to_vec();
+    let mut asset_address: Vec<u8> = denom.as_bytes().to_vec();
     asset_address.reverse();
     asset_address.extend(vec![0u8; 20 - denom.len()]);
     asset_address.reverse();
@@ -1416,46 +1407,4 @@ fn build_native_id(denom: &str) -> Vec<u8> {
 
 fn is_governance_emitter(cfg: &ConfigInfo, emitter_chain: u16, emitter_address: &Vec<u8>) -> bool {
     cfg.gov_chain == emitter_chain && cfg.gov_address == emitter_address.clone()
-}
-
-#[cfg(test)]
-mod tests {
-    use cosmwasm_std::{
-        to_binary,
-        Binary,
-        StdResult,
-    };
-
-    #[test]
-    fn test_me() -> StdResult<()> {
-        let x = vec![
-            1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 96u8, 180u8, 94u8, 195u8, 0u8, 0u8,
-            0u8, 1u8, 0u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 38u8,
-            229u8, 4u8, 215u8, 149u8, 163u8, 42u8, 54u8, 156u8, 236u8, 173u8, 168u8, 72u8, 220u8,
-            100u8, 90u8, 154u8, 159u8, 160u8, 215u8, 0u8, 91u8, 48u8, 44u8, 48u8, 44u8, 51u8, 44u8,
-            48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8,
-            48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 53u8, 55u8, 44u8, 52u8,
-            54u8, 44u8, 50u8, 53u8, 53u8, 44u8, 53u8, 48u8, 44u8, 50u8, 52u8, 51u8, 44u8, 49u8,
-            48u8, 54u8, 44u8, 49u8, 50u8, 50u8, 44u8, 49u8, 49u8, 48u8, 44u8, 49u8, 50u8, 53u8,
-            44u8, 56u8, 56u8, 44u8, 55u8, 51u8, 44u8, 49u8, 56u8, 57u8, 44u8, 50u8, 48u8, 55u8,
-            44u8, 49u8, 48u8, 52u8, 44u8, 56u8, 51u8, 44u8, 49u8, 49u8, 57u8, 44u8, 49u8, 50u8,
-            55u8, 44u8, 49u8, 57u8, 50u8, 44u8, 49u8, 52u8, 55u8, 44u8, 56u8, 57u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 51u8, 44u8, 50u8, 51u8, 50u8, 44u8, 48u8, 44u8, 51u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8,
-            44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 48u8, 44u8, 53u8, 51u8, 44u8, 49u8, 49u8,
-            54u8, 44u8, 52u8, 56u8, 44u8, 49u8, 49u8, 54u8, 44u8, 49u8, 52u8, 57u8, 44u8, 49u8,
-            48u8, 56u8, 44u8, 49u8, 49u8, 51u8, 44u8, 56u8, 44u8, 48u8, 44u8, 50u8, 51u8, 50u8,
-            44u8, 52u8, 57u8, 44u8, 49u8, 53u8, 50u8, 44u8, 49u8, 44u8, 50u8, 56u8, 44u8, 50u8,
-            48u8, 51u8, 44u8, 50u8, 49u8, 50u8, 44u8, 50u8, 50u8, 49u8, 44u8, 50u8, 52u8, 49u8,
-            44u8, 56u8, 53u8, 44u8, 49u8, 48u8, 57u8, 93u8,
-        ];
-        let b = Binary::from(x.clone());
-        let y: Vec<u8> = b.into();
-        assert_eq!(x, y);
-        Ok(())
-    }
 }
