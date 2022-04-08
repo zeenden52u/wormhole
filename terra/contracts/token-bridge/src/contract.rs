@@ -1385,7 +1385,7 @@ fn query_transfer_info(
     }
 }
 
-fn build_asset_id(chain: u16, address: &[u8]) -> Vec<u8> {
+pub fn build_asset_id(chain: u16, address: &[u8]) -> Vec<u8> {
     let mut asset_id: Vec<u8> = vec![];
     asset_id.extend_from_slice(&chain.to_be_bytes());
     asset_id.extend_from_slice(address);
@@ -1396,7 +1396,7 @@ fn build_asset_id(chain: u16, address: &[u8]) -> Vec<u8> {
 }
 
 // Produce a 20 byte asset "address" from a native terra denom.
-fn build_native_id(denom: &str) -> Vec<u8> {
+pub fn build_native_id(denom: &str) -> Vec<u8> {
     let mut asset_address: Vec<u8> = denom.as_bytes().to_vec();
     asset_address.reverse();
     asset_address.extend(vec![0u8; 20 - denom.len()]);
