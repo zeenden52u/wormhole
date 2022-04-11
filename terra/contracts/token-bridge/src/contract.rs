@@ -303,10 +303,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ),
         ExecuteMsg::DepositTokens {} => deposit_tokens(deps, env, info),
         ExecuteMsg::WithdrawTokens { asset } => withdraw_tokens(deps, env, info, asset),
-        ExecuteMsg::SubmitVaa { data } => {
-            let sender = info.sender.to_string();
-            submit_vaa(deps, env, info, &data, &sender)
-        },
+        ExecuteMsg::SubmitVaa { data } => submit_vaa(deps, env, info, &data),
         ExecuteMsg::CreateAssetMeta { asset_info, nonce } => {
             handle_create_asset_meta(deps, env, info, asset_info, nonce)
         }
@@ -604,7 +601,6 @@ fn submit_vaa(
     env: Env,
     info: MessageInfo,
     data: &Binary,
-    relayer_address: &HumanAddr,
 ) -> StdResult<Response> {
     let state = config_read(deps.storage).load()?;
 
@@ -624,26 +620,19 @@ fn submit_vaa(
     let message = TokenBridgeMessage::deserialize(&data)?;
 
     match message.action {
-        Action::TRANSFER => handle_complete_transfer(
-            deps,
-            env,
-            info,
-            vaa.emitter_chain,
-            vaa.emitter_address,
-            TransferType::WithoutPayload,
-            &message.payload,
-            relayer_address,
-        ),
-        Action::TRANSFER_WITH_PAYLOAD => handle_complete_transfer(
-            deps,
-            env,
-            info,
-            vaa.emitter_chain,
-            vaa.emitter_address,
-            TransferType::WithPayload { payload: () },
-            &message.payload,
-            relayer_address,
-        ),
+        Action::TRANSFER => {
+            let sender = info.sender.to_string();
+            handle_complete_transfer(
+                deps,
+                env,
+                info,
+                vaa.emitter_chain,
+                vaa.emitter_address,
+                TransferType::WithoutPayload,
+                &message.payload,
+                &sender,
+            )
+        },
         Action::ATTEST_META => handle_attest_meta(
             deps,
             env,
