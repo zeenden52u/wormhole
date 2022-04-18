@@ -57,7 +57,11 @@ yargs(hideBin(process.argv))
         }
 
         console.log("Casting vote to " + vote + " transfers.");
-        console.log("Hash: " + (await tb.castShutdownVote(argv.authproof, enable)).hash)
+        if (enable) {
+            console.log("Hash: " + (await tb.castStartupVote(argv.authproof)).hash)
+        } else {
+            console.log("Hash: " + (await tb.castShutdownVote(argv.authproof)).hash)
+        }
         console.log("Transaction processing is currently " + (await tb.enabledFlag() ? "enabled" : "disabled") + ", there are " + (await tb.numVotesToShutdown() + " votes to disable"));
     })
     .command('query_status_on_evm', 'query the current shutdown status', (yargs) => {
