@@ -1,5 +1,11 @@
 #syntax=docker/dockerfile:1.2@sha256:e2a8561e419ab1ba6b2fe6cbdf49fd92b95912df1cf7d313c3e2230a333fdbcc
-FROM docker.io/library/rust:1.49@sha256:a50165ea96983c21832578afb1c8c028674c965bc1ed43b607871b1f362e06a5 AS solana
+
+ARG SOLANA_VERSION=1.9.4
+ARG CRITERION_VERSION=2.3.3
+ARG BPF_TOOLS_VERSION=1.21
+ARG EXTRA_CERTS
+
+FROM docker.io/library/rust:1.57.0 AS stage-0
 
 RUN apt-get update && \
     apt-get install -y \
@@ -12,26 +18,140 @@ RUN apt-get update && \
     && \
     rm -rf /var/lib/apt/lists/* && \
     rustup component add rustfmt && \
-    rustup default nightly-2021-12-03
+    rustup toolchain add --profile minimal nightly-2021-12-03
 
-# Support additional root CAs
-COPY devnet_setup.sh cert.pem* /certs/
-# Debian
-RUN if [ -e /certs/cert.pem ]; then cp /certs/cert.pem /etc/ssl/certs/ca-certificates.crt; fi
+COPY devnet_setup.sh /certs/
 
-RUN sh -c "$(curl -sSfL https://release.solana.com/v1.9.4/install)"
+FROM stage-0 AS stage-0-with-certs
 
-ENV PATH="/root/.local/share/solana/install/active_release/bin:$PATH"
+ARG EXTRA_CERTS
+COPY ${EXTRA_CERTS} /usr/local/share/ca-certificates/extra.crt
+RUN update-ca-certificates
 
-# Solana does a questionable download at the beginning of a *first* build-bpf call. Trigger and layer-cache it explicitly.
-RUN cargo init --lib /tmp/decoy-crate && \
-    cd /tmp/decoy-crate && cargo build-bpf && \
-    rm -rf /tmp/decoy-crate
+ENV CARGO_HTTP_CAINFO=/usr/local/share/ca-certificates/extra.crt
 
-# The strip shell script downloads criterion the first time it runs so cache it here as well.
-RUN touch /tmp/foo.so && \
-    /root/.local/share/solana/install/active_release/bin/sdk/bpf/scripts/strip.sh /tmp/foo.so /tmp/bar.so || \
-    rm /tmp/foo.so
+FROM stage-0${EXTRA_CERTS:+-with-certs} as stage-1
+
+FROM stage-1 AS solana-amd64
+
+ARG SOLANA_VERSION
+RUN sh -c "$(curl -sSfL https://release.solana.com/v${SOLANA_VERSION}/install)" && \
+    ln -s /root/.local/share/solana/install/active_release /opt/solana
+
+# Install the solana bpf sdk tools and cache them here.
+RUN /opt/solana/bin/sdk/bpf/scripts/install.sh
+
+FROM stage-1 AS solana-arm64
+
+# Install solana tools.
+ARG SOLANA_VERSION
+ARG CRITERION_VERSION
+ARG BPF_TOOLS_VERSION
+
+RUN curl -sSfL "https://github.com/solana-labs/solana/archive/refs/tags/v${SOLANA_VERSION}.tar.gz" | tar xz
+
+WORKDIR solana-${SOLANA_VERSION}
+RUN --mount=type=cache,target=target \
+    --mount=type=cache,target=/root/.cargo/ \
+    scripts/cargo-install-all.sh /opt/solana
+
+# Install bpf-tools. This version needs to match whatever the solana tools expect. These steps have
+# been adapted from the build.sh scripts in the bpf-tools and solana-labs/rust repos. When updating
+# to a newer version, check the scripts and update these steps as necessary. We can't use the
+# scripts directly because the version we're using doesn't support arm64 linux.
+WORKDIR /
+RUN git clone --depth 1 \
+    --recurse-submodules \
+    --branch bpf-tools-v${BPF_TOOLS_VERSION} \
+    --shallow-submodules \
+    https://github.com/solana-labs/rust.git
+
+ENV BPF_TOOLS_DIR=/opt/solana/bin/sdk/bpf/dependencies/bpf-tools
+ENV HOST_TRIPLE=aarch64-unknown-linux-gnu
+
+RUN apt-get update && \
+    apt-get install -y \
+    cmake \
+    ninja-build \
+    python
+
+WORKDIR rust
+RUN --mount=type=cache,target=build,id=rust \
+    ./x.py build --stage 1 --target ${HOST_TRIPLE},bpfel-unknown-unknown
+
+COPY install_arm64_bpf_tools.sh .
+RUN --mount=type=cache,target=build,id=rust \
+    ./install_arm64_bpf_tools.sh /root/.cache/solana/v${BPF_TOOLS_VERSION}/bpf-tools && \
+    mkdir -p "$(dirname ${BPF_TOOLS_DIR})" && \
+    ln -s /root/.cache/solana/v${BPF_TOOLS_VERSION}/bpf-tools ${BPF_TOOLS_DIR}
+
+# This branch should be updated when we update the solana version.
+WORKDIR /
+RUN git clone --depth 1 --branch rust-1.56.0 https://github.com/rust-lang/cargo.git
+
+WORKDIR cargo
+RUN --mount=type=cache,target=target,id=cargo \
+    OPENSSL_STATIC=1 cargo build --release && \
+    cp -R "target/release/cargo" ${BPF_TOOLS_DIR}/rust/bin/
+
+WORKDIR /
+
+# Install criterion dependencies.
+RUN apt-get update && \
+    apt-get install -y \
+    clang \
+    libboxfort-dev \
+    libffi-dev \
+    libgit2-dev \
+    libnanomsg-dev \
+    pkg-config
+
+# libcsptr and dyncall are not packaged by debian.
+RUN curl -sSfL "https://dyncall.org/r1.3/dyncall-1.3.tar.gz" | tar xz
+
+WORKDIR dyncall-1.3
+RUN --mount=type=cache,target=build,id=dyncall \
+    ./configure --prefix=/usr/local && \
+    make && \
+    make install
+
+WORKDIR /
+RUN git clone --depth 1 https://github.com/Snaipe/libcsptr.git
+
+WORKDIR libcsptr
+RUN --mount=type=cache,target=build,id=libcsptr \
+    cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    ninja -C build install
+
+# Install criterion.  This version needs to match whatever the solana tools expect.
+WORKDIR /
+RUN git clone --depth 1 \
+    --branch v${CRITERION_VERSION} \
+    --recurse-submodules \
+    --shallow-submodules \
+    https://github.com/Snaipe/Criterion.git
+
+WORKDIR Criterion
+ENV CRITERION_DIR=/opt/solana/bin/sdk/bpf/dependencies/criterion/
+RUN --mount=type=cache,target=build,id=criterion \
+    mkdir -p ${CRITERION_DIR} && \
+    cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/root/.cache/solana/v${CRITERION_VERSION}/criterion/ && \
+    ninja -C build install && \
+    mkdir -p "$(dirname ${CRITERION_DIR})" && \
+    ln -s /root/.cache/solana/v${CRITERION_VERSION}/criterion/ ${CRITERION_DIR}
+
+WORKDIR /
+
+# Add marker files so the install script is happy.
+RUN touch /opt/solana/bin/sdk/bpf/dependencies/{bpf-tools-v${BPF_TOOLS_VERSION}.md,criterion-v${CRITERION_VERSION}.md}
+
+FROM solana-${BUILDARCH} AS solana
+
+ENV PATH="/opt/solana/bin:$PATH"
 
 # Add bridge contract sources
 WORKDIR /usr/src/bridge
@@ -51,6 +171,7 @@ RUN [ -n "${BRIDGE_ADDRESS}" ]
 
 # Build Wormhole Solana programs
 RUN --mount=type=cache,target=target,id=build \
+    --mount=type=cache,target=/root/.cargo/ \
     cargo build-bpf --manifest-path "bridge/program/Cargo.toml" -- --locked && \
     cargo build-bpf --manifest-path "bridge/cpi_poster/Cargo.toml" -- --locked && \
     cargo build-bpf --manifest-path "modules/token_bridge/program/Cargo.toml" -- --locked && \
@@ -79,16 +200,19 @@ RUN --mount=type=cache,target=target,id=test \
     cp modules/token_bridge/token-metadata/spl_token_metadata.so target/deploy/
 
 RUN --mount=type=cache,target=target,id=test \
+    --mount=type=cache,target=/root/.cargo/ \
     cargo test-bpf \
         --manifest-path bridge/program/Cargo.toml \
         --features trace,instructions
 
 RUN --mount=type=cache,target=target,id=test \
+    --mount=type=cache,target=/root/.cargo/ \
     cargo test-bpf \
         --manifest-path modules/token_bridge/program/Cargo.toml \
         --features trace,instructions
 
 RUN --mount=type=cache,target=target,id=test \
+    --mount=type=cache,target=/root/.cargo/ \
     cargo test-bpf \
         --manifest-path modules/nft_bridge/program/Cargo.toml \
         --features trace,instructions
