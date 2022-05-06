@@ -57,6 +57,7 @@ func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/notionaltransferred", p.NotionalTransferred)
+	mux.HandleFunc("/notionaltransferredtokens", p.NotionalTransferredTokens)
 	mux.HandleFunc("/notionaltransferredto", p.NotionalTransferredTo)
 	mux.HandleFunc("/notionaltransferredfrom", p.NotionalTransferredFrom)
 	mux.HandleFunc("/computenotionaltransferredfrom", p.ComputeNotionalTransferredFrom)

@@ -136,18 +136,20 @@ func loadJsonToInterface(ctx context.Context, filePath string, mutex *sync.RWMut
 	}
 	defer timeTrack(time.Now(), fmt.Sprintf("reading %v", filePath))
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	reader, readErr := cacheBucket.Object(filePath).NewReader(ctx)
 	if readErr != nil {
 		log.Printf("Failed reading %v in GCS. err: %v", filePath, readErr)
+		return
 	}
 	defer reader.Close()
 	fileData, err := io.ReadAll(reader)
 	if err != nil {
 		log.Printf("loadJsonToInterface: unable to read data. file %q: %v", filePath, err)
+		return
 	}
 	unmarshalErr := json.Unmarshal(fileData, &cacheMap)
-	mutex.Unlock()
 	if unmarshalErr != nil {
 		log.Printf("failed unmarshaling %v, err: %v", filePath, unmarshalErr)
 	}
