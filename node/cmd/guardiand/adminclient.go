@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"encoding/json"
+
 	"github.com/certusone/wormhole/node/pkg/common"
+	"github.com/certusone/wormhole/node/pkg/ethereum"
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
 	"github.com/certusone/wormhole/node/pkg/vaa"
@@ -43,12 +47,14 @@ func init() {
 
 	AdminClientInjectGuardianSetUpdateCmd.Flags().AddFlagSet(pf)
 	AdminClientFindMissingMessagesCmd.Flags().AddFlagSet(pf)
+	AdminClientFindAllMissingMessagesCmd.Flags().AddFlagSet(pf)
 	AdminClientListNodes.Flags().AddFlagSet(pf)
 	DumpVAAByMessageID.Flags().AddFlagSet(pf)
 	SendObservationRequest.Flags().AddFlagSet(pf)
 
 	AdminCmd.AddCommand(AdminClientInjectGuardianSetUpdateCmd)
 	AdminCmd.AddCommand(AdminClientFindMissingMessagesCmd)
+	AdminCmd.AddCommand(AdminClientFindAllMissingMessagesCmd)
 	AdminCmd.AddCommand(AdminClientGovernanceVAAVerifyCmd)
 	AdminCmd.AddCommand(AdminClientListNodes)
 	AdminCmd.AddCommand(DumpVAAByMessageID)
@@ -71,6 +77,13 @@ var AdminClientFindMissingMessagesCmd = &cobra.Command{
 	Use:   "find-missing-messages [CHAIN_ID] [EMITTER_ADDRESS_HEX]",
 	Short: "Find sequence number gaps for the given chain ID and emitter address",
 	Run:   runFindMissingMessages,
+	Args:  cobra.ExactArgs(2),
+}
+
+var AdminClientFindAllMissingMessagesCmd = &cobra.Command{
+	Use:   "find-all-missing-messages [mode] [apiKeyFile]",
+	Short: "Find sequence number gaps for all mainnet chain IDs and emitters, [mode] should be either \"logonly\" or \"recover\"",
+	Run:   runFindAllMissingMessages,
 	Args:  cobra.ExactArgs(2),
 }
 
@@ -175,6 +188,109 @@ func runFindMissingMessages(cmd *cobra.Command, args []string) {
 
 	log.Printf("processed %s sequences %d to %d (%d gaps)",
 		emitterAddress, resp.FirstSequence, resp.LastSequence, len(resp.MissingMessages))
+}
+
+type ApiKeys struct {
+    ApiKeys []ApiKey `json:"api_keys"`
+}
+
+type ApiKey struct {
+    Chain   string `json:"chain"`
+    ApiKey   string `json:"api_key"`
+}
+
+// kubectl cp /home/briley/apiKeys.json guardian-0:/tmp
+
+func runFindAllMissingMessages(cmd *cobra.Command, args []string) {
+	mode := strings.ToLower(args[0])
+	logOnly := false
+	if mode == "logonly" {
+		logOnly = true
+	} else if mode != "recover" {
+		log.Fatalf("invalid mode, must be \"logonly\" or \"recover\", is: %s", mode)
+	}
+
+	// Load our file of API keys.
+	apiKeyFileName := args[1]
+	jsonFile, err := os.Open(apiKeyFileName)
+	if err != nil {
+		fmt.Println(err)
+		log.Fatalf("failed to open api keys file [%s]: %v", apiKeyFileName, err)
+	}
+	defer jsonFile.Close()
+
+	// read our opened jsonFile as a byte array.
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	var apiKeys ApiKeys
+	json.Unmarshal(byteValue, &apiKeys)
+
+	var apiKeysMap map[vaa.ChainID] string = make(map[vaa.ChainID] string)
+	for i := 0; i < len(apiKeys.ApiKeys); i++ {
+		chainID, err := vaa.ChainIDFromString(apiKeys.ApiKeys[i].Chain)
+		if err != nil {
+			continue
+		}	
+		apiKeysMap[chainID] = apiKeys.ApiKeys[i].ApiKey
+	}
+
+	if logOnly {
+		log.Printf("looking for missing messages and log them")
+	} else {
+		log.Printf("looking for missing messages and attempt to recover them")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	conn, err, c := getAdminClient(ctx, *clientSocketPath)
+	defer conn.Close()
+	if err != nil {
+		log.Fatalf("failed to get admin client: %v", err)
+	}
+
+	type MissingMessageEntry struct {
+		chainID vaa.ChainID
+		missingMessages ethereum.MissingMessages
+	}
+
+	var missingMessages []MissingMessageEntry
+
+	// Go through all of our emitters and find any missing messages for each one.
+	for _, e := range common.KnownEmitters {
+		mm, err := ethereum.FindMissingMessages(ctx, c, e.ChainID);
+		if err != nil {
+			log.Fatalf("failed to find missing messages for chainID %v, emitter %s: %v", e.ChainID, e.Emitter, err)
+		}
+
+		if len(mm) != 0 {
+			missingMessages = append(missingMessages, MissingMessageEntry{e.ChainID, mm})
+		}	
+	}
+
+	if len(missingMessages) == 0 {
+		log.Printf("did not find any missing messages")
+		return
+	}
+
+	// Before we can send observation requests, we need to generate the hash for each sequence number.
+	// for _, mm := range missingMessages {
+		// etherscanAPI, err := ethereum.EtherscanAPIMap[mm.chainID]
+		// if err != nil {
+		// 	log.Printf("chain %s does not support etherscan", mm.chainID)
+		// 	continue
+		// }
+
+		// logs, err := ethereum.GetLogs(mm.chainID, ctx, c, etherscanAPI, *etherscanKey, coreContract, tokenLockupTopic.Hex(), from, to, *showError)
+		// if err != nil {
+		// 	log.Fatalf("failed to get logs: %v", err)
+		// }
+
+		// if len(logs) == 0 {
+		// 	log.Printf("No logs found")
+		// 	continue
+		// }
+	// }
 }
 
 // runDumpVAAByMessageID uses GetSignedVAA to request the given message,
