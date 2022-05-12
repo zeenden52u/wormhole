@@ -92,7 +92,7 @@ const TokenTransfersStats = () => {
       currency: "USD",
       maximumFractionDigits: 0,
     }).format(
-      tokenTransfers.data?.[timeFrame]?.[sourceChain]?.TotalNotionalTransferred || 0
+      tokenTransfers.data?.[timeFrame]?.[sourceChain]?.NotionalTransferred || 0
     );
   }, [sourceChain, timeFrame, tokenTransfers]);
 

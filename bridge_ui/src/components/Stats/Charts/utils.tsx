@@ -215,18 +215,20 @@ export const createTokenTransfersChartData = (
   period: string,
   tokenTransfers: TokenTransfers
 ) => {
+  console.log(tokenTransfers);
   const targetNodeIndexes: any = {};
   return Object.entries(
     tokenTransfers[period]?.[sourceChain]?.Transfers || {}
   ).reduce(
     (data, [address, tokenTransfer]) => {
+      // if (data.nodes.length > 5) return data;
       data.nodes.push({
         name: tokenTransfer.Name,
         tokenAddress: address,
         transferData: tokenTransfer,
       });
       const sourceNodeIndex = data.nodes.length - 1;
-      Object.entries(tokenTransfer.NotionalTransferredByChain || {}).forEach(
+      Object.entries(tokenTransfer.NotionalTransferredToChain || {}).forEach(
         ([targetChainId, notional]) => {
           let targetNodeIndex = targetNodeIndexes[targetChainId];
           if (targetNodeIndex === undefined) {

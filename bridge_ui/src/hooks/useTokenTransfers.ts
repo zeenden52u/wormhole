@@ -12,7 +12,7 @@ export interface TokenTransfer {
   Symbol: string;
   Name: string;
   CoinGeckoId: string;
-  NotionalTransferredByChain: {
+  NotionalTransferredToChain: {
     [targetChainId: number]: number;
   };
 }
@@ -22,8 +22,7 @@ export interface TokenTransfers {
     [sourceChainId: string]: {
       NotionalTransferred: number;
       Transfers: {
-        // [targetChainId: string]: { [tokenAddress: string]: TokenTransfer };
-        [tokenAddress: string]: TokenTransfer;
+        [address: string]: TokenTransfer;
       };
     };
   };

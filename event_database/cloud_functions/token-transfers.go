@@ -21,7 +21,7 @@ type tokenTransfer struct {
 	Symbol                     string
 	Name                       string
 	CoinGeckoId                string
-	NotionalTransferredByChain map[string]NotionalValue
+	NotionalTransferredToChain map[string]NotionalValue
 }
 
 type tokenTransfers struct {
@@ -30,10 +30,10 @@ type tokenTransfers struct {
 }
 
 // time period -> source chain -> tokenTransfers
-type tokenTransfersMap = map[string]map[string]tokenTransfers
+type tokenTransfersByPeriod = map[string]map[string]tokenTransfers
 
 type timePeriod struct {
-	Key       string
+	Name      string
 	StartDate string
 }
 
@@ -41,7 +41,7 @@ func subtractDate(t time.Time, years int, months int, days int) string {
 	return t.AddDate(-years, -months, -days).Format("2006-01-02")
 }
 
-func makeTimePeriods(now time.Time) []timePeriod {
+func getTimePeriods(now time.Time) []timePeriod {
 	return []timePeriod{
 		{"All time", releaseDay.Format("2006-01-02")},
 		{"7 days", subtractDate(now, 0, 0, 7)},
@@ -129,10 +129,10 @@ func computeTokenTransfers(ctx context.Context) {
 						Symbol:                     row.TokenSymbol,
 						Name:                       row.TokenName,
 						CoinGeckoId:                row.CoinGeckoCoinId,
-						NotionalTransferredByChain: map[string]NotionalValue{},
+						NotionalTransferredToChain: map[string]NotionalValue{},
 					}
 				}
-				transfers[row.LeavingChain][row.TokenAddress].NotionalTransferredByChain[row.DestinationChain] += NotionalValue(row.Notional)
+				transfers[row.LeavingChain][row.TokenAddress].NotionalTransferredToChain[row.DestinationChain] += NotionalValue(row.Notional)
 			}
 
 			tokenTransfersMutex.Lock()
@@ -151,30 +151,42 @@ func computeTokenTransfers(ctx context.Context) {
 		persistInterfaceToJson(ctx, tokenTransfersFileName, &tokenTransfersMutex, tokenTransfersCache)
 	}
 
-	// total the transfers for each period
-	timePeriods := makeTimePeriods(now)
-	totals := tokenTransfersMap{}
-	for _, period := range timePeriods {
-		totals[period.Key] = map[string]tokenTransfers{}
+	// compute the total notional transferred to each chain over each time period
+	timePeriods := getTimePeriods(now)
+	periodTransfers := tokenTransfersByPeriod{}
+	for _, timePeriod := range timePeriods {
+		periodTransfers[timePeriod.Name] = map[string]tokenTransfers{}
 		for date, leavingChains := range tokenTransfersCache {
-			if date >= period.StartDate {
-				for leavingChain, tokenAddress := range leavingChains {
-					if _, ok := totals[period.Key][leavingChain]; !ok {
-						totals[period.Key][leavingChain] = tokenTransfers{
+			if date >= timePeriod.StartDate {
+				for leavingChain, transfersByAddress := range leavingChains {
+					if _, ok := periodTransfers[timePeriod.Name][leavingChain]; !ok {
+						periodTransfers[timePeriod.Name][leavingChain] = tokenTransfers{
 							Transfers: map[string]tokenTransfer{},
 						}
 					}
-					if _, ok := totals[period.Key][leavingChain].Transfers[tokenAddress]; !ok {
-						totals[period.Key][leavingChain].Transfers[tokenAddress] = tokenTransfer{
-							Symbol: ,
+					for address, transfer := range transfersByAddress {
+						if _, ok := periodTransfers[timePeriod.Name][leavingChain].Transfers[address]; !ok {
+							periodTransfers[timePeriod.Name][leavingChain].Transfers[address] = tokenTransfer{
+								Symbol:                     transfer.Symbol,
+								Name:                       transfer.Name,
+								CoinGeckoId:                transfer.CoinGeckoId,
+								NotionalTransferredToChain: map[string]NotionalValue{},
+							}
 						}
+						leavingChainTransfers := periodTransfers[timePeriod.Name][leavingChain]
+						for destChainId, notional := range transfer.NotionalTransferredToChain {
+							leavingChainTransfers.Transfers[address].NotionalTransferredToChain[destChainId] += notional
+							leavingChainTransfers.NotionalTransferred += notional
+						}
+						periodTransfers[timePeriod.Name][leavingChain] = leavingChainTransfers
 					}
-					// totals[period.Key][leavingChain].NotionalTransferred += 
 				}
 			}
 		}
+		// compute the top 10 total notional transferred for each time period
 	}
-	persistInterfaceToJson(ctx, tokenTransfersByPeriodFileName, &tokenTransfersMutex, totals)
+
+	persistInterfaceToJson(ctx, tokenTransfersByPeriodFileName, &tokenTransfersMutex, periodTransfers)
 }
 
 func ComputeTokenTransfers(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +199,7 @@ func ComputeTokenTransfers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 6000*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	computeTokenTransfers(ctx)
@@ -207,7 +219,7 @@ func TokenTransfers(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	var transfers tokenTransfersMap
+	var transfers tokenTransfersByPeriod
 	loadJsonToInterface(ctx, tokenTransfersByPeriodFileName, &tokenTransfersMutex, &transfers)
 	jsonBytes, err := json.Marshal(transfers)
 	if err != nil {
