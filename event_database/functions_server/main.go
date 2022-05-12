@@ -57,7 +57,6 @@ func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/notionaltransferred", p.NotionalTransferred)
-	mux.HandleFunc("/notionaltransferredtokens", p.NotionalTransferredTokens)
 	mux.HandleFunc("/notionaltransferredto", p.NotionalTransferredTo)
 	mux.HandleFunc("/notionaltransferredfrom", p.NotionalTransferredFrom)
 	mux.HandleFunc("/computenotionaltransferredfrom", p.ComputeNotionalTransferredFrom)
@@ -74,6 +73,8 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("/transaction", p.Transaction)
 	mux.HandleFunc("/readrow", p.ReadRow)
 	mux.HandleFunc("/findvalues", p.FindValues)
+	mux.HandleFunc("/computetokentransfers", p.ComputeTokenTransfers)
+	mux.HandleFunc("/tokentransfers", p.TokenTransfers)
 
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 

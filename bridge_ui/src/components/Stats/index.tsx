@@ -2,6 +2,7 @@ import { Container } from "@material-ui/core";
 import HeaderText from "../HeaderText";
 import TVLStats from "./TVLStats";
 import VolumeStats from "./VolumeStats";
+import TokenTransfersStats from "./TokenTransfersStats";
 
 const StatsRoot = () => {
   return (
@@ -11,6 +12,7 @@ const StatsRoot = () => {
       </Container>
       <TVLStats />
       <VolumeStats />
+      <TokenTransfersStats />
     </Container>
   );
 };

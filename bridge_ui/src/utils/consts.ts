@@ -1218,6 +1218,8 @@ export const RECENT_TRANSACTIONS_WORMHOLE = `https://europe-west3-wormhole-31572
 export const NOTIONAL_TRANSFERRED_URL =
   "https://europe-west3-wormhole-315720.cloudfunctions.net/mainnet-notionaltransferredfrom";
 
+export const TOKEN_TRANSFERS_URL = "./tokenTransfers.json";
+
 export const VAA_EMITTER_ADDRESSES = [
   `${CHAIN_ID_SOLANA}:ec7372995d5cc8732397fb0ad35c0121e0eaa90d26f828a534cab54391b3a4f5`, //SOLANA TOKEN
   `${CHAIN_ID_SOLANA}:0def15a24423e1edd1a5ab16f557b9060303ddbab8c803d2ee48f4b78a1cfd6b`, //SOLAN NFT
