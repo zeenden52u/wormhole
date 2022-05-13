@@ -7,7 +7,7 @@ import "../interfaces/IWormhole.sol";
 
 import "./GasOracleState.sol";
 
-contract GasOracleGetters is GasOracleState {
+abstract contract GasOracleGetters is GasOracleState {
     function governanceActionIsConsumed(bytes32 hash) public view returns (bool) {
         return _state.consumedGovernanceActions[hash];
     }

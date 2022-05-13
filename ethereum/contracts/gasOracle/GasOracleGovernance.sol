@@ -13,7 +13,7 @@ import "./GasOracleStructs.sol";
 
 import "../interfaces/IWormhole.sol";
 
-contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC1967Upgrade {
+abstract contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC1967Upgrade {
     using BytesLib for bytes;
 
     //TODO "GasOracle" (left padded)

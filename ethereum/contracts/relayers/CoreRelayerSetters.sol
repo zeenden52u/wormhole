@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 
 import "./CoreRelayerState.sol";
 
-contract CoreRelayerSetters is CoreRelayerState {
+abstract contract CoreRelayerSetters is CoreRelayerState {
     function setInitialized(address implementatiom) internal {
         _state.initializedImplementations[implementatiom] = true;
     }

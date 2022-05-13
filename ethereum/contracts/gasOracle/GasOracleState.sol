@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 
 import "./GasOracleStructs.sol";
 
-contract GasOracleStorage {
+abstract contract GasOracleStorage {
     struct Provider {
         uint16 chainId;
         uint16 governanceChainId;
@@ -26,6 +26,6 @@ contract GasOracleStorage {
     }
 }
 
-contract GasOracleState {
+abstract contract GasOracleState {
     GasOracleStorage.State _state;
 }

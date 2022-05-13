@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 
 import "./GasOracleState.sol";
 
-contract GasOracleSetters is GasOracleState {
+abstract contract GasOracleSetters is GasOracleState {
     function setInitialized(address implementatiom) internal {
         _state.initializedImplementations[implementatiom] = true;
     }

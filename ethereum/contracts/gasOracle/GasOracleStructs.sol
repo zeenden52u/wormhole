@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.0;
 
-contract GasOracleStructs {
+abstract contract GasOracleStructs {
     
     struct UpgradeContract {
         // Governance Header

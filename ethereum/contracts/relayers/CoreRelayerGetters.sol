@@ -7,7 +7,7 @@ import "../interfaces/IWormhole.sol";
 
 import "./CoreRelayerState.sol";
 
-contract CoreRelayerGetters is CoreRelayerState {
+abstract contract CoreRelayerGetters is CoreRelayerState {
     function governanceActionIsConsumed(bytes32 hash) public view returns (bool) {
         return _state.consumedGovernanceActions[hash];
     }
