@@ -13,7 +13,7 @@ import "./CoreRelayerStructs.sol";
 
 import "../interfaces/IWormhole.sol";
 
-contract CoreRelayerGovernance is CoreRelayerGetters, CoreRelayerSetters, ERC1967Upgrade {
+abstract contract CoreRelayerGovernance is CoreRelayerGetters, CoreRelayerSetters, ERC1967Upgrade {
     using BytesLib for bytes;
 
     //TODO "CoreRelayer" (left padded)

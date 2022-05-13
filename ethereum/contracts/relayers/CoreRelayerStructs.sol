@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.0;
 
-contract CoreRelayerStructs {
+abstract contract CoreRelayerStructs {
     
 
     struct UpgradeContract {

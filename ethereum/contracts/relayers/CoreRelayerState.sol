@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 
 import "./CoreRelayerStructs.sol";
 
-contract CoreRelayerStorage {
+abstract contract CoreRelayerStorage {
     struct Provider {
         uint16 chainId;
         uint16 governanceChainId;
@@ -26,6 +26,6 @@ contract CoreRelayerStorage {
     }
 }
 
-contract CoreRelayerState {
+abstract contract CoreRelayerState {
     CoreRelayerStorage.State _state;
 }
