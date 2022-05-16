@@ -6,19 +6,21 @@ import {
   fetchDataWrapper,
   receiveDataWrapper,
 } from "../store/helpers";
-import { TOKEN_TRANSFERS_URL } from "../utils/consts";
+import { TOKEN_TRANSFER_STATS_URL } from "../utils/consts";
 
 export interface TokenTransfer {
   Symbol: string;
   Name: string;
   CoinGeckoId: string;
+  TokenAddress: string;
+  NotionalTransferred: number;
   NotionalTransferredToChain: {
     [targetChainId: number]: number;
   };
 }
 
-export interface TokenTransfers {
-  [period: string]: {
+export interface TokenTransferStats {
+  [timeFrame: string]: {
     [sourceChainId: string]: {
       NotionalTransferred: number;
       Transfers: {
@@ -28,29 +30,29 @@ export interface TokenTransfers {
   };
 }
 
-const useTokenTransfers = () => {
-  const [tokenTransfers, setTokenTransfers] = useState<
-    DataWrapper<TokenTransfers>
-  >(fetchDataWrapper());
+const useTokenTransferStats = () => {
+  const [stats, setStats] = useState<DataWrapper<TokenTransferStats>>(
+    fetchDataWrapper()
+  );
 
   useEffect(() => {
     let cancelled = false;
     axios
-      .get<TokenTransfers>(TOKEN_TRANSFERS_URL)
+      .get<TokenTransferStats>(TOKEN_TRANSFER_STATS_URL)
       .then((response) => {
         if (!cancelled) {
-          setTokenTransfers(receiveDataWrapper(response.data));
+          setStats(receiveDataWrapper(response.data));
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setTokenTransfers(errorDataWrapper(error));
+          setStats(errorDataWrapper(error));
         }
         console.error(error);
       });
   }, []);
 
-  return tokenTransfers;
+  return stats;
 };
 
-export default useTokenTransfers;
+export default useTokenTransferStats;

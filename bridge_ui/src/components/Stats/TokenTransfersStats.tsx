@@ -20,9 +20,8 @@ import { ChainInfo, CHAINS_BY_ID, getChainShortName } from "../../utils/consts";
 import { ChainId, CHAIN_ID_ETH } from "@certusone/wormhole-sdk";
 import { COLORS } from "../../muiTheme";
 import { ArrowBack, InfoOutlined } from "@material-ui/icons";
-import useTokenTransfers from "../../hooks/useTokenTransfers";
-import TokenTransfersSankeyChart from "./Charts/TokenTransfersSankeyChart";
-import { createTokenTransfersChartData } from "./Charts/utils";
+import useTokenTransferStats from "../../hooks/useTokenTransferStats";
+import TokenTransferStatsChart from "./Charts/TokenTransferStatsChart";
 
 const useStyles = makeStyles((theme) => ({
   description: {
@@ -81,10 +80,10 @@ const StyledTooltip = withStyles(tooltipStyles)(Tooltip);
 const TokenTransfersStats = () => {
   const classes = useStyles();
 
-  const [sourceChain, setSourceChain] = useState(CHAIN_ID_ETH);
+  const [sourceChain, setSourceChain] = useState<ChainId>(CHAIN_ID_ETH);
   const [timeFrame, setTimeFrame] = useState("All time");
 
-  const tokenTransfers = useTokenTransfers();
+  const tokenTransferStats = useTokenTransferStats();
 
   const notionalTransferred = useMemo(() => {
     return new Intl.NumberFormat("en-US", {
@@ -92,33 +91,25 @@ const TokenTransfersStats = () => {
       currency: "USD",
       maximumFractionDigits: 0,
     }).format(
-      tokenTransfers.data?.[timeFrame]?.[sourceChain]?.NotionalTransferred || 0
+      tokenTransferStats.data?.[timeFrame]?.[sourceChain]
+        ?.NotionalTransferred || 0
     );
-  }, [sourceChain, timeFrame, tokenTransfers]);
+  }, [sourceChain, timeFrame, tokenTransferStats]);
 
   const availableChains = useMemo(() => {
-    const chainIds = tokenTransfers.data
-      ? Object.keys(tokenTransfers.data["All time"] || {}).reduce<ChainId[]>(
-          (chainIds, key) => {
-            const chainId = parseInt(key) as ChainId;
-            if (CHAINS_BY_ID[chainId]) {
-              chainIds.push(chainId);
-            }
-            return chainIds;
-          },
-          []
-        )
+    const chainIds = tokenTransferStats.data
+      ? Object.keys(tokenTransferStats.data["All time"] || {}).reduce<
+          ChainId[]
+        >((chainIds, key) => {
+          const chainId = parseInt(key) as ChainId;
+          if (CHAINS_BY_ID[chainId]) {
+            chainIds.push(chainId);
+          }
+          return chainIds;
+        }, [])
       : [];
     return chainIds;
-  }, [tokenTransfers]);
-
-  const chartData = useMemo(() => {
-    return createTokenTransfersChartData(
-      sourceChain,
-      timeFrame,
-      tokenTransfers.data || {}
-    );
-  }, [sourceChain, timeFrame, tokenTransfers]);
+  }, [tokenTransferStats]);
 
   const handleSourceChainChange = useCallback((event) => {
     setSourceChain(event.target.value);
@@ -175,10 +166,14 @@ const TokenTransfersStats = () => {
         </TextField>
       </div>
       <Paper className={classes.mainPaper}>
-        {tokenTransfers.isFetching ? (
+        {tokenTransferStats.isFetching ? (
           <CircularProgress className={classes.alignCenter} />
         ) : (
-          <TokenTransfersSankeyChart data={chartData} />
+          <TokenTransferStatsChart
+            tokenTransferStats={tokenTransferStats.data || {}}
+            sourceChain={sourceChain}
+            timeFrame={timeFrame}
+          />
         )}
       </Paper>
     </>

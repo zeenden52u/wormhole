@@ -6,12 +6,10 @@ import { Totals } from "../../../hooks/useTransactionTotals";
 import {
   ChainInfo,
   CHAINS_BY_ID,
-  getChainShortName,
   VAA_EMITTER_ADDRESSES,
 } from "../../../utils/consts";
 import { NotionalTVL } from "../../../hooks/useTVL";
 import { ChainId } from "@certusone/wormhole-sdk";
-import { TokenTransfers } from "../../../hooks/useTokenTransfers";
 
 export const formatTVL = (tvl: number) => {
   const [divisor, unit, fractionDigits] =
@@ -203,51 +201,4 @@ export const createChainTVLChartData = (tvl: NotionalTVL) => {
     });
   }
   return chainTVLs;
-};
-
-export interface TokenTransfersChartData {
-  nodes: any[];
-  links: any[];
-}
-
-export const createTokenTransfersChartData = (
-  sourceChain: ChainId,
-  period: string,
-  tokenTransfers: TokenTransfers
-) => {
-  console.log(tokenTransfers);
-  const targetNodeIndexes: any = {};
-  return Object.entries(
-    tokenTransfers[period]?.[sourceChain]?.Transfers || {}
-  ).reduce(
-    (data, [address, tokenTransfer]) => {
-      // if (data.nodes.length > 5) return data;
-      data.nodes.push({
-        name: tokenTransfer.Name,
-        tokenAddress: address,
-        transferData: tokenTransfer,
-      });
-      const sourceNodeIndex = data.nodes.length - 1;
-      Object.entries(tokenTransfer.NotionalTransferredToChain || {}).forEach(
-        ([targetChainId, notional]) => {
-          let targetNodeIndex = targetNodeIndexes[targetChainId];
-          if (targetNodeIndex === undefined) {
-            const chainShortName =
-              getChainShortName(parseInt(targetChainId) as ChainId) ||
-              `Unknown chainId [${targetChainId}]`;
-            data.nodes.push({ name: chainShortName });
-            targetNodeIndex = data.nodes.length - 1;
-            targetNodeIndexes[targetChainId] = targetNodeIndex;
-          }
-          data.links.push({
-            source: sourceNodeIndex,
-            target: targetNodeIndex,
-            value: notional,
-          });
-        }
-      );
-      return data;
-    },
-    { nodes: [], links: [] } as TokenTransfersChartData
-  );
 };

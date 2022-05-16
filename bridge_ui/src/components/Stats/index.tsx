@@ -10,8 +10,8 @@ const StatsRoot = () => {
       <Container maxWidth="md">
         <HeaderText white>Stats</HeaderText>
       </Container>
-      <TVLStats />
-      <VolumeStats />
+      {/* <TVLStats /> */}
+      {/* <VolumeStats /> */}
       <TokenTransfersStats />
     </Container>
   );

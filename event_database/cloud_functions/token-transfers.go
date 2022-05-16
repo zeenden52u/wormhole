@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -21,6 +22,8 @@ type tokenTransfer struct {
 	Symbol                     string
 	Name                       string
 	CoinGeckoId                string
+	TokenAddress               string
+	NotionalTransferred        NotionalValue
 	NotionalTransferredToChain map[string]NotionalValue
 }
 
@@ -129,6 +132,7 @@ func computeTokenTransfers(ctx context.Context) {
 						Symbol:                     row.TokenSymbol,
 						Name:                       row.TokenName,
 						CoinGeckoId:                row.CoinGeckoCoinId,
+						TokenAddress:               row.TokenAddress,
 						NotionalTransferredToChain: map[string]NotionalValue{},
 					}
 				}
@@ -154,6 +158,7 @@ func computeTokenTransfers(ctx context.Context) {
 	// compute the total notional transferred to each chain over each time period
 	timePeriods := getTimePeriods(now)
 	periodTransfers := tokenTransfersByPeriod{}
+	periodTopTransfers := tokenTransfersByPeriod{}
 	for _, timePeriod := range timePeriods {
 		periodTransfers[timePeriod.Name] = map[string]tokenTransfers{}
 		for date, leavingChains := range tokenTransfersCache {
@@ -170,23 +175,46 @@ func computeTokenTransfers(ctx context.Context) {
 								Symbol:                     transfer.Symbol,
 								Name:                       transfer.Name,
 								CoinGeckoId:                transfer.CoinGeckoId,
+								TokenAddress:               transfer.TokenAddress,
 								NotionalTransferredToChain: map[string]NotionalValue{},
 							}
 						}
-						leavingChainTransfers := periodTransfers[timePeriod.Name][leavingChain]
+						addressTotals := periodTransfers[timePeriod.Name][leavingChain].Transfers[address]
+						// chainTotals := periodTransfers[timePeriod.Name][leavingChain]
 						for destChainId, notional := range transfer.NotionalTransferredToChain {
-							leavingChainTransfers.Transfers[address].NotionalTransferredToChain[destChainId] += notional
-							leavingChainTransfers.NotionalTransferred += notional
+							addressTotals.NotionalTransferredToChain[destChainId] += notional
+							addressTotals.NotionalTransferred += notional
+							// chainTotals.NotionalTransferred += notional
 						}
-						periodTransfers[timePeriod.Name][leavingChain] = leavingChainTransfers
+						periodTransfers[timePeriod.Name][leavingChain].Transfers[address] = addressTotals
+						// periodTransfers[timePeriod.Name][leavingChain] = chainTotals
 					}
 				}
 			}
 		}
-		// compute the top 10 total notional transferred for each time period
-	}
+		// store all of the address totals for this chain in a list
+		periodTopTransfers[timePeriod.Name] = map[string]tokenTransfers{}
+		for leavingChain, transfers := range periodTransfers[timePeriod.Name] {
+			var transfersArray []tokenTransfer
+			for _, transfer := range transfers.Transfers {
+				transfersArray = append(transfersArray, transfer)
+			}
+			// sort them by notional transferred
+			sort.Slice(transfersArray, func(i, j int) bool {
+				return transfersArray[i].NotionalTransferred > transfersArray[j].NotionalTransferred
+			})
+			topTransfers := tokenTransfers{
+				Transfers: map[string]tokenTransfer{},
+			}
+			for i := 0; i < 10 && i < len(transfersArray); i++ {
+				topTransfers.Transfers[transfersArray[i].TokenAddress] = transfersArray[i]
+				topTransfers.NotionalTransferred += transfersArray[i].NotionalTransferred
+			}
+			periodTopTransfers[timePeriod.Name][leavingChain] = topTransfers
+		}
 
-	persistInterfaceToJson(ctx, tokenTransfersByPeriodFileName, &tokenTransfersMutex, periodTransfers)
+	}
+	persistInterfaceToJson(ctx, tokenTransfersByPeriodFileName, &tokenTransfersMutex, periodTopTransfers)
 }
 
 func ComputeTokenTransfers(w http.ResponseWriter, r *http.Request) {
@@ -199,7 +227,7 @@ func ComputeTokenTransfers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 6000*time.Second)
 	defer cancel()
 
 	computeTokenTransfers(ctx)
