@@ -19,16 +19,6 @@ abstract contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC
     //TODO "GasOracle" (left padded)
     bytes32 constant module = 0x000000000000000000000000000000000000000000;
 
-    // Execute a price change governance message
-    function changePrices(bytes memory encodedVM) public {
-        (IWormhole.VM memory vm, bool valid, string memory reason) = verifyGovernanceVM(encodedVM);
-        require(valid, reason);
-
-        setGovernanceActionConsumed(vm.hash);
-
-        //TODO this
-    }
-
     // Execute a UpgradeContract governance message
     function upgrade(bytes memory encodedVM) public {
         (IWormhole.VM memory vm, bool valid, string memory reason) = verifyGovernanceVM(encodedVM);

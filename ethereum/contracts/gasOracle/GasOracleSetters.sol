@@ -29,4 +29,8 @@ abstract contract GasOracleSetters is GasOracleState {
     function setWormhole(address wh) internal {
         _state.wormhole = payable(wh);
     }
+
+    function setApprovedUpdater(bytes32 updater) internal {
+        _state.approvedUpdater = updater;
+    }
 }

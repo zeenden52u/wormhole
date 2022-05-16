@@ -14,15 +14,17 @@ import "./GasOracleGovernance.sol";
 abstract contract GasOracle is GasOracleGovernance {
     using BytesLib for bytes;
 
+    //Returns the price of one unit of gas on the wormhole targetChain, denominated in this chain's wei.
     function getQuote(uint16 targetChain) public view returns (uint256 quote) {
         bytes32 myChainInfo = priceInfo(chainId());
         bytes32 targetChainInfo = priceInfo(targetChain);
 
-        uint16 myNativeQuote = uint16(myChainInfo[0:15]);
+        uint128 myNativeQuote = uint128(myChainInfo[0:15]);
 
-        uint16 targetNativeQuote = uint16(targetChainInfo[0:15]);
-        uint16 targetGasQuote = uint16(targetChainInfo[16:]);
+        uint128 targetNativeQuote = uint128(targetChainInfo[0:15]);
+        uint128 targetGasQuote = uint128(targetChainInfo[16:]);
 
+        
         //Native Currency Quotes are in pennies, Gas Price quotes are in gwei.
 
         //  targetGwei     Penny        NativeCoin   NativeWei    TargetCoin    nativeWei
@@ -42,4 +44,33 @@ abstract contract GasOracle is GasOracleGovernance {
 
         quote = (targetGasQuote * targetNativeQuote * 10 ** 9)/myNativeQuote;
     }
+
+    // Execute a price change governance message
+    function changePrices(bytes memory encodedVM) public {
+        (PriceUpdate memory vm, bool valid, string memory reason) = verifyChangePricesVM(encodedVM);
+        require(valid, reason);
+
+        setChangePricesActionConsumed(vm.hash);
+
+        //TODO this
+    }
+    
+    function changeApprovedUpdater(bytes memory encodedVM){
+        (IWormhole.VM memory vm, bool valid, string memory reason) = verifyGovernanceVM(encodedVM);
+        require(valid, reason);
+
+        setGovernanceActionConsumed(vm.hash);
+
+        GasOracleStructs.SignerUpdate memory signerUpdate = parse(vm.payload);
+
+        //TODO check module & version, potentially more
+
+        setApprovedUpdater(signerUpdate.approvedUpdater);
+    }
+
+    function verifyChangePricesVM(bytes memory encodedVM) internal view returns (PriceUpdate memory parsedVM, bool isValid, string memory invalidReason) {
+        //TODO this
+    }
+
+
 }
