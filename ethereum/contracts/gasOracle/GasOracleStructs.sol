@@ -16,4 +16,18 @@ abstract contract GasOracleStructs {
         // Address of the new contract
         bytes32 newContract;
     }
+
+    struct PriceUpdate {
+        // Governance Header
+        // module: "GasOracle" left-padded
+        bytes32 module ;
+        uint16 version;
+
+        mapping(uint16 => bytes32) priceInfos;
+    }
+
+    struct SignerUpdate {
+        //TODO how to store approved price updater address
+        bytes32  approvedUpdater;
+    }
 }
