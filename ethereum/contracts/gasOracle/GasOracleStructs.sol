@@ -27,7 +27,11 @@ abstract contract GasOracleStructs {
     }
 
     struct SignerUpdate {
-        //TODO how to store approved price updater address
+        // module: "GasOracle" left-padded
+        bytes32 module ;
+        uint16 version;
+
+        //TODO how best to store this
         bytes32  approvedUpdater;
     }
 }
