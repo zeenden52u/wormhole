@@ -22,6 +22,12 @@ abstract contract GasOracleStorage {
 
         // Mapping of initialized implementations
         mapping(address => bool) initializedImplementations;
+
+        //The public key of the address allowed to update price infos
+        bytes32 approvedUpdater;
+
+        //Key: wormhole chain ID. Value: 16 bits USD quote of native currency, 16 bits price of gas unit
+        mapping(uint16 => bytes32) priceInfos;
         
     }
 }

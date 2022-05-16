@@ -32,4 +32,8 @@ abstract contract GasOracleGetters is GasOracleState {
         return _state.provider.governanceContract;
     }
 
+    function priceInfo(uint16 chain) public view returns (bytes32) {
+        return _state.priceInfos[chain];
+    }
+
 }
