@@ -17,7 +17,7 @@ abstract contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC
     using BytesLib for bytes;
 
     //TODO "GasOracle" (left padded)
-    bytes32 constant module = 0x000000000000000000000000000000000000000000;
+    bytes32 constant module = 0x00000000000000000000000000000000000000000000004761734f7261636c65;
 
     // Execute a UpgradeContract governance message
     function upgrade(bytes memory encodedVM) public {
