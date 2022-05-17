@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "./GasOracleGovernance.sol";
+import "./GasOracleStructs.sol";
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
@@ -16,11 +17,11 @@ contract GasOracleSetup is GasOracleSetters, ERC1967Upgrade {
         uint16 governanceChainId,
         bytes32 governanceContract
     ) public {
-        setChainId(chainId);
+        setChainId(GasOracleStructs.ChainId.wrap(chainId));
 
         setWormhole(wormhole);
 
-        setGovernanceChainId(governanceChainId);
+        setGovernanceChainId(GasOracleStructs.ChainId.wrap(governanceChainId));
         setGovernanceContract(governanceContract);
 
         _upgradeTo(implementation);

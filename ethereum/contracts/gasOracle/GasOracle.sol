@@ -15,14 +15,14 @@ abstract contract GasOracle is GasOracleGovernance {
     using BytesLib for bytes;
 
     //Returns the price of one unit of gas on the wormhole targetChain, denominated in this chain's wei.
-    function getQuote(uint16 targetChain) public view returns (uint256 quote) {
-        bytes32 myChainInfo = priceInfo(chainId());
-        bytes32 targetChainInfo = priceInfo(targetChain);
+    function getQuote(GasOracleStructs.ChainId targetChain) public view returns (uint256 quote) {
+        GasOracleStructs.PriceInfo memory myChainInfo = priceInfo(chainId());
+        GasOracleStructs.PriceInfo memory targetChainInfo = priceInfo(targetChain);
 
-        uint128 myNativeQuote = uint128(myChainInfo[0:15]);
+        uint128 myNativeQuote = uint128(myChainInfo.native);
 
-        uint128 targetNativeQuote = uint128(targetChainInfo[0:15]);
-        uint128 targetGasQuote = uint128(targetChainInfo[16:]);
+        uint128 targetNativeQuote = uint128(targetChainInfo.native);
+        uint128 targetGasQuote = uint128(targetChainInfo.gas);
 
         
         //Native Currency Quotes are in pennies, Gas Price quotes are in gwei.
@@ -46,16 +46,35 @@ abstract contract GasOracle is GasOracleGovernance {
     }
 
     // Execute a price change governance message
-    function changePrices(bytes memory encodedVM) public {
-        (PriceUpdate memory vm, bool valid, string memory reason) = verifyChangePricesVM(encodedVM);
+    function changePrices(bytes memory encodedVM) onlyApprovedUpdater public {
+        (GasOracleStructs.PriceUpdate memory vm, bool valid, string memory reason) = verifyChangePricesVM(encodedVM);
         require(valid, reason);
 
-        setChangePricesActionConsumed(vm.hash);
+        // TODO: replay protection
+        // setChangePricesActionConsumed(vm.hash);
 
         //TODO this
     }
     
-    function changeApprovedUpdater(bytes memory encodedVM){
+    function verifyChangePricesVM(bytes memory encodedVM) internal view returns (GasOracleStructs.PriceUpdate memory parsedVM, bool isValid, string memory invalidReason) {//TODO this
+    }
+
+    function parse(bytes memory encodedVM) internal view returns (GasOracleStructs.SignerUpdate memory parsedVM) {
+
+    }
+
+    function setChangePricesActionConsumed(bytes32 hash) internal {
+
+    }
+
+
+    // Access control
+    modifier onlyApprovedUpdater {
+        require(msg.sender == approvedUpdater(), "Not approved updater");
+        _;
+    }
+
+    function changeApprovedUpdater(bytes memory encodedVM) public {
         (IWormhole.VM memory vm, bool valid, string memory reason) = verifyGovernanceVM(encodedVM);
         require(valid, reason);
 
@@ -65,11 +84,7 @@ abstract contract GasOracle is GasOracleGovernance {
 
         //TODO check module & version, potentially more
 
-        setApprovedUpdater(signerUpdate.approvedUpdater);
-    }
-
-    function verifyChangePricesVM(bytes memory encodedVM) internal view returns (PriceUpdate memory parsedVM, bool isValid, string memory invalidReason) {
-        //TODO this
+        setApprovedUpdater(address(uint160(uint256(signerUpdate.approvedUpdater))));
     }
 
 

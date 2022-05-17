@@ -3,7 +3,9 @@
 
 pragma solidity ^0.8.0;
 
-abstract contract GasOracleStructs {
+library GasOracleStructs {
+
+    type ChainId is uint16;
     
     struct UpgradeContract {
         // Governance Header
@@ -12,9 +14,19 @@ abstract contract GasOracleStructs {
         // governance action: 2
         uint8 action;
         // governance paket chain id
-        uint16 chainId;
+        ChainId chainId;
         // Address of the new contract
         bytes32 newContract;
+    }
+
+    struct PriceInfo {
+        bytes16 native;
+        bytes16 gas;
+    }
+
+    struct ChainPriceInfo {
+        ChainId chain;
+        PriceInfo priceInfo;
     }
 
     struct PriceUpdate {
@@ -23,7 +35,7 @@ abstract contract GasOracleStructs {
         bytes32 module ;
         uint16 version;
 
-        mapping(uint16 => bytes32) priceInfos;
+        ChainPriceInfo[] priceInfos;
     }
 
     struct SignerUpdate {
