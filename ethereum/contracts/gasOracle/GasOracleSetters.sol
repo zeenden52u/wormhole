@@ -4,6 +4,7 @@
 pragma solidity ^0.8.0;
 
 import "./GasOracleState.sol";
+import "./GasOracleStructs.sol";
 
 abstract contract GasOracleSetters is GasOracleState {
     function setInitialized(address implementatiom) internal {
@@ -14,11 +15,11 @@ abstract contract GasOracleSetters is GasOracleState {
         _state.consumedGovernanceActions[hash] = true;
     }
 
-    function setChainId(uint16 chainId) internal {
+    function setChainId(GasOracleStructs.ChainId chainId) internal {
         _state.provider.chainId = chainId;
     }
 
-    function setGovernanceChainId(uint16 chainId) internal {
+    function setGovernanceChainId(GasOracleStructs.ChainId chainId) internal {
         _state.provider.governanceChainId = chainId;
     }
 
@@ -30,7 +31,7 @@ abstract contract GasOracleSetters is GasOracleState {
         _state.wormhole = payable(wh);
     }
 
-    function setApprovedUpdater(bytes32 updater) internal {
+    function setApprovedUpdater(address updater) internal {
         _state.approvedUpdater = updater;
     }
 }

@@ -5,10 +5,11 @@ pragma solidity ^0.8.0;
 
 import "./GasOracleStructs.sol";
 
+
 abstract contract GasOracleStorage {
     struct Provider {
-        uint16 chainId;
-        uint16 governanceChainId;
+        GasOracleStructs.ChainId chainId;
+        GasOracleStructs.ChainId governanceChainId;
         bytes32 governanceContract;
     }
 
@@ -23,11 +24,10 @@ abstract contract GasOracleStorage {
         // Mapping of initialized implementations
         mapping(address => bool) initializedImplementations;
 
-        //The public key of the address allowed to update price infos
-        bytes32 approvedUpdater;
+        //The address allowed to update price infos
+        address approvedUpdater;
 
-        //Key: wormhole chain ID. Value: 16 bits USD quote of native currency, 16 bits price of gas unit
-        mapping(uint16 => bytes32) priceInfos;
+        mapping(GasOracleStructs.ChainId => GasOracleStructs.PriceInfo) priceInfos;
         
     }
 }
