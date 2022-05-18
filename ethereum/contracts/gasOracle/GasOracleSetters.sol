@@ -15,11 +15,11 @@ abstract contract GasOracleSetters is GasOracleState {
         _state.consumedGovernanceActions[hash] = true;
     }
 
-    function setChainId(GasOracleStructs.ChainId chainId) internal {
+    function setChainId(uint16 chainId) internal {
         _state.provider.chainId = chainId;
     }
 
-    function setGovernanceChainId(GasOracleStructs.ChainId chainId) internal {
+    function setGovernanceChainId(uint16 chainId) internal {
         _state.provider.governanceChainId = chainId;
     }
 
@@ -33,5 +33,17 @@ abstract contract GasOracleSetters is GasOracleState {
 
     function setApprovedUpdater(address updater) internal {
         _state.approvedUpdater = updater;
+    }
+
+    function setPriceInfos(GasOracleStructs.ChainPriceInfo[] memory prices) internal {
+        uint16 i;
+
+        for (i = 0; i < prices.length; i++) { 
+            setPriceInfo(prices[i]);
+        }
+    }
+
+    function setPriceInfo(GasOracleStructs.ChainPriceInfo memory price) internal {
+        _state.priceInfos[price.chain] = price.priceInfo;
     }
 }

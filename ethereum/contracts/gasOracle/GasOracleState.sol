@@ -8,8 +8,8 @@ import "./GasOracleStructs.sol";
 
 abstract contract GasOracleStorage {
     struct Provider {
-        GasOracleStructs.ChainId chainId;
-        GasOracleStructs.ChainId governanceChainId;
+        uint16 chainId;
+        uint16 governanceChainId;
         bytes32 governanceContract;
     }
 
@@ -27,7 +27,7 @@ abstract contract GasOracleStorage {
         //The address allowed to update price infos
         address approvedUpdater;
 
-        mapping(GasOracleStructs.ChainId => GasOracleStructs.PriceInfo) priceInfos;
+        mapping(uint16 => GasOracleStructs.PriceInfo) priceInfos;
         
     }
 }

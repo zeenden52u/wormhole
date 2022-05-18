@@ -15,14 +15,14 @@ abstract contract GasOracle is GasOracleGovernance {
     using BytesLib for bytes;
 
     //Returns the price of one unit of gas on the wormhole targetChain, denominated in this chain's wei.
-    function getQuote(GasOracleStructs.ChainId targetChain) public view returns (uint256 quote) {
+    function getQuote(uint16 targetChain) public view returns (uint256 quote) {
         GasOracleStructs.PriceInfo memory myChainInfo = priceInfo(chainId());
         GasOracleStructs.PriceInfo memory targetChainInfo = priceInfo(targetChain);
 
-        uint128 myNativeQuote = uint128(myChainInfo.native);
+        uint128 myNativeQuote = myChainInfo.native;
 
-        uint128 targetNativeQuote = uint128(targetChainInfo.native);
-        uint128 targetGasQuote = uint128(targetChainInfo.gas);
+        uint128 targetNativeQuote = targetChainInfo.native;
+        uint128 targetGasQuote = targetChainInfo.gas;
 
         
         //Native Currency Quotes are in pennies, Gas Price quotes are in gwei.
@@ -45,28 +45,49 @@ abstract contract GasOracle is GasOracleGovernance {
         quote = (targetGasQuote * targetNativeQuote * 10 ** 9)/myNativeQuote;
     }
 
-    // Execute a price change governance message
+    /// @title Execute a price change governance message
+    /// @dev A chain having multiple updates inside one message is considered to be undefined behavior.
     function changePrices(bytes memory encodedVM) onlyApprovedUpdater public {
-        (GasOracleStructs.PriceUpdate memory vm, bool valid, string memory reason) = verifyChangePricesVM(encodedVM);
-        require(valid, reason);
+        GasOracleStructs.ChainPriceInfo[] memory vm = parseChangePricesMessage(encodedVM);
 
-        // TODO: replay protection
-        // setChangePricesActionConsumed(vm.hash);
-
-        //TODO this
+        setPriceInfos(vm);
     }
     
-    function verifyChangePricesVM(bytes memory encodedVM) internal view returns (GasOracleStructs.PriceUpdate memory parsedVM, bool isValid, string memory invalidReason) {//TODO this
+    function parseChangePricesMessage(bytes memory encoded) internal pure returns (GasOracleStructs.ChainPriceInfo[] memory priceInfos) {
+        uint index = 0;
+
+        bytes32 moduleName = encoded.toBytes32(index);
+        index += 32;
+        require(moduleName == module, "invalid price change message: wrong module");
+
+        uint16 version = encoded.toUint16(index);
+        index += 2;
+        require(version == 1, "invalid price change message: invalid version number");
+
+        uint16 arrayLength = encoded.toUint16(index);
+        index += 2;
+        require(arrayLength > 0, "invalid price change message: arrayLength not greater than 0");
+        
+        priceInfos = new GasOracleStructs.ChainPriceInfo[](arrayLength);
+
+        while(arrayLength > 0) {
+            uint16 chain = encoded.toUint16(index);
+            index += 2;
+            uint128 native = encoded.toUint128(index);
+            index += 16;
+            uint128 gas = encoded.toUint128(index);
+            index += 16;
+
+            priceInfos[arrayLength-1] = GasOracleStructs.ChainPriceInfo(chain, GasOracleStructs.PriceInfo(native, gas));
+            arrayLength--;
+        }
+
+        require(index == encoded.length, "Message length not equal to stated length");
     }
 
-    function parse(bytes memory encodedVM) internal view returns (GasOracleStructs.SignerUpdate memory parsedVM) {
+    function  (bytes memory encodedVM) internal view returns (GasOracleStructs.SignerUpdate memory parsedVM) {
 
     }
-
-    function setChangePricesActionConsumed(bytes32 hash) internal {
-
-    }
-
 
     // Access control
     modifier onlyApprovedUpdater {
