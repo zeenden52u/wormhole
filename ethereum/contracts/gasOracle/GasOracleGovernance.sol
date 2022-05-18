@@ -28,7 +28,7 @@ abstract contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC
 
         GasOracleStructs.UpgradeContract memory implementation = parseUpgrade(vm.payload);
 
-        require(GasOracleStructs.ChainId.unwrap(implementation.chainId) == GasOracleStructs.ChainId.unwrap(chainId()), "wrong chain id");
+        require(implementation.chainId == chainId(), "wrong chain id");
 
         upgradeImplementation(address(uint160(uint256(implementation.newContract))));
     }
@@ -40,7 +40,7 @@ abstract contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC
             return (vm, valid, reason);
         }
 
-        if (vm.emitterChainId != GasOracleStructs.ChainId.unwrap(governanceChainId())) {
+        if (vm.emitterChainId != governanceChainId()) {
             return (vm, false, "wrong governance chain");
         }
         if (vm.emitterAddress != governanceContract()) {
@@ -83,7 +83,7 @@ abstract contract GasOracleGovernance is GasOracleGetters, GasOracleSetters, ERC
         index += 1;
         require(chain.action == 2, "invalid UpgradeContract: wrong action");
 
-        chain.chainId = GasOracleStructs.ChainId.wrap(encoded.toUint16(index));
+        chain.chainId = encoded.toUint16(index);
         index += 2;
 
         // payload

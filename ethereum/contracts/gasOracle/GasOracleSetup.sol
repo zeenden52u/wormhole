@@ -17,11 +17,11 @@ contract GasOracleSetup is GasOracleSetters, ERC1967Upgrade {
         uint16 governanceChainId,
         bytes32 governanceContract
     ) public {
-        setChainId(GasOracleStructs.ChainId.wrap(chainId));
+        setChainId(chainId);
 
         setWormhole(wormhole);
 
-        setGovernanceChainId(GasOracleStructs.ChainId.wrap(governanceChainId));
+        setGovernanceChainId(governanceChainId);
         setGovernanceContract(governanceContract);
 
         _upgradeTo(implementation);

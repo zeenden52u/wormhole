@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 
 library GasOracleStructs {
 
-    type ChainId is uint16;
     
     struct UpgradeContract {
         // Governance Header
@@ -14,18 +13,18 @@ library GasOracleStructs {
         // governance action: 2
         uint8 action;
         // governance paket chain id
-        ChainId chainId;
+        uint16 chainId;
         // Address of the new contract
         bytes32 newContract;
     }
 
     struct PriceInfo {
-        bytes16 native;
-        bytes16 gas;
+        uint128 native;
+        uint128 gas;
     }
 
     struct ChainPriceInfo {
-        ChainId chain;
+        uint16 chain;
         PriceInfo priceInfo;
     }
 

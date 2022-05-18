@@ -21,11 +21,11 @@ abstract contract GasOracleGetters is GasOracleState {
         return IWormhole(_state.wormhole);
     }
 
-    function chainId() public view returns (GasOracleStructs.ChainId) {
+    function chainId() public view returns (uint16) {
         return _state.provider.chainId;
     }
 
-    function governanceChainId() public view returns (GasOracleStructs.ChainId) {
+    function governanceChainId() public view returns (uint16) {
         return _state.provider.governanceChainId;
     }
 
@@ -33,7 +33,7 @@ abstract contract GasOracleGetters is GasOracleState {
         return _state.provider.governanceContract;
     }
 
-    function priceInfo(GasOracleStructs.ChainId chain) public view returns (GasOracleStructs.PriceInfo memory) {
+    function priceInfo(uint16 chain) public view returns (GasOracleStructs.PriceInfo memory) {
         return _state.priceInfos[chain];
     }
 
