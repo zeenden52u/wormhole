@@ -1,7 +1,8 @@
 import { ChainId } from "@certusone/wormhole-sdk";
 import { Grid, makeStyles, Typography } from "@material-ui/core";
 import { ArrowForward } from "@material-ui/icons";
-import { useMemo, useState } from "react";
+import { useColor } from "color-thief-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Layer,
   Rectangle,
@@ -248,22 +249,20 @@ const Link = ({
   );
 };
 
-const Node = ({
-  x,
-  y,
-  width,
-  height,
-  index,
-  payload,
-  sourceChainColor,
-}: any) => {
+const Node = ({ x, y, width, height, index, payload }: any) => {
   // TODO: useMemo?
   const isTokenNode = payload.tokenTransfer !== undefined;
   const logo = isTokenNode
     ? COIN_GECKO_IMAGE_URLS[payload.tokenTransfer.CoinGeckoId]
     : CHAINS_BY_ID[payload.chainId as ChainId]?.logo;
+
+  const { data, loading, error } = useColor(logo, "rgbString", {
+    crossOrigin: "anonymous",
+  });
+  console.log(data, loading, error);
+
   const rectFill = isTokenNode
-    ? sourceChainColor
+    ? data
     : COLOR_BY_CHAIN_ID[payload.chainId as ChainId];
 
   return (
@@ -317,15 +316,11 @@ const TokenTransferStatsChart = ({
     return createChartData(tokenTransferStats, sourceChain, timeFrame);
   }, [tokenTransferStats, sourceChain, timeFrame]);
 
-  const sourceChainColor = useMemo(() => {
-    return COLOR_BY_CHAIN_ID[sourceChain];
-  }, [sourceChain]);
-
   return (
     <ResponsiveContainer height={452}>
       <Sankey
         data={data}
-        node={<Node sourceChainColor={sourceChainColor} />}
+        node={<Node />}
         link={<Link />}
         margin={{ top: 20, bottom: 20 }}
         nodePadding={32}
