@@ -25,7 +25,8 @@
     "deploy-bridge-implementation-only": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle migrate --f 6 --to 6",
     "deploy_weth9": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle migrate --f 9",
     "verify": "patch -u -f node_modules/truffle-plugin-verify/constants.js -i truffle-verify-constants.patch; truffle run verify $npm_config_module@$npm_config_contract_address --network $npm_config_network",
-    "abigen": "truffle run abigen"
+    "abigen": "truffle run abigen",
+    "contract-size" : "truffle run contract-size"
   },
   "author": "",
   "license": "ISC",
@@ -36,6 +37,7 @@
     "ganache-cli": "^6.12.1",
     "jsonfile": "^4.0.0",
     "solc": "^0.8.4",
+    "truffle-contract-size": "^2.0.1",
     "truffle-hdwallet-provider-klaytn": "^1.4.2"
   }
 }

@@ -3,9 +3,11 @@
 
 pragma solidity ^0.8.0;
 
+import "../ShutdownSwitch.sol";
+
 import "./NFTBridgeState.sol";
 
-contract NFTBridgeSetters is NFTBridgeState {
+contract NFTBridgeSetters is NFTBridgeState, ShutdownSwitch {
     function setInitialized(address implementatiom) internal {
         _state.initializedImplementations[implementatiom] = true;
     }
@@ -30,7 +32,9 @@ contract NFTBridgeSetters is NFTBridgeState {
         _state.provider.governanceContract = governanceContract;
     }
 
-    function setBridgeImplementation(uint16 chainId, bytes32 bridgeContract) internal {
+    function setBridgeImplementation(uint16 chainId, bytes32 bridgeContract)
+        internal
+    {
         _state.bridgeImplementations[chainId] = bridgeContract;
     }
 
@@ -42,12 +46,19 @@ contract NFTBridgeSetters is NFTBridgeState {
         _state.wormhole = payable(wh);
     }
 
-    function setWrappedAsset(uint16 tokenChainId, bytes32 tokenAddress, address wrapper) internal {
+    function setWrappedAsset(
+        uint16 tokenChainId,
+        bytes32 tokenAddress,
+        address wrapper
+    ) internal {
         _state.wrappedAssets[tokenChainId][tokenAddress] = wrapper;
         _state.isWrappedAsset[wrapper] = true;
     }
 
-    function setSplCache(uint256 tokenId, NFTBridgeStorage.SPLCache memory cache) internal {
+    function setSplCache(
+        uint256 tokenId,
+        NFTBridgeStorage.SPLCache memory cache
+    ) internal {
         _state.splCache[tokenId] = cache;
     }
 
@@ -57,5 +68,17 @@ contract NFTBridgeSetters is NFTBridgeState {
 
     function setFinality(uint8 finality) internal {
         _state.provider.finality = finality;
+    }
+
+    // This is required by ShutdownSwitch.
+    function getCurrentGuardianSet()
+        public
+        view
+        virtual
+        override
+        returns (Structs.GuardianSet memory)
+    {
+        IWormhole wh = IWormhole(_state.wormhole);
+        return wh.getGuardianSet(wh.getCurrentGuardianSetIndex());
     }
 }

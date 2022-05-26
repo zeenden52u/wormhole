@@ -32,6 +32,8 @@ contract BridgeSetup is BridgeSetters, ERC1967Upgrade {
 
         setFinality(finality);
 
+        setUpShutdownSwitch();
+
         _upgradeTo(implementation);
     }
 }
