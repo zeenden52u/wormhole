@@ -6,6 +6,7 @@ use std::ops::{
     DerefMut,
 };
 
+mod accounts;
 mod pack_type;
 mod solitaire;
 mod tracing;
