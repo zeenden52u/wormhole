@@ -1,9 +1,5 @@
 #![allow(warnings)]
 
-mod to_instruction;
-
-use to_instruction::*;
-
 use solana_program::{
     account_info::AccountInfo,
     entrypoint,
@@ -33,43 +29,6 @@ use syn::{
     Generics,
     Index,
 };
-
-#[proc_macro_derive(ToInstruction)]
-pub fn derive_to_instruction(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-
-    // Type params of the instruction context account
-    let type_params: Vec<GenericParam> = input
-        .generics
-        .type_params()
-        .map(|v| GenericParam::Type(v.clone()))
-        .collect();
-
-    // Generics lifetimes of the peel type
-    let mut peel_g = input.generics.clone();
-    peel_g.params = parse_quote!('a, 'b: 'a, 'c);
-    let (_, peel_type_g, _) = peel_g.split_for_impl();
-
-    // Params of the instruction context
-    let mut type_generics = input.generics.clone();
-    type_generics.params = parse_quote!('b);
-    for x in &type_params {
-        type_generics.params.push(x.clone());
-    }
-    let (type_impl_g, type_g, _) = type_generics.split_for_impl();
-
-    // Combined lifetimes of peel and the instruction context
-    let mut combined_generics = Generics::default();
-    combined_generics.params = peel_g.params.clone();
-    for x in &type_params {
-        combined_generics.params.push(x.clone());
-    }
-    let (combined_impl_g, _, _) = combined_generics.split_for_impl();
-
-    let expanded = generate_to_instruction(&name, &combined_impl_g, &input.data);
-    TokenStream::from(expanded)
-}
 
 /// Generate a FromAccounts implementation for a product of accounts. Each field is constructed by
 /// a call to the Verify::verify instance of its type.
