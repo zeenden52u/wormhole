@@ -4,11 +4,6 @@
 
 pub use rocksalt::*;
 
-// Lacking:
-//
-// - Error is a lacking as its just a basic enum, maybe use errorcode.
-// - Client generation incomplete.
-
 // We need a few Solana things in scope in order to properly abstract Solana.
 use solana_program::{
     account_info::{
