@@ -5,9 +5,6 @@ use solitaire::{
     *,
 };
 
-
-impl<'b> InstructionContext<'b> for PostMessage<'b> {
-}
 accounts!(PostMessage {
     bridge:         Mut<Info<'info>>,
     message:        Signer<Mut<Info<'info>>>,

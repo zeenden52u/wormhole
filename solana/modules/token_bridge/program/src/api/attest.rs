@@ -66,9 +66,6 @@ use std::ops::{
     DerefMut,
 };
 
-
-impl<'b> InstructionContext<'b> for AttestToken<'b> {
-}
 accounts!(AttestToken {
     payer:         Mut<Signer<AccountInfo<'info>>>,
     config:        Mut<ConfigAccount<'info, { Initialized }>>,

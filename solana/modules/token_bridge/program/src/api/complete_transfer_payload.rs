@@ -79,9 +79,6 @@ impl<'a> From<&CompleteNativeWithPayload<'a>> for CustodyAccountDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for CompleteNativeWithPayload<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct CompleteNativeWithPayloadData {}
 
@@ -200,9 +197,6 @@ impl<'a> From<&CompleteWrappedWithPayload<'a>> for WrappedDerivationData {
             token_address: accs.vaa.token_address,
         }
     }
-}
-
-impl<'b> InstructionContext<'b> for CompleteWrappedWithPayload<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]

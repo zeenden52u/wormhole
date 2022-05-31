@@ -70,9 +70,6 @@ impl<'a> From<&CompleteNative<'a>> for CustodyAccountDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for CompleteNative<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct CompleteNativeData {}
 
@@ -193,9 +190,6 @@ impl<'a> From<&CompleteWrapped<'a>> for WrappedMetaDerivationData {
             mint_key: *accs.mint.info().key,
         }
     }
-}
-
-impl<'b> InstructionContext<'b> for CompleteWrapped<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
@@ -323,9 +317,6 @@ impl<'a> From<&CompleteWrappedMeta<'a>> for WrappedMetaDerivationData {
             mint_key: *accs.mint.info().key,
         }
     }
-}
-
-impl<'b> InstructionContext<'b> for CompleteWrappedMeta<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]

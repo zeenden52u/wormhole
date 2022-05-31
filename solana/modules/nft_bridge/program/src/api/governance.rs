@@ -52,9 +52,6 @@ where
     }
 }
 
-
-impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
-}
 accounts!(UpgradeContract {
     payer:             Mut<Signer<Info<'info>>>,
     vaa:               PayloadMessage<'info, GovernancePayloadUpgrade>,
@@ -113,9 +110,6 @@ impl<'a> From<&RegisterChain<'a>> for EndpointDerivationData {
             emitter_address: accs.vaa.endpoint_address,
         }
     }
-}
-
-impl<'b> InstructionContext<'b> for RegisterChain<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]

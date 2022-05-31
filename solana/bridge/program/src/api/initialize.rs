@@ -15,9 +15,6 @@ use solitaire::{
     *,
 };
 
-
-impl<'b> InstructionContext<'b> for Initialize<'b> {
-}
 accounts!(Initialize {
     bridge:        Mut<Bridge<'info, { AccountState::Uninitialized }>>,
     guardian_set:  Mut<GuardianSet<'info, { AccountState::Uninitialized }>>,

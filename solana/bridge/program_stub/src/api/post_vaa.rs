@@ -26,9 +26,6 @@ use solitaire::{
     CreationLamports::Exempt,
 };
 
-
-impl<'b> InstructionContext<'b> for PostVAA<'b> {
-}
 accounts!(PostVAA {
     guardian_set:  Info<'info>,
     bridge_info:   Bridge<'info, { Initialized }>,

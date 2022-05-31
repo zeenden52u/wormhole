@@ -97,9 +97,6 @@ impl<'a> From<&CreateWrapped<'a>> for WrappedMetaDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for CreateWrapped<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct CreateWrappedData {
 }

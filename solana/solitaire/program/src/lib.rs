@@ -104,9 +104,3 @@ impl CreationLamports {
         }
     }
 }
-
-pub trait InstructionContext<'a> {
-    fn deps(&self) -> Vec<Pubkey> {
-        vec![]
-    }
-}

@@ -86,9 +86,6 @@ impl<'a> From<&TransferNative<'a>> for SplTokenMetaDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for TransferNative<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct TransferNativeData {
     pub nonce: u32,
@@ -240,9 +237,6 @@ impl<'a> From<&TransferWrapped<'a>> for SplTokenMetaDerivationData {
             mint: *accs.mint.info().key,
         }
     }
-}
-
-impl<'b> InstructionContext<'b> for TransferWrapped<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]

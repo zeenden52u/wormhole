@@ -27,8 +27,6 @@ use solitaire::{
 
 pub type UninitializedMessage<'b> = PostedMessage<'b, { AccountState::Uninitialized }>;
 
-
-impl<'b> InstructionContext<'b> for PostMessage<'b> {}
 accounts!(PostMessage {
     bridge:        Mut<Bridge<'info, { AccountState::Initialized }>>,
     message:       Signer<Mut<UninitializedMessage<'info>>>,

@@ -20,9 +20,6 @@ use solitaire::{
     CreationLamports::Exempt,
 };
 
-
-impl<'b> InstructionContext<'b> for VerifySignatures<'b> {
-}
 accounts!(VerifySignatures {
     payer:           Mut<Signer<Info<'info>>>,
     guardian_set:    GuardianSet<'info, { AccountState::Initialized }>,

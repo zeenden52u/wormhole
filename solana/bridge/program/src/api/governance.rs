@@ -53,9 +53,6 @@ where
     }
 }
 
-
-impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
-}
 accounts!(UpgradeContract {
     payer:             Mut<Signer<Info<'info>>>,
     bridge:            Mut<Bridge<'info, { AccountState::Initialized }>>,
@@ -100,9 +97,6 @@ pub fn upgrade_contract(
     Ok(())
 }
 
-
-impl<'b> InstructionContext<'b> for UpgradeGuardianSet<'b> {
-}
 accounts!(UpgradeGuardianSet {
     payer:            Mut<Signer<Info<'info>>>,
     bridge:           Mut<Bridge<'info, { AccountState::Initialized }>>,
@@ -172,9 +166,6 @@ pub fn upgrade_guardian_set(
     Ok(())
 }
 
-
-impl<'b> InstructionContext<'b> for SetFees<'b> {
-}
 accounts!(SetFees {
     payer:     Mut<Signer<Info<'info>>>,
     bridge:    Mut<Bridge<'info, { AccountState::Initialized }>>,
@@ -193,9 +184,6 @@ pub fn set_fees(ctx: &ExecutionContext, accs: &mut SetFees, _data: SetFeesData) 
     Ok(())
 }
 
-
-impl<'b> InstructionContext<'b> for TransferFees<'b> {
-}
 accounts!(TransferFees {
     payer:         Mut<Signer<Info<'info>>>,
     bridge:        Bridge<'info, { AccountState::Initialized }>,

@@ -28,9 +28,6 @@ pub struct InitializeData {
     pub bridge: Pubkey,
 }
 
-impl<'b> InstructionContext<'b> for Initialize<'b> {
-}
-
 pub fn initialize(
     ctx: &ExecutionContext,
     accs: &mut Initialize,

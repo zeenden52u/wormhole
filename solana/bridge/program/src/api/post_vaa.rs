@@ -47,9 +47,6 @@ use std::io::{
     Write,
 };
 
-
-impl<'b> InstructionContext<'b> for PostVAA<'b> {
-}
 accounts!(PostVAA {
     guardian_set:  GuardianSet<'info, { AccountState::Initialized }>,
     bridge_info:   Bridge<'info, { AccountState::Initialized }>,
