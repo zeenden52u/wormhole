@@ -46,14 +46,13 @@ pub use borsh::{
     BorshSerialize,
 };
 
-// Expose all submodules for consumption.
+// Expose all submodules from this crate.
 pub mod error;
 pub mod macros;
 pub mod processors;
 pub mod types;
 
-// We can also re-export a set of types at module scope, this defines the intended API we expect
-// people to be able to use from top-level.
+// This is the set of imports that is re-exported to act as the public API for this library.
 pub use crate::{
     error::{
         ErrBox,
@@ -77,15 +76,18 @@ pub use crate::{
     types::*,
 };
 
-/// Library name and version to print in entrypoint. Must be evaluated in this crate in order to do the right thing
+/// Library name and version to print in entrypoint. Must be evaluated in this crate in order to do
+/// the right thing.
 pub const PKG_NAME_VERSION: &'static str =
     concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
 
 pub struct ExecutionContext<'a, 'b: 'a> {
-    /// A reference to the program_id of the current program.
+    /// A reference to the program_id of the currently executing program.
     pub program_id: &'a Pubkey,
 
-    /// All accounts passed into the program
+    /// This is the original list of accounts passed to the entrypoint. This can be used to access
+    /// any trailing accounts that were not processed by the program. Be careful when using this
+    /// directly.
     pub accounts: &'a [AccountInfo<'b>],
 }
 
