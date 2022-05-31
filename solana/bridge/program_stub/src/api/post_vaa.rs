@@ -22,32 +22,21 @@ use bridge::{
 };
 use solitaire::{
     processors::seeded::Seeded,
+    AccountState::*,
     CreationLamports::Exempt,
 };
 
-#[derive(FromAccounts)]
-pub struct PostVAA<'b> {
-    /// Information about the current guardian set.
-    pub guardian_set: Info<'b>,
-
-    /// Bridge Info
-    pub bridge_info: Bridge<'b, { AccountState::Initialized }>,
-
-    /// Signature Info
-    pub signature_set: Info<'b>,
-
-    /// Message the VAA is associated with.
-    pub message: Mut<PostedVAA<'b, { AccountState::MaybeInitialized }>>,
-
-    /// Account used to pay for auxillary instructions.
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Clock used for timestamping.
-    pub clock: Sysvar<'b, Clock>,
-}
 
 impl<'b> InstructionContext<'b> for PostVAA<'b> {
 }
+accounts!(PostVAA {
+    guardian_set:  Info<'info>,
+    bridge_info:   Bridge<'info, { Initialized }>,
+    signature_set: Info<'info>,
+    message:       Mut<PostedVAA<'info, { MaybeInitialized }>>,
+    payer:         Mut<Signer<Info<'info>>>,
+    clock:         Sysvar<'info, Clock>,
+});
 
 #[derive(Default, BorshSerialize, BorshDeserialize)]
 pub struct Signature {

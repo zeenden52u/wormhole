@@ -5,33 +5,19 @@ use solitaire::{
     *,
 };
 
-#[derive(FromAccounts)]
-pub struct PostMessage<'b> {
-    /// Bridge config needed for fee calculation.
-    pub bridge: Mut<Info<'b>>,
-
-    /// Account to store the posted message
-    pub message: Signer<Mut<Info<'b>>>,
-
-    /// Emitter of the VAA
-    pub emitter: MaybeMut<Info<'b>>,
-
-    /// Tracker for the emitter sequence
-    pub sequence: Mut<Info<'b>>,
-
-    /// Payer for account creation
-    pub payer: Mut<Info<'b>>,
-
-    /// Account to collect tx fee
-    pub fee_collector: Mut<Info<'b>>,
-
-    pub clock: Info<'b>,
-
-    pub bridge_program: Info<'b>,
-}
 
 impl<'b> InstructionContext<'b> for PostMessage<'b> {
 }
+accounts!(PostMessage {
+    bridge:         Mut<Info<'info>>,
+    message:        Signer<Mut<Info<'info>>>,
+    emitter:        MaybeMut<Info<'info>>,
+    sequence:       Mut<Info<'info>>,
+    payer:          Mut<Info<'info>>,
+    fee_collector:  Mut<Info<'info>>,
+    clock:          Info<'info>,
+    bridge_program: Info<'info>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct PostMessageData {

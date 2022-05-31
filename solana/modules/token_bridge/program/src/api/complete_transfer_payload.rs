@@ -35,6 +35,7 @@ use solitaire::{
         invoke_seeded,
         Seeded,
     },
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -47,33 +48,19 @@ use std::ops::{
     DerefMut,
 };
 
-#[derive(FromAccounts)]
-pub struct CompleteNativeWithPayload<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    pub vaa: PayloadMessage<'b, PayloadTransferWithPayload>,
-    pub vaa_claim: ClaimableVAA<'b>,
-    pub chain_registration: Endpoint<'b, { AccountState::Initialized }>,
-
-    pub to: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    /// Transfer with payload can only be redeemed by the recipient. The idea is
-    /// to target contracts which can then decide how to process the payload.
-    ///
-    /// The actual recipient (the `to` field above) is an associated token
-    /// account of the target contract and not the contract itself, so we also need
-    /// to take the target contract's address directly. This will be the owner
-    /// of the associated token account. This ownership check cannot be
-    /// expressed in Solitaire, so we have to check it explicitly in
-    /// [`complete_native_with_payload`]
-    /// We require that the contract is a signer of this transaction.
-    pub to_owner: MaybeMut<Signer<Info<'b>>>,
-    pub to_fees: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub custody: Mut<CustodyAccount<'b, { AccountState::Initialized }>>,
-    pub mint: Data<'b, SplMint, { AccountState::Initialized }>,
-
-    pub custody_signer: CustodySigner<'b>,
-}
+accounts!(CompleteNativeWithPayload {
+    payer:              Mut<Signer<AccountInfo<'info>>>,
+    config:             ConfigAccount<'info, { Initialized }>,
+    vaa:                PayloadMessage<'info, PayloadTransferWithPayload>,
+    vaa_claim:          ClaimableVAA<'info>,
+    chain_registration: Endpoint<'info, { Initialized }>,
+    to:                 Mut<Data<'info, SplAccount, { Initialized }>>,
+    to_owner:           MaybeMut<Signer<Info<'info>>>,
+    to_fees:            Mut<Data<'info, SplAccount, { Initialized }>>,
+    custody:            Mut<CustodyAccount<'info, { Initialized }>>,
+    mint:               Data<'info, SplMint, { Initialized }>,
+    custody_signer:     CustodySigner<'info>,
+});
 
 impl<'a> From<&CompleteNativeWithPayload<'a>> for EndpointDerivationData {
     fn from(accs: &CompleteNativeWithPayload<'a>) -> Self {
@@ -183,35 +170,19 @@ pub fn complete_native_with_payload(
     Ok(())
 }
 
-#[derive(FromAccounts)]
-pub struct CompleteWrappedWithPayload<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    // Signed message for the transfer
-    pub vaa: PayloadMessage<'b, PayloadTransferWithPayload>,
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    pub chain_registration: Endpoint<'b, { AccountState::Initialized }>,
-
-    pub to: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    /// Transfer with payload can only be redeemed by the recipient. The idea is
-    /// to target contracts which can then decide how to process the payload.
-    ///
-    /// The actual recipient (the `to` field above) is an associated token
-    /// account of the target contract and not the contract itself, so we also need
-    /// to take the target contract's address directly. This will be the owner
-    /// of the associated token account. This ownership check cannot be
-    /// expressed in Solitaire, so we have to check it explicitly in
-    /// [`complete_native_with_payload`]
-    /// We require that the contract is a signer of this transaction.
-    pub to_owner: MaybeMut<Signer<Info<'b>>>,
-    pub to_fees: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub mint: Mut<WrappedMint<'b, { AccountState::Initialized }>>,
-    pub wrapped_meta: WrappedTokenMeta<'b, { AccountState::Initialized }>,
-
-    pub mint_authority: MintSigner<'b>,
-}
+accounts!(CompleteWrappedWithPayload {
+    payer:              Mut<Signer<AccountInfo<'info>>>,
+    config:             ConfigAccount<'info, { AccountState::Initialized }>,
+    vaa:                PayloadMessage<'info, PayloadTransferWithPayload>,
+    vaa_claim:          ClaimableVAA<'info>,
+    chain_registration: Endpoint<'info, { AccountState::Initialized }>,
+    to:                 Mut<Data<'info, SplAccount, { AccountState::Initialized }>>,
+    to_owner:           MaybeMut<Signer<Info<'info>>>,
+    to_fees:            Mut<Data<'info, SplAccount, { AccountState::Initialized }>>,
+    mint:               Mut<WrappedMint<'info, { AccountState::Initialized }>>,
+    wrapped_meta:       WrappedTokenMeta<'info, { AccountState::Initialized }>,
+    mint_authority:     MintSigner<'info>,
+});
 
 impl<'a> From<&CompleteWrappedWithPayload<'a>> for EndpointDerivationData {
     fn from(accs: &CompleteWrappedWithPayload<'a>) -> Self {

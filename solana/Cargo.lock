@@ -1567,7 +1567,6 @@ dependencies = [
  "libsecp256k1",
  "primitive-types",
  "rand 0.7.3",
- "rocksalt",
  "serde",
  "sha3",
  "solana-program",
@@ -2172,18 +2171,6 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
-]
-
-[[package]]
-name = "rocksalt"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "proc-macro2 1.0.37",
- "quote 1.0.18",
- "sha3",
- "solana-program",
- "syn 1.0.91",
 ]
 
 [[package]]
@@ -3169,7 +3156,6 @@ version = "0.1.0"
 dependencies = [
  "borsh",
  "byteorder",
- "rocksalt",
  "sha3",
  "solana-program",
 ]
@@ -3459,7 +3445,6 @@ dependencies = [
  "libsecp256k1",
  "primitive-types",
  "rand 0.7.3",
- "rocksalt",
  "serde",
  "sha3",
  "solana-program",
@@ -4057,7 +4042,6 @@ dependencies = [
  "hex-literal",
  "libsecp256k1",
  "rand 0.7.3",
- "rocksalt",
  "serde",
  "sha3",
  "solana-client",

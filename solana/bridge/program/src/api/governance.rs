@@ -53,44 +53,24 @@ where
     }
 }
 
-#[derive(FromAccounts)]
-pub struct UpgradeContract<'b> {
-    /// Payer for account creation (vaa-claim)
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Bridge config
-    pub bridge: Mut<Bridge<'b, { AccountState::Initialized }>>,
-
-    /// GuardianSet change VAA
-    pub vaa: PayloadMessage<'b, GovernancePayloadUpgrade>,
-
-    /// Claim account representing whether the vaa has already been consumed.
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    /// PDA authority for the loader
-    pub upgrade_authority: Derive<Info<'b>, "upgrade">,
-
-    /// Spill address for the upgrade excess lamports
-    pub spill: Mut<Info<'b>>,
-
-    /// New contract address.
-    pub buffer: Mut<Info<'b>>,
-
-    /// Required by the upgradeable uploader.
-    pub program_data: Mut<Info<'b>>,
-
-    /// Our own address, required by the upgradeable loader.
-    pub own_address: Mut<Info<'b>>,
-
-    // Various sysvar/program accounts needed for the upgradeable loader.
-    pub rent: Sysvar<'b, Rent>,
-    pub clock: Sysvar<'b, Clock>,
-    pub bpf_loader: Info<'b>,
-    pub system: Info<'b>,
-}
 
 impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
 }
+accounts!(UpgradeContract {
+    payer:             Mut<Signer<Info<'info>>>,
+    bridge:            Mut<Bridge<'info, { AccountState::Initialized }>>,
+    vaa:               PayloadMessage<'info, GovernancePayloadUpgrade>,
+    vaa_claim:         ClaimableVAA<'info>,
+    upgrade_authority: Derive<Info<'info>, "upgrade">,
+    spill:             Mut<Info<'info>>,
+    buffer:            Mut<Info<'info>>,
+    program_data:      Mut<Info<'info>>,
+    own_address:       Mut<Info<'info>>,
+    rent:              Sysvar<'info, Rent>,
+    clock:             Sysvar<'info, Clock>,
+    bpf_loader:        Info<'info>,
+    system:            Info<'info>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct UpgradeContractData {}
@@ -120,29 +100,17 @@ pub fn upgrade_contract(
     Ok(())
 }
 
-#[derive(FromAccounts)]
-pub struct UpgradeGuardianSet<'b> {
-    /// Payer for account creation (vaa-claim)
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Bridge config
-    pub bridge: Mut<Bridge<'b, { AccountState::Initialized }>>,
-
-    /// GuardianSet change VAA
-    pub vaa: PayloadMessage<'b, GovernancePayloadGuardianSetChange>,
-
-    /// Claim account representing whether the vaa has already been consumed.
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    /// Old guardian set
-    pub guardian_set_old: Mut<GuardianSet<'b, { AccountState::Initialized }>>,
-
-    /// New guardian set
-    pub guardian_set_new: Mut<GuardianSet<'b, { AccountState::Uninitialized }>>,
-}
 
 impl<'b> InstructionContext<'b> for UpgradeGuardianSet<'b> {
 }
+accounts!(UpgradeGuardianSet {
+    payer:            Mut<Signer<Info<'info>>>,
+    bridge:           Mut<Bridge<'info, { AccountState::Initialized }>>,
+    vaa:              PayloadMessage<'info, GovernancePayloadGuardianSetChange>,
+    vaa_claim:        ClaimableVAA<'info>,
+    guardian_set_old: Mut<GuardianSet<'info, { AccountState::Initialized }>>,
+    guardian_set_new: Mut<GuardianSet<'info, { AccountState::Uninitialized }>>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct UpgradeGuardianSetData {}
@@ -204,23 +172,15 @@ pub fn upgrade_guardian_set(
     Ok(())
 }
 
-#[derive(FromAccounts)]
-pub struct SetFees<'b> {
-    /// Payer for account creation (vaa-claim)
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Bridge config
-    pub bridge: Mut<Bridge<'b, { AccountState::Initialized }>>,
-
-    /// Governance VAA
-    pub vaa: PayloadMessage<'b, GovernancePayloadSetMessageFee>,
-
-    /// Claim account representing whether the vaa has already been consumed.
-    pub vaa_claim: ClaimableVAA<'b>,
-}
 
 impl<'b> InstructionContext<'b> for SetFees<'b> {
 }
+accounts!(SetFees {
+    payer:     Mut<Signer<Info<'info>>>,
+    bridge:    Mut<Bridge<'info, { AccountState::Initialized }>>,
+    vaa:       PayloadMessage<'info, GovernancePayloadSetMessageFee>,
+    vaa_claim: ClaimableVAA<'info>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct SetFeesData {}
@@ -233,32 +193,18 @@ pub fn set_fees(ctx: &ExecutionContext, accs: &mut SetFees, _data: SetFeesData) 
     Ok(())
 }
 
-#[derive(FromAccounts)]
-pub struct TransferFees<'b> {
-    /// Payer for account creation (vaa-claim)
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Bridge config
-    pub bridge: Bridge<'b, { AccountState::Initialized }>,
-
-    /// Governance VAA
-    pub vaa: PayloadMessage<'b, GovernancePayloadTransferFees>,
-
-    /// Claim account representing whether the vaa has already been consumed.
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    /// Account collecting tx fees
-    pub fee_collector: Mut<Derive<Info<'b>, "fee_collector">>,
-
-    /// Fee recipient
-    pub recipient: Mut<Info<'b>>,
-
-    /// Rent calculator to check transfer sizes.
-    pub rent: Sysvar<'b, Rent>,
-}
 
 impl<'b> InstructionContext<'b> for TransferFees<'b> {
 }
+accounts!(TransferFees {
+    payer:         Mut<Signer<Info<'info>>>,
+    bridge:        Bridge<'info, { AccountState::Initialized }>,
+    vaa:           PayloadMessage<'info, GovernancePayloadTransferFees>,
+    vaa_claim:     ClaimableVAA<'info>,
+    fee_collector: Mut<Derive<Info<'info>, "fee_collector">>,
+    recipient:     Mut<Info<'info>>,
+    rent:          Sysvar<'info, Rent>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct TransferFeesData {}

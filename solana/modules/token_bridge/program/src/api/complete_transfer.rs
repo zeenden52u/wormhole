@@ -33,6 +33,7 @@ use solitaire::{
         invoke_seeded,
         Seeded,
     },
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -45,22 +46,18 @@ use std::ops::{
     DerefMut,
 };
 
-#[derive(FromAccounts)]
-pub struct CompleteNative<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    pub vaa: PayloadMessage<'b, PayloadTransfer>,
-    pub vaa_claim: ClaimableVAA<'b>,
-    pub chain_registration: Endpoint<'b, { AccountState::Initialized }>,
-
-    pub to: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub to_fees: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub custody: Mut<CustodyAccount<'b, { AccountState::Initialized }>>,
-    pub mint: Data<'b, SplMint, { AccountState::Initialized }>,
-
-    pub custody_signer: CustodySigner<'b>,
-}
+accounts!(CompleteNative {
+    payer:              Mut<Signer<AccountInfo<'info>>>,
+    config:             ConfigAccount<'info, { Initialized }>,
+    vaa:                PayloadMessage<'info, PayloadTransfer>,
+    vaa_claim:          ClaimableVAA<'info>,
+    chain_registration: Endpoint<'info, { Initialized }>,
+    to:                 Mut<Data<'info, SplAccount, { Initialized }>>,
+    to_fees:            Mut<Data<'info, SplAccount, { Initialized }>>,
+    custody:            Mut<CustodyAccount<'info, { Initialized }>>,
+    mint:               Data<'info, SplMint, { Initialized }>,
+    custody_signer:     CustodySigner<'info>,
+});
 
 impl<'a> From<&CompleteNative<'a>> for EndpointDerivationData {
     fn from(accs: &CompleteNative<'a>) -> Self {
@@ -168,24 +165,18 @@ pub fn complete_native(
     Ok(())
 }
 
-#[derive(FromAccounts)]
-pub struct CompleteWrapped<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    // Signed message for the transfer
-    pub vaa: PayloadMessage<'b, PayloadTransfer>,
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    pub chain_registration: Endpoint<'b, { AccountState::Initialized }>,
-
-    pub to: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub to_fees: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub mint: Mut<WrappedMint<'b, { AccountState::Initialized }>>,
-    pub wrapped_meta: WrappedTokenMeta<'b, { AccountState::Initialized }>,
-
-    pub mint_authority: MintSigner<'b>,
-}
+accounts!(CompleteWrapped {
+    payer:              Mut<Signer<AccountInfo<'info>>>,
+    config:             ConfigAccount<'info, { AccountState::Initialized }>,
+    vaa:                PayloadMessage<'info, PayloadTransfer>,
+    vaa_claim:          ClaimableVAA<'info>,
+    chain_registration: Endpoint<'info, { AccountState::Initialized }>,
+    to:                 Mut<Data<'info, SplAccount, { AccountState::Initialized }>>,
+    to_fees:            Mut<Data<'info, SplAccount, { AccountState::Initialized }>>,
+    mint:               Mut<WrappedMint<'info, { AccountState::Initialized }>>,
+    wrapped_meta:       WrappedTokenMeta<'info, { AccountState::Initialized }>,
+    mint_authority:     MintSigner<'info>,
+});
 
 impl<'a> From<&CompleteWrapped<'a>> for EndpointDerivationData {
     fn from(accs: &CompleteWrapped<'a>) -> Self {

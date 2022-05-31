@@ -24,7 +24,6 @@ macro_rules! solitaire {
             use solitaire::{
                 trace,
                 ExecutionContext,
-                FromAccounts,
                 Persist,
                 Result,
                 SolitaireError,
@@ -42,11 +41,11 @@ macro_rules! solitaire {
                     use super::*;
 
                     #[inline(never)]
-                    pub fn execute<'a, 'b: 'a, 'c>(p: &Pubkey, a: &'c [AccountInfo<'b>], d: &[u8]) -> Result<()> {
+                    pub fn execute(p: &Pubkey, a: &[AccountInfo], d: &[u8]) -> Result<()> {
                         let ix_data = BorshDeserialize::try_from_slice(d).map_err(|e| SolitaireError::InstructionDeserializeFailed(e))?;
-                        let mut accounts = FromAccounts::from(p, &mut a.iter(), &())?;
+                        let mut accounts = crate::$row::parse(p, a, &())?;
                         $fn(&ExecutionContext{program_id: p, accounts: a}, &mut accounts, ix_data)?;
-                        Persist::persist(&accounts, p)?;
+                        crate::$row::persist(&accounts, p)?;
                         Ok(())
                     }
                 }
@@ -63,7 +62,7 @@ macro_rules! solitaire {
 
             /// This entrypoint is generated from the enum above, it deserializes incoming bytes
             /// and automatically dispatches to the correct method.
-            pub fn dispatch<'a, 'b: 'a, 'c>(p: &Pubkey, a: &'c [AccountInfo<'b>], d: &[u8]) -> Result<()> {
+            pub fn dispatch(p: &Pubkey, a: &[AccountInfo], d: &[u8]) -> Result<()> {
                 match d[0] {
                     $(
                         n if n == Instruction::$row as u8 => $row::execute(p, a, &d[1..]),

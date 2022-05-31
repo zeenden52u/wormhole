@@ -5,15 +5,14 @@ use solana_program::{
 };
 use solitaire::{
     CreationLamports::Exempt,
+    AccountState::Uninitialized,
     *,
 };
 
-#[derive(FromAccounts)]
-pub struct Initialize<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-
-    pub config: Mut<ConfigAccount<'b, { AccountState::Uninitialized }>>,
-}
+accounts!(Initialize {
+    payer:  Mut<Signer<Info<'info>>>,
+    config: Mut<ConfigAccount<'info, { Uninitialized }>>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct InitializeData {

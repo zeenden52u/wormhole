@@ -117,7 +117,7 @@ pub struct PayloadMessage<'b, T: DeserializePayload>(
 );
 
 impl<'a, 'b: 'a, T: DeserializePayload> Peel<'a, 'b> for PayloadMessage<'b, T> {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self>
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self>
     where
         Self: Sized,
     {
@@ -155,7 +155,7 @@ pub struct ClaimableVAA<'b>(
 );
 
 impl<'a, 'b: 'a> Peel<'a, 'b> for ClaimableVAA<'b> {
-    fn peel<I>(mut ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         Mut::<Claim<'b, { AccountState::Uninitialized }>>::peel(ctx).map(|c| Self(c))
     }
 

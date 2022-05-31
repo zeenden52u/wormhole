@@ -2,8 +2,6 @@
 #![feature(adt_const_params)]
 #![allow(warnings)]
 
-pub use rocksalt::*;
-
 // We need a few Solana things in scope in order to properly abstract Solana.
 use solana_program::{
     account_info::{
@@ -111,12 +109,4 @@ pub trait InstructionContext<'a> {
     fn deps(&self) -> Vec<Pubkey> {
         vec![]
     }
-}
-
-/// Trait definition that describes types that can be constructed from a list of solana account
-/// references. A list of dependent accounts is produced as a side effect of the parsing stage.
-pub trait FromAccounts<'a, 'b: 'a> {
-    fn from<T>(_: &'a Pubkey, _: &mut Iter<'a, AccountInfo<'b>>, _: &'a T) -> Result<Self>
-    where
-        Self: Sized;
 }

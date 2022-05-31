@@ -47,37 +47,17 @@ use std::io::{
     Write,
 };
 
-impl From<&PostVAAData> for GuardianSetDerivationData {
-    fn from(data: &PostVAAData) -> Self {
-        GuardianSetDerivationData {
-            index: data.guardian_set_index,
-        }
-    }
-}
-
-#[derive(FromAccounts)]
-pub struct PostVAA<'b> {
-    /// Information about the current guardian set.
-    pub guardian_set: GuardianSet<'b, { AccountState::Initialized }>,
-
-    /// Bridge Info
-    pub bridge_info: Bridge<'b, { AccountState::Initialized }>,
-
-    /// Signature Info
-    pub signature_set: SignatureSet<'b, { AccountState::Initialized }>,
-
-    /// Message the VAA is associated with.
-    pub message: Mut<PostedVAA<'b, { AccountState::MaybeInitialized }>>,
-
-    /// Account used to pay for auxillary instructions.
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Clock used for timestamping.
-    pub clock: Sysvar<'b, Clock>,
-}
 
 impl<'b> InstructionContext<'b> for PostVAA<'b> {
 }
+accounts!(PostVAA {
+    guardian_set:  GuardianSet<'info, { AccountState::Initialized }>,
+    bridge_info:   Bridge<'info, { AccountState::Initialized }>,
+    signature_set: SignatureSet<'info, { AccountState::Initialized }>,
+    message:       Mut<PostedVAA<'info, { AccountState::MaybeInitialized }>>,
+    payer:         Mut<Signer<Info<'info>>>,
+    clock:         Sysvar<'info, Clock>,
+});
 
 #[derive(Default, BorshSerialize, BorshDeserialize)]
 pub struct Signature {
@@ -104,6 +84,15 @@ pub struct PostVAAData {
     pub consistency_level: u8,
     pub payload: Vec<u8>,
 }
+
+impl From<&PostVAAData> for GuardianSetDerivationData {
+    fn from(data: &PostVAAData) -> Self {
+        GuardianSetDerivationData {
+            index: data.guardian_set_index,
+        }
+    }
+}
+
 
 pub fn post_vaa(ctx: &ExecutionContext, accs: &mut PostVAA, vaa: PostVAAData) -> Result<()> {
     let msg_derivation = PostedVAADerivationData {

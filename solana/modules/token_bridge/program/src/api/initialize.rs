@@ -9,6 +9,7 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use solitaire::{
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -17,12 +18,10 @@ use std::ops::{
     DerefMut,
 };
 
-#[derive(FromAccounts)]
-pub struct Initialize<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-
-    pub config: Mut<ConfigAccount<'b, { AccountState::Uninitialized }>>,
-}
+accounts!(Initialize {
+    payer:  Mut<Signer<AccountInfo<'info>>>,
+    config: Mut<ConfigAccount<'info, { Uninitialized }>>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct InitializeData {

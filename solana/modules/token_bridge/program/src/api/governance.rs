@@ -36,6 +36,7 @@ use solana_program::{
 };
 use solitaire::{
     processors::seeded::Seeded,
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -59,39 +60,23 @@ where
     }
 }
 
-#[derive(FromAccounts)]
-pub struct UpgradeContract<'b> {
-    /// Payer for account creation (vaa-claim)
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// GuardianSet change VAA
-    pub vaa: PayloadMessage<'b, GovernancePayloadUpgrade>,
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    /// PDA authority for the loader
-    pub upgrade_authority: Derive<Info<'b>, "upgrade">,
-
-    /// Spill address for the upgrade excess lamports
-    pub spill: Mut<Info<'b>>,
-
-    /// New contract address.
-    pub buffer: Mut<Info<'b>>,
-
-    /// Required by the upgradeable uploader.
-    pub program_data: Mut<Info<'b>>,
-
-    /// Our own address, required by the upgradeable loader.
-    pub own_address: Mut<Info<'b>>,
-
-    // Various sysvar/program accounts needed for the upgradeable loader.
-    pub rent: Sysvar<'b, Rent>,
-    pub clock: Sysvar<'b, Clock>,
-    pub bpf_loader: Info<'b>,
-    pub system: Info<'b>,
-}
 
 impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
 }
+accounts!(UpgradeContract {
+    payer:             Mut<Signer<Info<'info>>>,
+    vaa:               PayloadMessage<'info, GovernancePayloadUpgrade>,
+    vaa_claim:         ClaimableVAA<'info>,
+    upgrade_authority: Derive<Info<'info>, "upgrade">,
+    spill:             Mut<Info<'info>>,
+    buffer:            Mut<Info<'info>>,
+    program_data:      Mut<Info<'info>>,
+    own_address:       Mut<Info<'info>>,
+    rent:              Sysvar<'info, Rent>,
+    clock:             Sysvar<'info, Clock>,
+    bpf_loader:        Info<'info>,
+    system:            Info<'info>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct UpgradeContractData {}
@@ -125,16 +110,13 @@ pub fn upgrade_contract(
     Ok(())
 }
 
-#[derive(FromAccounts)]
-pub struct RegisterChain<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    pub endpoint: Mut<Endpoint<'b, { AccountState::Uninitialized }>>,
-
-    pub vaa: PayloadMessage<'b, PayloadGovernanceRegisterChain>,
-    pub vaa_claim: ClaimableVAA<'b>,
-}
+accounts!(RegisterChain {
+    payer:     Mut<Signer<AccountInfo<'info>>>,
+    config:    ConfigAccount<'info, { Initialized }>,
+    endpoint:  Mut<Endpoint<'info, { Uninitialized }>>,
+    vaa:       PayloadMessage<'info, PayloadGovernanceRegisterChain>,
+    vaa_claim: ClaimableVAA<'info>,
+});
 
 impl<'a> From<&RegisterChain<'a>> for EndpointDerivationData {
     fn from(accs: &RegisterChain<'a>) -> Self {

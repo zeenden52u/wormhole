@@ -9,7 +9,6 @@ use crate::{
     Deref,
     Derive,
     ExecutionContext,
-    FromAccounts,
     Info,
     IsSigned::*,
     Peel,

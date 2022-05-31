@@ -20,23 +20,15 @@ use solitaire::{
     CreationLamports::Exempt,
 };
 
-#[derive(FromAccounts)]
-pub struct VerifySignatures<'b> {
-    /// Payer for account creation
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Guardian set of the signatures
-    pub guardian_set: GuardianSet<'b, { AccountState::Initialized }>,
-
-    /// Signature Account
-    pub signature_set: Mut<Signer<SignatureSet<'b, { AccountState::MaybeInitialized }>>>,
-
-    /// Instruction reflection account (special sysvar)
-    pub instruction_acc: Info<'b>,
-}
 
 impl<'b> InstructionContext<'b> for VerifySignatures<'b> {
 }
+accounts!(VerifySignatures {
+    payer:           Mut<Signer<Info<'info>>>,
+    guardian_set:    GuardianSet<'info, { AccountState::Initialized }>,
+    signature_set:   Mut<Signer<SignatureSet<'info, { AccountState::MaybeInitialized }>>>,
+    instruction_acc: Info<'info>,
+});
 
 impl From<&VerifySignatures<'_>> for GuardianSetDerivationData {
     fn from(data: &VerifySignatures<'_>) -> Self {

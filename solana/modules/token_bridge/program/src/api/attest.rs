@@ -49,6 +49,7 @@ use solitaire::{
         Owned,
         Seeded,
     },
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -65,39 +66,22 @@ use std::ops::{
     DerefMut,
 };
 
-#[derive(FromAccounts)]
-pub struct AttestToken<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-
-    pub config: Mut<ConfigAccount<'b, { AccountState::Initialized }>>,
-
-    /// Mint to attest
-    pub mint: Data<'b, SplMint, { AccountState::Initialized }>,
-    pub wrapped_meta: WrappedTokenMeta<'b, { AccountState::Uninitialized }>,
-
-    /// SPL Metadata for the associated Mint
-    pub spl_metadata: SplTokenMeta<'b>,
-
-    /// CPI Context
-    pub bridge: Mut<CoreBridge<'b, { AccountState::Initialized }>>,
-
-    /// Account to store the posted message
-    pub message: Signer<Mut<Info<'b>>>,
-
-    /// Emitter of the VAA
-    pub emitter: EmitterAccount<'b>,
-
-    /// Tracker for the emitter sequence
-    pub sequence: Mut<Info<'b>>,
-
-    /// Account to collect tx fee
-    pub fee_collector: Mut<Info<'b>>,
-
-    pub clock: Sysvar<'b, Clock>,
-}
 
 impl<'b> InstructionContext<'b> for AttestToken<'b> {
 }
+accounts!(AttestToken {
+    payer:         Mut<Signer<AccountInfo<'info>>>,
+    config:        Mut<ConfigAccount<'info, { Initialized }>>,
+    mint:          Data<'info, SplMint, { Initialized }>,
+    wrapped_meta:  WrappedTokenMeta<'info, { Uninitialized }>,
+    spl_metadata:  SplTokenMeta<'info>,
+    bridge:        Mut<CoreBridge<'info, { Initialized }>>,
+    message:       Signer<Mut<Info<'info>>>,
+    emitter:       EmitterAccount<'info>,
+    sequence:      Mut<Info<'info>>,
+    fee_collector: Mut<Info<'info>>,
+    clock:         Sysvar<'info, Clock>,
+});
 
 impl<'a> From<&AttestToken<'a>> for WrappedMetaDerivationData {
     fn from(accs: &AttestToken<'a>) -> Self {

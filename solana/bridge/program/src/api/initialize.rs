@@ -15,28 +15,16 @@ use solitaire::{
     *,
 };
 
-type Payer<'a> = Signer<Info<'a>>;
-
-#[derive(FromAccounts)]
-pub struct Initialize<'b> {
-    /// Bridge config.
-    pub bridge: Mut<Bridge<'b, { AccountState::Uninitialized }>>,
-
-    /// Location the new guardian set will be allocated at.
-    pub guardian_set: Mut<GuardianSet<'b, { AccountState::Uninitialized }>>,
-
-    /// Location of the fee collector that users will need to pay.
-    pub fee_collector: Mut<FeeCollector<'b>>,
-
-    /// Payer for account creation.
-    pub payer: Mut<Payer<'b>>,
-
-    /// Clock used for recording the initialization time.
-    pub clock: Sysvar<'b, Clock>,
-}
 
 impl<'b> InstructionContext<'b> for Initialize<'b> {
 }
+accounts!(Initialize {
+    bridge:        Mut<Bridge<'info, { AccountState::Uninitialized }>>,
+    guardian_set:  Mut<GuardianSet<'info, { AccountState::Uninitialized }>>,
+    fee_collector: Mut<FeeCollector<'info>>,
+    payer:         Mut<Signer<Info<'info>>>,
+    clock:         Sysvar<'info, Clock>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct InitializeData {

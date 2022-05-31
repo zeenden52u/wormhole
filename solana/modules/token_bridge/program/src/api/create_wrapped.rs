@@ -36,6 +36,7 @@ use solitaire::{
         invoke_seeded,
         Seeded,
     },
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -58,24 +59,17 @@ use std::{
     },
 };
 
-#[derive(FromAccounts)]
-pub struct CreateWrapped<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    pub chain_registration: Endpoint<'b, { AccountState::Initialized }>,
-    pub vaa: PayloadMessage<'b, PayloadAssetMeta>,
-    pub vaa_claim: ClaimableVAA<'b>,
-
-    // New Wrapped
-    pub mint: Mut<WrappedMint<'b, { AccountState::MaybeInitialized }>>,
-    pub meta: Mut<WrappedTokenMeta<'b, { AccountState::MaybeInitialized }>>,
-
-    /// SPL Metadata for the associated Mint
-    pub spl_metadata: Mut<SplTokenMeta<'b>>,
-
-    pub mint_authority: MintSigner<'b>,
-}
+accounts!(CreateWrapped {
+    payer:              Mut<Signer<AccountInfo<'info>>>,
+    config:             ConfigAccount<'info, { Initialized }>,
+    chain_registration: Endpoint<'info, { Initialized }>,
+    vaa:                PayloadMessage<'info, PayloadAssetMeta>,
+    vaa_claim:          ClaimableVAA<'info>,
+    mint:               Mut<WrappedMint<'info, { MaybeInitialized }>>,
+    meta:               Mut<WrappedTokenMeta<'info, { MaybeInitialized }>>,
+    spl_metadata:       Mut<SplTokenMeta<'info>>,
+    mint_authority:     MintSigner<'info>,
+});
 
 impl<'a> From<&CreateWrapped<'a>> for EndpointDerivationData {
     fn from(accs: &CreateWrapped<'a>) -> Self {
@@ -107,7 +101,8 @@ impl<'b> InstructionContext<'b> for CreateWrapped<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
-pub struct CreateWrappedData {}
+pub struct CreateWrappedData {
+}
 
 pub fn create_wrapped(
     ctx: &ExecutionContext,

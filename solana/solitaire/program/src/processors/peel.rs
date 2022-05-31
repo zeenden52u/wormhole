@@ -33,7 +33,7 @@ use borsh::BorshSerialize;
 /// Generic Peel trait. This provides a way to describe what each "peeled"
 /// layer of our constraints should check.
 pub trait Peel<'a, 'b: 'a> {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self>
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self>
     where
         Self: Sized;
 
@@ -42,7 +42,7 @@ pub trait Peel<'a, 'b: 'a> {
 
 /// Peel a nullable value (0-account means None)
 impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for Option<T> {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         // Check for 0-account
         if ctx.info.key == &Pubkey::new_from_array([0u8; 32]) {
             trace!(&format!(
@@ -72,7 +72,7 @@ impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for Option<T> {
 impl<'a, 'b: 'a, T: Peel<'a, 'b>, const Seed: &'static str> Peel<'a, 'b>
     for Derive<T, Seed>
 {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         // Attempt to Derive Seed
         let (derived, bump) = Pubkey::find_program_address(&[Seed.as_ref()], ctx.this);
         match derived == *ctx.info.key {
@@ -88,7 +88,7 @@ impl<'a, 'b: 'a, T: Peel<'a, 'b>, const Seed: &'static str> Peel<'a, 'b>
 
 /// Peel a Mutable key.
 impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for Mut<T> {
-    fn peel<I>(mut ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(mut ctx: Context<'a, 'b, I>) -> Result<Self> {
         ctx.immutable = false;
         match ctx.info.is_writable {
             true => T::peel(ctx).map(|v| Mut(v)),
@@ -104,7 +104,7 @@ impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for Mut<T> {
 }
 
 impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for MaybeMut<T> {
-    fn peel<I>(mut ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(mut ctx: Context<'a, 'b, I>) -> Result<Self> {
         ctx.immutable = !ctx.info.is_writable;
         T::peel(ctx).map(|v| MaybeMut(v))
     }
@@ -116,7 +116,7 @@ impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for MaybeMut<T> {
 
 /// Peel a Signer.
 impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for Signer<T> {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         match ctx.info.is_signer {
             true => T::peel(ctx).map(|v| Signer(v)),
             _ => Err(SolitaireError::InvalidSigner(*ctx.info.key).into()),
@@ -130,7 +130,7 @@ impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for Signer<T> {
 
 /// Expicitly depend upon the System account.
 impl<'a, 'b: 'a, T: Peel<'a, 'b>> Peel<'a, 'b> for System<T> {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         match true {
             true => T::peel(ctx).map(|v| System(v)),
             _ => panic!(),
@@ -147,7 +147,7 @@ impl<'a, 'b: 'a, Var> Peel<'a, 'b> for Sysvar<'b, Var>
 where
     Var: SolanaSysvar,
 {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         match Var::check_id(ctx.info.key) {
             true => Ok(Sysvar(
                 ctx.info.clone(),
@@ -165,7 +165,7 @@ where
 /// This is our structural recursion base case, the trait system will stop generating new nested
 /// calls here.
 impl<'a, 'b: 'a> Peel<'a, 'b> for Info<'b> {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         if ctx.immutable && ctx.info.is_writable {
             return Err(
                 SolitaireError::InvalidMutability(*ctx.info.key, ctx.info.is_writable).into(),
@@ -190,7 +190,7 @@ impl<
         const IsInitialized: AccountState,
     > Peel<'a, 'b> for Data<'b, T, IsInitialized>
 {
-    fn peel<I>(ctx: &mut Context<'a, 'b, I>) -> Result<Self> {
+    fn peel<I>(ctx: Context<'a, 'b, I>) -> Result<Self> {
         if ctx.immutable && ctx.info.is_writable {
             return Err(
                 SolitaireError::InvalidMutability(*ctx.info.key, ctx.info.is_writable).into(),

@@ -9,7 +9,6 @@ members = [
     "modules/token_bridge/client",
     "modules/token_bridge/program",
     "solitaire/program",
-    "solitaire/rocksalt",
 ]
 
 [patch.crates-io]

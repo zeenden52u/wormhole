@@ -22,20 +22,19 @@ use solitaire::{
         invoke_seeded,
         Seeded,
     },
+    AccountState::*,
     *,
 };
 
-#[derive(FromAccounts)]
-pub struct ClaimShares<'b> {
-    pub pool: Mut<MigrationPool<'b, { AccountState::Initialized }>>,
-    pub from_token_custody: Mut<ToCustodyTokenAccount<'b, { AccountState::Initialized }>>,
-    pub share_mint: Mut<ShareMint<'b, { AccountState::Initialized }>>,
-
-    pub from_lp_acc: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub lp_share_acc: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub custody_signer: CustodySigner<'b>,
-    pub authority_signer: AuthoritySigner<'b>,
-}
+accounts!(ClaimShares {
+    pool:               Mut<MigrationPool<'info, { Initialized }>>,
+    from_token_custody: Mut<ToCustodyTokenAccount<'info, { Initialized }>>,
+    share_mint:         Mut<ShareMint<'info, { Initialized }>>,
+    from_lp_acc:        Mut<Data<'info, SplAccount, { Initialized }>>,
+    lp_share_acc:       Mut<Data<'info, SplAccount, { Initialized }>>,
+    custody_signer:     CustodySigner<'info>,
+    authority_signer:   AuthoritySigner<'info>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct ClaimSharesData {

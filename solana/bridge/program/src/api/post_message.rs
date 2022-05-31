@@ -27,38 +27,17 @@ use solitaire::{
 
 pub type UninitializedMessage<'b> = PostedMessage<'b, { AccountState::Uninitialized }>;
 
-impl<'a> From<&PostMessage<'a>> for SequenceDerivationData<'a> {
-    fn from(accs: &PostMessage<'a>) -> Self {
-        SequenceDerivationData {
-            emitter_key: accs.emitter.key,
-        }
-    }
-}
-
-#[derive(FromAccounts)]
-pub struct PostMessage<'b> {
-    /// Bridge config needed for fee calculation.
-    pub bridge: Mut<Bridge<'b, { AccountState::Initialized }>>,
-
-    /// Account to store the posted message
-    pub message: Signer<Mut<UninitializedMessage<'b>>>,
-
-    /// Emitter of the VAA
-    pub emitter: Signer<MaybeMut<Info<'b>>>,
-
-    /// Tracker for the emitter sequence
-    pub sequence: Mut<Sequence<'b>>,
-
-    /// Payer for account creation
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    /// Account to collect tx fee
-    pub fee_collector: Mut<FeeCollector<'b>>,
-
-    pub clock: Sysvar<'b, Clock>,
-}
 
 impl<'b> InstructionContext<'b> for PostMessage<'b> {}
+accounts!(PostMessage {
+    bridge:        Mut<Bridge<'info, { AccountState::Initialized }>>,
+    message:       Signer<Mut<UninitializedMessage<'info>>>,
+    emitter:       Signer<MaybeMut<Info<'info>>>,
+    sequence:      Mut<Sequence<'info>>,
+    payer:         Mut<Signer<Info<'info>>>,
+    fee_collector: Mut<FeeCollector<'info>>,
+    clock:         Sysvar<'info, Clock>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct PostMessageData {
@@ -71,6 +50,15 @@ pub struct PostMessageData {
     /// Commitment Level required for an attestation to be produced
     pub consistency_level: ConsistencyLevel,
 }
+
+impl<'a> From<&PostMessage<'a>> for SequenceDerivationData<'a> {
+    fn from(accs: &PostMessage<'a>) -> Self {
+        SequenceDerivationData {
+            emitter_key: accs.emitter.key,
+        }
+    }
+}
+
 
 pub fn post_message(
     ctx: &ExecutionContext,

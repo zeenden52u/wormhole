@@ -18,23 +18,21 @@ use borsh::{
 };
 use solana_program::program::invoke_signed;
 use solitaire::{
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
 
-#[derive(FromAccounts)]
-pub struct CreatePool<'b> {
-    pub payer: Mut<Signer<Info<'b>>>,
-
-    pub pool: Mut<MigrationPool<'b, { AccountState::Uninitialized }>>,
-    pub from_mint: Data<'b, SplMint, { AccountState::Initialized }>,
-    pub to_mint: Data<'b, SplMint, { AccountState::Initialized }>,
-    pub from_token_custody: Mut<FromCustodyTokenAccount<'b, { AccountState::Uninitialized }>>,
-    pub to_token_custody: Mut<ToCustodyTokenAccount<'b, { AccountState::Uninitialized }>>,
-    pub pool_mint: Mut<ShareMint<'b, { AccountState::Uninitialized }>>,
-
-    pub custody_signer: CustodySigner<'b>,
-}
+accounts!(CreatePool {
+    payer:              Mut<Signer<Info<'info>>>,
+    pool:               Mut<MigrationPool<'info, { Uninitialized }>>,
+    from_mint:          Data<'info, SplMint, { Initialized }>,
+    to_mint:            Data<'info, SplMint, { Initialized }>,
+    from_token_custody: Mut<FromCustodyTokenAccount<'info, { Uninitialized }>>,
+    to_token_custody:   Mut<ToCustodyTokenAccount<'info, { Uninitialized }>>,
+    pool_mint:          Mut<ShareMint<'info, { Uninitialized }>>,
+    custody_signer:     CustodySigner<'info>,
+});
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct CreatePoolData {}

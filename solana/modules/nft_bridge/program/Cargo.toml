@@ -22,7 +22,6 @@ wormhole-bridge-solana = { path = "../../../bridge/program", features = ["no-ent
 borsh = "=0.9.1"
 bstr = "0.2.16"
 byteorder = "1.4.3"
-rocksalt = { path = "../../../solitaire/rocksalt" }
 solitaire = { path = "../../../solitaire/program" }
 sha3 = "0.9.1"
 solana-program = "*"

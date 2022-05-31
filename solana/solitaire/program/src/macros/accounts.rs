@@ -4,7 +4,6 @@
 //! - Persisting data structures into accounts.
 //! - Verifying security guarantees such as account ownership, mutability, etc.
 
-use crate::FromAccounts;
 use crate::Peel;
 use crate::Result;
 

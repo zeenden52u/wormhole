@@ -56,6 +56,7 @@ use solitaire::{
         invoke_seeded,
         Seeded,
     },
+    AccountState::*,
     CreationLamports::Exempt,
     *,
 };
@@ -73,41 +74,21 @@ use std::ops::{
 
 pub type TransferNativeWithPayload<'b> = TransferNative<'b>;
 
-#[derive(FromAccounts)]
-pub struct TransferNative<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    pub from: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-
-    pub mint: Mut<Data<'b, SplMint, { AccountState::Initialized }>>,
-
-    pub custody: Mut<CustodyAccount<'b, { AccountState::MaybeInitialized }>>,
-
-    // This could allow someone to race someone else's tx if they do the approval in a separate tx.
-    // Therefore the approval must be set in the same tx.
-    pub authority_signer: AuthoritySigner<'b>,
-
-    pub custody_signer: CustodySigner<'b>,
-
-    /// CPI Context
-    pub bridge: Mut<CoreBridge<'b, { AccountState::Initialized }>>,
-
-    /// Account to store the posted message
-    pub message: Signer<Mut<Info<'b>>>,
-
-    /// Emitter of the VAA
-    pub emitter: EmitterAccount<'b>,
-
-    /// Tracker for the emitter sequence
-    pub sequence: Mut<Info<'b>>,
-
-    /// Account to collect tx fee
-    pub fee_collector: Mut<Info<'b>>,
-
-    pub clock: Sysvar<'b, Clock>,
-}
+accounts!(TransferNative {
+    payer:            Mut<Signer<AccountInfo<'info>>>,
+    config:           ConfigAccount<'info, { Initialized }>,
+    from:             Mut<Data<'info, SplAccount, { Initialized }>>,
+    mint:             Mut<Data<'info, SplMint, { Initialized }>>,
+    custody:          Mut<CustodyAccount<'info, { MaybeInitialized }>>,
+    authority_signer: AuthoritySigner<'info>,
+    custody_signer:   CustodySigner<'info>,
+    bridge:           Mut<CoreBridge<'info, { Initialized }>>,
+    message:          Signer<Mut<Info<'info>>>,
+    emitter:          EmitterAccount<'info>,
+    sequence:         Mut<Info<'info>>,
+    fee_collector:    Mut<Info<'info>>,
+    clock:            Sysvar<'info, Clock>,
+});
 
 impl<'a> From<&TransferNative<'a>> for CustodyAccountDerivationData {
     fn from(accs: &TransferNative<'a>) -> Self {
@@ -310,35 +291,21 @@ pub fn verify_and_execute_native_transfers(
     Ok((amount, fee))
 }
 
-#[derive(FromAccounts)]
-pub struct TransferWrapped<'b> {
-    pub payer: Mut<Signer<AccountInfo<'b>>>,
-    pub config: ConfigAccount<'b, { AccountState::Initialized }>,
-
-    pub from: Mut<Data<'b, SplAccount, { AccountState::Initialized }>>,
-    pub from_owner: MaybeMut<Signer<Info<'b>>>,
-    pub mint: Mut<WrappedMint<'b, { AccountState::Initialized }>>,
-    pub wrapped_meta: WrappedTokenMeta<'b, { AccountState::Initialized }>,
-
-    pub authority_signer: AuthoritySigner<'b>,
-
-    /// CPI Context
-    pub bridge: Mut<CoreBridge<'b, { AccountState::Initialized }>>,
-
-    /// Account to store the posted message
-    pub message: Signer<Mut<Info<'b>>>,
-
-    /// Emitter of the VAA
-    pub emitter: EmitterAccount<'b>,
-
-    /// Tracker for the emitter sequence
-    pub sequence: Mut<Info<'b>>,
-
-    /// Account to collect tx fee
-    pub fee_collector: Mut<Info<'b>>,
-
-    pub clock: Sysvar<'b, Clock>,
-}
+accounts!(TransferWrapped {
+    payer:            Mut<Signer<AccountInfo<'info>>>,
+    config:           ConfigAccount<'info, { Initialized }>,
+    from:             Mut<Data<'info, SplAccount, { Initialized }>>,
+    from_owner:       MaybeMut<Signer<Info<'info>>>,
+    mint:             Mut<WrappedMint<'info, { Initialized }>>,
+    wrapped_meta:     WrappedTokenMeta<'info, { Initialized }>,
+    authority_signer: AuthoritySigner<'info>,
+    bridge:           Mut<CoreBridge<'info, { Initialized }>>,
+    message:          Signer<Mut<Info<'info>>>,
+    emitter:          EmitterAccount<'info>,
+    sequence:         Mut<Info<'info>>,
+    fee_collector:    Mut<Info<'info>>,
+    clock:            Sysvar<'info, Clock>,
+});
 
 pub type TransferWrappedWithPayload<'b> = TransferWrapped<'b>;
 
