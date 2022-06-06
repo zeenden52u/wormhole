@@ -127,7 +127,8 @@ func NewEthWatcher(
 	setEvents chan *common.GuardianSet,
 	minConfirmations uint64,
 	obsvReqC chan *gossipv1.ObservationRequest,
-	unsafeDevMode bool) *Watcher {
+	unsafeDevMode bool,
+	extraParams []string) *Watcher {
 
 	var ethIntf common.Ethish
 	if chainID == vaa.ChainIDCelo && !unsafeDevMode {
@@ -138,6 +139,8 @@ func NewEthWatcher(
 		ethIntf = &PollImpl{BaseEth: EthImpl{NetworkName: networkName}, Finalizer: &MoonbeamFinalizer{}, DelayInMs: 250}
 	} else if chainID == vaa.ChainIDNeon {
 		ethIntf = NewGetLogsImpl(networkName, contract, 250)
+	} else if chainID == vaa.ChainIDPolygon && UsePolygonFinalizer(extraParams) {
+		ethIntf = &PollImpl{BaseEth: EthImpl{NetworkName: networkName}, Finalizer: &PolygonFinalizer{Url: extraParams[0]}, DelayInMs: 5000}
 	} else {
 		ethIntf = &EthImpl{NetworkName: networkName}
 	}
