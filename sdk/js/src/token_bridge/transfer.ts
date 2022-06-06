@@ -34,16 +34,21 @@ import {
 import { getBridgeFeeIx, ixFromRust } from "../solana";
 import { importTokenWasm } from "../solana/wasm";
 import {
+  CHAIN_ID_SOLANA,
   ChainId,
   ChainName,
-  CHAIN_ID_SOLANA,
+  WSOL_ADDRESS,
   coalesceChainId,
   createNonce,
   hexToUint8Array,
   textToUint8Array,
-  WSOL_ADDRESS,
+  uint8ArrayToHex,
 } from "../utils";
 import { safeBigIntToNumber } from "../utils/bigint";
+import { Account as nearAccount } from "near-api-js";
+const BN = require("bn.js");
+import { parseSequenceFromLogNear } from "../bridge/parseSequenceFromLog";
+const nearAPI = require("near-api-js");
 
 export async function getAllowanceEth(
   tokenBridgeAddress: string,
@@ -627,4 +632,120 @@ export async function transferFromAlgorand(
   acTxn.fee *= 2;
   txs.push({ tx: acTxn, signer: null });
   return txs;
+}
+
+/**
+ * Transfers an asset from Near to a receiver on another chain
+ * @param client
+ * @param tokenBridge account of the token bridge
+ * @param assetId account
+ * @param qty Quantity to transfer
+ * @param receiver Receiving account
+ * @param chain Reeiving chain
+ * @param fee Transfer fee
+ * @param payload payload for payload3 transfers
+ * @returns Sequence number of confirmation
+ */
+export async function transferTokenFromNear(
+  client: nearAccount,
+  tokenBridge: string,
+  assetId: string,
+  qty: bigint,
+  receiver: Uint8Array,
+  chain: ChainId | ChainName,
+  fee: bigint,
+  payload: string = ""
+): Promise<[number, string]> {
+  let wormhole = assetId.endsWith("." + tokenBridge);
+
+  let result;
+
+  if (wormhole) {
+    result = await client.functionCall({
+      contractId: tokenBridge,
+      methodName: "send_transfer_wormhole_token",
+      args: {
+        token: assetId,
+        amount: qty.toString(10),
+        receiver: uint8ArrayToHex(receiver),
+        chain: chain,
+        fee: fee.toString(10),
+        payload: payload,
+      },
+      attachedDeposit: new BN("1"),
+      gas: new BN("100000000000000"),
+    });
+  } else {
+    let bal = await client.viewFunction(assetId, "storage_balance_of", {
+      account_id: tokenBridge,
+    });
+    if (bal == null) {
+      // Looks like we have to stake some storage for this asset
+      // for the token bridge...
+      nearAPI.providers.getTransactionLastResult(
+        await client.functionCall({
+          contractId: assetId,
+          methodName: "storage_deposit",
+          args: { account_id: tokenBridge, registration_only: true },
+          gas: new BN("100000000000000"),
+          attachedDeposit: new BN("2000000000000000000000"), // 0.002 NEAR
+        })
+      );
+    }
+
+    result = await client.functionCall({
+      contractId: assetId,
+      methodName: "ft_transfer_call",
+      args: {
+        receiver_id: tokenBridge,
+        amount: qty.toString(10),
+        msg: JSON.stringify({
+          receiver: uint8ArrayToHex(receiver),
+          chain: chain,
+          fee: fee.toString(10),
+          payload: payload,
+        }),
+      },
+      attachedDeposit: new BN("1"),
+      gas: new BN("100000000000000"),
+    });
+  }
+
+  return parseSequenceFromLogNear(result);
+}
+
+/**
+ * Transfers NEAR from Near to a receiver on another chain
+ * @param client
+ * @param tokenBridge account of the token bridge
+ * @param qty Quantity to transfer
+ * @param receiver Receiving account
+ * @param chain Reeiving chain
+ * @param fee Transfer fee
+ * @param payload payload for payload3 transfers
+ * @returns Sequence number of confirmation
+ */
+export async function transferNearFromNear(
+  client: nearAccount,
+  tokenBridge: string,
+  qty: bigint,
+  receiver: Uint8Array,
+  chain: ChainId | ChainName,
+  fee: bigint,
+  payload: string = ""
+): Promise<[number, string]> {
+  let result = await client.functionCall({
+    contractId: tokenBridge,
+    methodName: "send_transfer_near",
+    args: {
+      receiver: uint8ArrayToHex(receiver),
+      chain: chain,
+      fee: fee.toString(10),
+      payload: payload,
+    },
+    attachedDeposit: new BN(qty.toString(10)),
+    gas: new BN("100000000000000"),
+  });
+
+  return parseSequenceFromLogNear(result);
 }

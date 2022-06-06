@@ -194,7 +194,7 @@ export const tryNativeToHexString = (
   } else if (chainId === CHAIN_ID_ALGORAND) {
     return nativeStringToHexAlgorand(address);
   } else if (chainId === CHAIN_ID_NEAR) {
-    throw Error("hexToNativeString: Near not supported yet.");
+    return uint8ArrayToHex(zeroPad(new Uint8Array(Buffer.from(address, "ascii")), 32))
   } else if (chainId === CHAIN_ID_UNSET) {
     throw Error("hexToNativeString: Chain id unset");
   } else {

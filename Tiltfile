@@ -38,6 +38,7 @@ config.define_string("bigTableKeyPath", False, "Path to BigTable json key file")
 config.define_string("webHost", False, "Public hostname for port forwards")
 
 # Components
+config.define_bool("near", False, "Enable Near component")
 config.define_bool("algorand", False, "Enable Algorand component")
 config.define_bool("solana", False, "Enable Solana component")
 config.define_bool("explorer", False, "Enable explorer component")
@@ -55,6 +56,7 @@ gcpProject = cfg.get("gcpProject", "local-dev")
 bigTableKeyPath = cfg.get("bigTableKeyPath", "./event_database/devnet_key.json")
 webHost = cfg.get("webHost", "localhost")
 algorand = cfg.get("algorand", True)
+near = cfg.get("near", True)
 solana = cfg.get("solana", True)
 ci = cfg.get("ci", False)
 explorer = cfg.get("explorer", ci)
@@ -194,6 +196,8 @@ k8s_yaml_with_ns(build_node_yaml())
 guardian_resource_deps = ["proto-gen", "eth-devnet", "eth-devnet2", "terra-terrad", "terra2-terrad"]
 if solana:
     guardian_resource_deps = guardian_resource_deps + ["solana-devnet"]
+if near:
+    guardian_resource_deps = guardian_resource_deps + ["near"]
 
 k8s_resource(
     "guardian",
@@ -613,3 +617,30 @@ if algorand:
         trigger_mode = trigger_mode,
     )
     
+
+if near:
+    k8s_yaml_with_ns("devnet/near-devnet.yaml")
+
+    docker_build(
+        ref = "near-node",
+        context = "near",
+        dockerfile = "near/Dockerfile",
+        only = ["Dockerfile", "node_builder.sh", "start_node.sh", "README.md", "cert.pem"],
+    )
+
+    docker_build(
+        ref = "near-contracts",
+        context = "near",
+        dockerfile = "near/Dockerfile.contracts",
+    )
+
+    k8s_resource(
+        "near",
+        port_forwards = [
+            port_forward(3030, name = "Node [:3030]", host = webHost),
+            port_forward(3031, name = "webserver [:3031]", host = webHost),
+        ],
+        resource_deps = ["const-gen"],
+        labels = ["near"],
+        trigger_mode = trigger_mode,
+    )

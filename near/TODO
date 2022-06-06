@@ -1,0 +1,55 @@
+big tasks
+
+1) Look at emitter() in the portal
+
+   a) Is the way I am handling the attached deposit... correct? 
+
+      If yes, lets change the rest of the system to do something
+      similar...  We are not doing it correctly anywhere else..
+
+      If no, then what IS the correct way?
+
+   b) does the attached gas get refunded correctly to the user?
+
+   c) in the cross contract call inside the wormhole/publish_message,
+      what gas is that using?  who is paying for it?
+
+2) rethink/remove unwindState
+
+   removed
+
+3) Create an account for $NEAR during boot... keeping it out of the
+   portal account in case we have a bug which allows people to burn
+   the $NEAR in the portal account
+
+   done
+
+4) Add attest
+
+   done
+
+5) add sendTransfer
+
+   done
+
+6) turn test/watcher.go into a near guardian watcher.go implementation
+   Will our tx_hash be the chunk_id?  or the recept_id?
+
+   ** first pass done **
+
+   Why does it keep hanging?
+
+7) Think about how we will do recovery/observations...  How will we
+   find the blocks that contain the requested sequence numbers?
+
+   rewrite using tx's
+
+8) Are we emitting all the correct messages in contract/ft so that the
+   indexer is happy?
+
+   yes
+
+9) add default contract deployer and registrations
+
+10) make test.ts use upgrade protocol to upgrade contract if it is already there
+   (implement upgrade protocol)

@@ -76,12 +76,13 @@ ethTokenBridge=$(jq --raw-output '.chains."2".contracts.tokenBridgeEmitterAddres
 terraTokenBridge=$(jq --raw-output '.chains."3".contracts.tokenBridgeEmitterAddress' $addressesJson)
 bscTokenBridge=$(jq --raw-output '.chains."4".contracts.tokenBridgeEmitterAddress' $addressesJson)
 algoTokenBridge=$(jq --raw-output '.chains."8".contracts.tokenBridgeEmitterAddress' $addressesJson)
+nearTokenBridge=$(jq --raw-output '.chains."15".contracts.tokenBridgeEmitterAddress' $addressesJson)
 terra2TokenBridge=$(jq --raw-output '.chains."18".contracts.tokenBridgeEmitterAddress' $addressesJson)
 
 solNFTBridge=$(jq --raw-output '.chains."1".contracts.nftBridgeEmitterAddress' $addressesJson)
 ethNFTBridge=$(jq --raw-output '.chains."2".contracts.nftBridgeEmitterAddress' $addressesJson)
 terraNFTBridge=$(jq --raw-output '.chains."3".contracts.nftBridgeEmitterAddress' $addressesJson)
-
+nearNFTBridge=$(jq --raw-output '.chains."15".contracts.nftBridgeEmitterAddress' $addressesJson)
 
 # 4) create token bridge registration VAAs
 echo "generating contract registration VAAs for token bridges"
@@ -97,15 +98,14 @@ terraTokenBridgeVAA=$(npm --prefix clients/js start --silent -- generate registr
 bscTokenBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m TokenBridge -c bsc -a ${bscTokenBridge} -g ${guardiansPrivateCSV})
 algoTokenBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m TokenBridge -c algorand -a ${algoTokenBridge} -g ${guardiansPrivateCSV})
 terra2TokenBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m TokenBridge -c terra2 -a ${terra2TokenBridge} -g ${guardiansPrivateCSV})
-
+nearTokenBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m TokenBridge -c near -a ${nearTokenBridge} -g ${guardiansPrivateCSV})
 
 # 5) create nft bridge registration VAAs
 echo "generating contract registration VAAs for nft bridges"
 solNFTBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m NFTBridge -c solana -a ${solNFTBridge} -g ${guardiansPrivateCSV})
 ethNFTBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m NFTBridge -c ethereum -a ${ethNFTBridge} -g ${guardiansPrivateCSV})
 terraNFTBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m NFTBridge -c terra -a ${terraNFTBridge} -g ${guardiansPrivateCSV})
-
-
+nearNFTBridgeVAA=$(npm --prefix clients/js start --silent -- generate registration -m NFTBridge -c near -a ${nearNFTBridge} -g ${guardiansPrivateCSV})
 
 # 6) write the registration VAAs to env files
 echo "writing VAAs to .env files"
@@ -116,10 +116,12 @@ terraTokenBridge="REGISTER_TERRA_TOKEN_BRIDGE_VAA"
 bscTokenBridge="REGISTER_BSC_TOKEN_BRIDGE_VAA"
 algoTokenBridge="REGISTER_ALGO_TOKEN_BRIDGE_VAA"
 terra2TokenBridge="REGISTER_TERRA2_TOKEN_BRIDGE_VAA"
+nearTokenBridge="REGISTER_NEAR_TOKEN_BRIDGE_VAA"
 
 solNFTBridge="REGISTER_SOL_NFT_BRIDGE_VAA"
 ethNFTBridge="REGISTER_ETH_NFT_BRIDGE_VAA"
 terraNFTBridge="REGISTER_TERRA_NFT_BRIDGE_VAA"
+nearNFTBridge="REGISTER_NEAR_NFT_BRIDGE_VAA"
 
 
 # solana token bridge
@@ -158,6 +160,12 @@ upsert_env_file $envFile $algoTokenBridge $algoTokenBridgeVAA
 upsert_env_file $ethFile $terra2TokenBridge $terra2TokenBridgeVAA
 upsert_env_file $envFile $terra2TokenBridge $terra2TokenBridgeVAA
 
+# near token bridge
+upsert_env_file $ethFile $nearTokenBridge $nearTokenBridgeVAA
+upsert_env_file $envFile $nearTokenBridge $nearTokenBridgeVAA
+# terra nft bridge
+upsert_env_file $ethFile $nearNFTBridge $nearNFTBridgeVAA
+upsert_env_file $envFile $nearNFTBridge $nearNFTBridgeVAA
 
 # 7) copy the local .env file to the solana & terra dirs, if the script is running on the host machine
 # chain dirs will not exist if running in docker for Tilt, only if running locally. check before copying.
@@ -168,7 +176,7 @@ if [[ -d ./ethereum ]]; then
 fi
 
 # copy the hex envFile to each of the non-EVM chains
-for envDest in ./solana/.env ./terra/tools/.env ./cosmwasm/tools/.env ./algorand/.env; do
+for envDest in ./solana/.env ./terra/tools/.env ./cosmwasm/tools/.env ./algorand/.env ./near/.env; do
     dirname=$(dirname $envDest)
     if [[ -d "$dirname" ]]; then
         echo "copying $envFile to $envDest"

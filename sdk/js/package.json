@@ -23,7 +23,8 @@
     "prepublishOnly": "echo \"disabled: npm test && npm run lint\"",
     "preversion": "npm run lint",
     "version": "npm run format && git add -A src",
-    "postversion": "git push && git push --tags"
+    "postversion": "git push && git push --tags",
+    "watch": "tsc -p tsconfig.json --watch"
   },
   "keywords": [
     "wormhole",
@@ -64,6 +65,7 @@
     "axios": "^0.24.0",
     "bech32": "^2.0.0",
     "js-base64": "^3.6.1",
+    "near-api-js": "^0.45.1",
     "protobufjs": "^6.11.2",
     "rxjs": "^7.3.0"
   }
