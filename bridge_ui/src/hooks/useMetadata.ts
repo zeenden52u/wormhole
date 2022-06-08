@@ -4,6 +4,8 @@ import {
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   isEVMChain,
+  isTerraChain,
+  TerraChainId,
 } from "@certusone/wormhole-sdk";
 import { TokenInfo } from "@solana/spl-token-registry";
 import { useMemo } from "react";
@@ -151,7 +153,7 @@ export default function useMetadata(
     return chainId === CHAIN_ID_SOLANA ? addresses : [];
   }, [chainId, addresses]);
   const terraAddresses = useMemo(() => {
-    return chainId === CHAIN_ID_TERRA ? addresses : [];
+    return isTerraChain(chainId) ? addresses : [];
   }, [chainId, addresses]);
   const ethereumAddresses = useMemo(() => {
     return isEVMChain(chainId) ? addresses : [];
@@ -161,7 +163,10 @@ export default function useMetadata(
   }, [chainId, addresses]);
 
   const metaplexData = useMetaplexData(solanaAddresses);
-  const terraMetadata = useTerraMetadata(terraAddresses);
+  const terraMetadata = useTerraMetadata(
+    terraAddresses,
+    chainId as TerraChainId
+  );
   const ethMetadata = useEvmMetadata(ethereumAddresses, chainId);
   const algoMetadata = useAlgoMetadata(algoAddresses);
 

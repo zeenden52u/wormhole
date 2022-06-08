@@ -2,13 +2,14 @@ import {
   canonicalAddress,
   isNativeDenom,
   isNativeTerra,
+  TerraChainId,
 } from "@certusone/wormhole-sdk";
 import { formatUnits } from "@ethersproject/units";
 import { LCDClient, isTxError } from "@terra-money/terra.js";
 import { ConnectedWallet, TxResult } from "@terra-money/wallet-provider";
 import axios from "axios";
 // import { TerraTokenMetadata } from "../hooks/useTerraTokenMap";
-import { TERRA_GAS_PRICES_URL, TERRA_HOST } from "./consts";
+import { TERRA_GAS_PRICES_URL, getTerraConfig } from "./consts";
 
 export const NATIVE_TERRA_DECIMALS = 6;
 export const LUNA_CLASSIC_SYMBOL = "LUNC";
@@ -33,8 +34,8 @@ export const formatNativeDenom = (denom = ""): string => {
 export const formatTerraNativeBalance = (balance = ""): string =>
   formatUnits(balance, 6);
 
-export async function waitForTerraExecution(transaction: TxResult) {
-  const lcd = new LCDClient(TERRA_HOST);
+export async function waitForTerraExecution(transaction: TxResult, chainId: TerraChainId) {
+  const lcd = new LCDClient(getTerraConfig(chainId));
   let info;
   while (!info) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -71,10 +72,11 @@ export async function postWithFees(
   wallet: ConnectedWallet,
   msgs: any[],
   memo: string,
-  feeDenoms: string[]
+  feeDenoms: string[],
+  chainId: TerraChainId,
 ) {
   // don't try/catch, let errors propagate
-  const lcd = new LCDClient(TERRA_HOST);
+  const lcd = new LCDClient(getTerraConfig(chainId));
   //Thus, we are going to pull it directly from the current FCD.
   const gasPrices = await axios
     .get(TERRA_GAS_PRICES_URL)

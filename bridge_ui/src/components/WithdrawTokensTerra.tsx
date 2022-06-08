@@ -1,3 +1,4 @@
+// TODO: need to add select chain bar
 import { useCallback, useState } from "react";
 import { MsgExecuteContract } from "@terra-money/terra.js";
 import {
@@ -28,6 +29,7 @@ import { selectTerraFeeDenom } from "../store/selectors";
 import TerraFeeDenomPicker from "./TerraFeeDenomPicker";
 import HeaderText from "./HeaderText";
 import { COLORS } from "../muiTheme";
+import { CHAIN_ID_TERRA } from "@certusone/wormhole-sdk";
 
 const useStyles = makeStyles((theme) => ({
   formControl: {
@@ -70,9 +72,10 @@ const withdraw = async (
     wallet,
     [withdraw],
     "Wormhole - Withdraw Tokens",
-    [feeDenom]
+    [feeDenom],
+    CHAIN_ID_TERRA
   );
-  await waitForTerraExecution(txResult);
+  await waitForTerraExecution(txResult, CHAIN_ID_TERRA);
 };
 
 export default function WithdrawTokensTerra() {
@@ -125,7 +128,7 @@ export default function WithdrawTokensTerra() {
               </MenuItem>
             ))}
           </Select>
-          <TerraFeeDenomPicker disabled={isLoading} />
+          <TerraFeeDenomPicker disabled={isLoading} chainId={CHAIN_ID_TERRA}/>
           <ButtonWithLoader
             onClick={handleClick}
             disabled={!wallet || isLoading}

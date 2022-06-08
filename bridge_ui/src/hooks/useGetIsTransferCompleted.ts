@@ -1,12 +1,12 @@
 import {
   CHAIN_ID_ALGORAND,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
   getIsTransferCompletedAlgorand,
   getIsTransferCompletedEth,
   getIsTransferCompletedSolana,
   getIsTransferCompletedTerra,
   isEVMChain,
+  isTerraChain,
 } from "@certusone/wormhole-sdk";
 import { Connection } from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
@@ -26,7 +26,7 @@ import {
   getTokenBridgeAddressForChain,
   SOLANA_HOST,
   TERRA_GAS_PRICES_URL,
-  TERRA_HOST,
+  getTerraConfig,
 } from "../utils/consts";
 import useIsWalletReady from "./useIsWalletReady";
 import useTransferSignedVAA from "./useTransferSignedVAA";
@@ -119,11 +119,11 @@ export default function useGetIsTransferCompleted(
             setIsLoading(false);
           }
         })();
-      } else if (targetChain === CHAIN_ID_TERRA) {
+      } else if (isTerraChain(targetChain)) {
         setIsLoading(true);
         (async () => {
           try {
-            const lcdClient = new LCDClient(TERRA_HOST);
+            const lcdClient = new LCDClient(getTerraConfig(targetChain));
             transferCompleted = await getIsTransferCompletedTerra(
               getTokenBridgeAddressForChain(targetChain),
               signedVAA,

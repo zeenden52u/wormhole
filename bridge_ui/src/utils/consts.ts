@@ -19,6 +19,7 @@ import {
   CONTRACTS,
   isEVMChain,
   isTerraChain,
+  TerraChainId,
 } from "@certusone/wormhole-sdk";
 import { clusterApiUrl } from "@solana/web3.js";
 import { getAddress } from "ethers/lib/utils";
@@ -416,32 +417,36 @@ export const SOLANA_HOST = process.env.REACT_APP_SOLANA_API_URL
   ? clusterApiUrl("devnet")
   : "http://localhost:8899";
 
-// TODO: terra2 support
-export const TERRA_HOST =
-  CLUSTER === "mainnet"
+export const getTerraConfig = (chainId: TerraChainId) => {
+  const isClassic = chainId === CHAIN_ID_TERRA;
+  return CLUSTER === "mainnet"
     ? {
-        //URL: "https://phoenix-lcd.terra.dev",
-        //chainId: "phoenix-1"
-        URL: "https://columbus-lcd.terra.dev",
-        chainID: "columbus-5",
+        URL:
+          chainId === CHAIN_ID_TERRA2
+            ? "https://phoenix-lcd.terra.dev"
+            : "https://columbus-lcd.terra.dev",
+        chainID: chainId === CHAIN_ID_TERRA2 ? "phoenix-1" : "columbus-5",
         name: "mainnet",
-        isClassic: true,
+        isClassic,
       }
     : CLUSTER === "testnet"
     ? {
-        //URL: "https://pisco-lcd.terra.dev",
-        //chainId: "pisco-1"
-        URL: "https://bombay-lcd.terra.dev",
-        chainID: "bombay-12",
+        URL:
+          chainId === CHAIN_ID_TERRA2
+            ? "https://pisco-lcd.terra.dev"
+            : "https://bombay-lcd.terra.dev",
+        chainID: chainId === CHAIN_ID_TERRA2 ? "pisco-1" : "bombay-12",
         name: "testnet",
-        isClassic: true,
+        isClassic,
       }
     : {
         URL: "http://localhost:1317",
         chainID: "columbus-5",
         name: "localterra",
-        isClassic: true,
+        isClassic,
       };
+};
+
 export const ALGORAND_HOST =
   CLUSTER === "mainnet"
     ? {
@@ -756,6 +761,7 @@ export const TERRA_BRIDGE_ADDRESS =
     : CLUSTER === "testnet"
     ? "terra1pd65m0q9tl3v8znnz5f5ltsfegyzah7g42cx5v"
     : "terra18vd8fpwxzck93qlwghaj6arh4p7c5n896xzem5";
+    // TODO: change all references to getter
 export const TERRA_TOKEN_BRIDGE_ADDRESS =
   CLUSTER === "mainnet"
     ? "terra10nmmwe8r3g99a9newtqa7a75xfgs2e8z87r2sf"

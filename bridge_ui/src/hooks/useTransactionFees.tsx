@@ -3,6 +3,8 @@ import {
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   isEVMChain,
+  isTerraChain,
+  TerraChainId,
 } from "@certusone/wormhole-sdk";
 import { Provider } from "@ethersproject/abstract-provider";
 import { formatUnits } from "@ethersproject/units";
@@ -14,7 +16,7 @@ import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import {
   getDefaultNativeCurrencySymbol,
   SOLANA_HOST,
-  TERRA_HOST,
+  getTerraConfig,
 } from "../utils/consts";
 import { getMultipleAccountsRPC } from "../utils/solana";
 import { NATIVE_TERRA_DECIMALS } from "../utils/terra";
@@ -104,10 +106,11 @@ const getBalanceEvm = async (walletAddress: string, provider: Provider) => {
   return provider.getBalance(walletAddress).then((result) => result.toBigInt());
 };
 
-const getBalancesTerra = async (walletAddress: string) => {
+const getBalancesTerra = async (walletAddress: string, chainId: TerraChainId) => {
+  // TODO: need to change for terra2?
   const TARGET_DENOMS = ["uluna", "uusd"];
 
-  const lcd = new LCDClient(TERRA_HOST);
+  const lcd = new LCDClient(getTerraConfig(chainId));
   return lcd.bank
     .balance(walletAddress)
     .then(([coins]) => {
@@ -190,9 +193,9 @@ export default function useTransactionFees(chainId: ChainId) {
           }
         );
       }
-    } else if (chainId === CHAIN_ID_TERRA && isReady && walletAddress) {
+    } else if (isTerraChain(chainId) && isReady && walletAddress) {
       loadStart();
-      getBalancesTerra(walletAddress).then(
+      getBalancesTerra(walletAddress, chainId).then(
         (results) => {
           const adjustedResults = results.map(({ denom, balance }) => {
             return {

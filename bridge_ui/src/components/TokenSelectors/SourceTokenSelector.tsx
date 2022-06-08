@@ -4,6 +4,7 @@ import {
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   isEVMChain,
+  isTerraChain,
 } from "@certusone/wormhole-sdk";
 import { TextField, Typography } from "@material-ui/core";
 import { useCallback } from "react";
@@ -108,13 +109,14 @@ export const TokenSelector = (props: TokenSelectorProps) => {
       chainId={lookupChain}
       nft={nft}
     />
-  ) : lookupChain === CHAIN_ID_TERRA ? (
+  ) : isTerraChain(lookupChain) ? (
     <TerraTokenPicker
       value={sourceParsedTokenAccount || null}
       disabled={disabled}
       onChange={handleOnChange}
       resetAccounts={maps?.resetAccounts}
       tokenAccounts={maps?.tokenAccounts}
+      chainId={lookupChain}
     />
   ) : lookupChain === CHAIN_ID_ALGORAND ? (
     <AlgoTokenPicker

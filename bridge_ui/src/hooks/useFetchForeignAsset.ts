@@ -2,13 +2,13 @@ import {
   ChainId,
   CHAIN_ID_ALGORAND,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
   getForeignAssetAlgorand,
   getForeignAssetEth,
   getForeignAssetSolana,
   getForeignAssetTerra,
   hexToUint8Array,
   isEVMChain,
+  isTerraChain,
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
 import { Connection } from "@solana/web3.js";
@@ -24,7 +24,7 @@ import {
   getTokenBridgeAddressForChain,
   SOLANA_HOST,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_HOST,
+  getTerraConfig,
   TERRA_TOKEN_BRIDGE_ADDRESS,
 } from "../utils/consts";
 import useIsWalletReady from "./useIsWalletReady";
@@ -115,9 +115,9 @@ function useFetchForeignAsset(
               originChain,
               hexToUint8Array(originAssetHex)
             )
-        : foreignChain === CHAIN_ID_TERRA
+        : isTerraChain(foreignChain)
         ? () => {
-            const lcd = new LCDClient(TERRA_HOST);
+            const lcd = new LCDClient(getTerraConfig(foreignChain));
             return getForeignAssetTerra(
               TERRA_TOKEN_BRIDGE_ADDRESS,
               lcd,

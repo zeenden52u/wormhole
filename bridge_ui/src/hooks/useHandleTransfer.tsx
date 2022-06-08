@@ -10,10 +10,12 @@ import {
   getEmitterAddressTerra,
   hexToUint8Array,
   isEVMChain,
+  isTerraChain,
   parseSequenceFromLogAlgorand,
   parseSequenceFromLogEth,
   parseSequenceFromLogSolana,
   parseSequenceFromLogTerra,
+  TerraChainId,
   transferFromAlgorand,
   transferFromEth,
   transferFromEthNative,
@@ -323,6 +325,7 @@ async function terra(
   targetChain: ChainId,
   targetAddress: Uint8Array,
   feeDenom: string,
+  chainId: TerraChainId,
   relayerFee?: string
 ) {
   dispatch(setIsSending(true));
@@ -344,10 +347,11 @@ async function terra(
       wallet,
       msgs,
       "Wormhole - Initiate Transfer",
-      [feeDenom]
+      [feeDenom],
+      chainId
     );
 
-    const info = await waitForTerraExecution(result);
+    const info = await waitForTerraExecution(result, chainId);
     dispatch(setTransferTx({ id: info.txhash, block: info.height }));
     enqueueSnackbar(null, {
       content: <Alert severity="success">Transaction confirmed</Alert>,
@@ -458,7 +462,7 @@ export function useHandleTransfer() {
         relayerFee
       );
     } else if (
-      sourceChain === CHAIN_ID_TERRA &&
+      isTerraChain(sourceChain) &&
       !!terraWallet &&
       !!sourceAsset &&
       decimals !== undefined &&
@@ -474,6 +478,7 @@ export function useHandleTransfer() {
         targetChain,
         targetAddress,
         terraFeeDenom,
+        sourceChain,
         relayerFee
       );
     } else if (

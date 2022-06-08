@@ -14,12 +14,14 @@ import {
   hexToUint8Array,
   importCoreWasm,
   isEVMChain,
+  isTerraChain,
   parseNFTPayload,
   parseSequenceFromLogAlgorand,
   parseSequenceFromLogEth,
   parseSequenceFromLogSolana,
   parseSequenceFromLogTerra,
   parseTransferPayload,
+  TerraChainId,
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import {
@@ -67,7 +69,7 @@ import {
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_HOST,
+  getTerraConfig,
   TERRA_TOKEN_BRIDGE_ADDRESS,
   WORMHOLE_RPC_HOSTS,
 } from "../utils/consts";
@@ -201,9 +203,9 @@ async function solana(tx: string, enqueueSnackbar: any, nft: boolean) {
   }
 }
 
-async function terra(tx: string, enqueueSnackbar: any) {
+async function terra(tx: string, enqueueSnackbar: any, chainId: TerraChainId) {
   try {
-    const lcd = new LCDClient(TERRA_HOST);
+    const lcd = new LCDClient(getTerraConfig(chainId));
     const info = await lcd.tx.txInfo(tx);
     const sequence = parseSequenceFromLogTerra(info);
     if (!sequence) {
@@ -467,11 +469,15 @@ export default function Recovery() {
             }
           }
         })();
-      } else if (recoverySourceChain === CHAIN_ID_TERRA) {
+      } else if (isTerraChain(recoverySourceChain)) {
         setRecoverySourceTxError("");
         setRecoverySourceTxIsLoading(true);
         (async () => {
-          const { vaa, error } = await terra(recoverySourceTx, enqueueSnackbar);
+          const { vaa, error } = await terra(
+            recoverySourceTx,
+            enqueueSnackbar,
+            recoverySourceChain
+          );
           if (!cancelled) {
             setRecoverySourceTxIsLoading(false);
             if (vaa) {

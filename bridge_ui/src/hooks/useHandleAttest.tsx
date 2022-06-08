@@ -13,10 +13,12 @@ import {
   getEmitterAddressSolana,
   getEmitterAddressTerra,
   isEVMChain,
+  isTerraChain,
   parseSequenceFromLogAlgorand,
   parseSequenceFromLogEth,
   parseSequenceFromLogSolana,
   parseSequenceFromLogTerra,
+  TerraChainId,
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import { Alert } from "@material-ui/lab";
@@ -230,7 +232,8 @@ async function terra(
   enqueueSnackbar: any,
   wallet: ConnectedWallet,
   asset: string,
-  feeDenom: string
+  feeDenom: string,
+  chainId: TerraChainId
 ) {
   dispatch(setIsSending(true));
   try {
@@ -239,10 +242,14 @@ async function terra(
       wallet.terraAddress,
       asset
     );
-    const result = await postWithFees(wallet, [msg], "Create Wrapped", [
-      feeDenom,
-    ]);
-    const info = await waitForTerraExecution(result);
+    const result = await postWithFees(
+      wallet,
+      [msg],
+      "Create Wrapped",
+      [feeDenom],
+      chainId
+    );
+    const info = await waitForTerraExecution(result, chainId);
     dispatch(setAttestTx({ id: info.txhash, block: info.height }));
     enqueueSnackbar(null, {
       content: <Alert severity="success">Transaction confirmed</Alert>,
@@ -295,8 +302,15 @@ export function useHandleAttest() {
       evm(dispatch, enqueueSnackbar, signer, sourceAsset, sourceChain);
     } else if (sourceChain === CHAIN_ID_SOLANA && !!solanaWallet && !!solPK) {
       solana(dispatch, enqueueSnackbar, solPK, sourceAsset, solanaWallet);
-    } else if (sourceChain === CHAIN_ID_TERRA && !!terraWallet) {
-      terra(dispatch, enqueueSnackbar, terraWallet, sourceAsset, terraFeeDenom);
+    } else if (isTerraChain(sourceChain) && !!terraWallet) {
+      terra(
+        dispatch,
+        enqueueSnackbar,
+        terraWallet,
+        sourceAsset,
+        terraFeeDenom,
+        sourceChain
+      );
     } else if (sourceChain === CHAIN_ID_ALGORAND && algoAccounts[0]) {
       algo(dispatch, enqueueSnackbar, algoAccounts[0].address, sourceAsset);
     } else {

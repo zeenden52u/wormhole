@@ -1,4 +1,4 @@
-import { CHAIN_ID_TERRA, isNativeDenom } from "@certusone/wormhole-sdk";
+import { CHAIN_ID_TERRA, isNativeDenom, TerraChainId } from "@certusone/wormhole-sdk";
 import { formatUnits } from "@ethersproject/units";
 import { LCDClient } from "@terra-money/terra.js";
 import React, { useCallback, useMemo, useRef } from "react";
@@ -8,7 +8,7 @@ import useTerraNativeBalances from "../../hooks/useTerraNativeBalances";
 import { DataWrapper } from "../../store/helpers";
 import { NFTParsedTokenAccount } from "../../store/nftSlice";
 import { ParsedTokenAccount } from "../../store/transferSlice";
-import { SUPPORTED_TERRA_TOKENS, TERRA_HOST } from "../../utils/consts";
+import { SUPPORTED_TERRA_TOKENS, getTerraConfig } from "../../utils/consts";
 import {
   formatNativeDenom,
   getNativeTerraIcon,
@@ -23,17 +23,19 @@ type TerraTokenPickerProps = {
   tokenAccounts: DataWrapper<ParsedTokenAccount[]> | undefined;
   disabled: boolean;
   resetAccounts: (() => void) | undefined;
+  chainId: TerraChainId
 };
 
 const returnsFalse = () => false;
 
 export default function TerraTokenPicker(props: TerraTokenPickerProps) {
-  const { value, onChange, disabled } = props;
+  const { value, onChange, disabled, chainId } = props;
   const { walletAddress } = useIsWalletReady(CHAIN_ID_TERRA);
   const nativeRefresh = useRef<() => void>(() => {});
   const { balances, isLoading: nativeIsLoading } = useTerraNativeBalances(
+    chainId,
     walletAddress,
-    nativeRefresh
+    nativeRefresh,
   );
 
   const resetAccountWrapper = useCallback(() => {
@@ -102,7 +104,7 @@ export default function TerraTokenPicker(props: TerraTokenPickerProps) {
       if (!walletAddress) {
         return Promise.reject("Wallet not connected");
       }
-      const lcd = new LCDClient(TERRA_HOST);
+      const lcd = new LCDClient(getTerraConfig(chainId));
       return lcd.wasm
         .contractQuery(lookupAsset, {
           token_info: {},
@@ -135,7 +137,7 @@ export default function TerraTokenPicker(props: TerraTokenPickerProps) {
           return Promise.reject();
         });
     },
-    [walletAddress]
+    [walletAddress, chainId]
   );
 
   const isSearchableAddress = useCallback((address: string) => {
@@ -162,7 +164,7 @@ export default function TerraTokenPicker(props: TerraTokenPickerProps) {
       error={""}
       showLoader={isLoading}
       nft={false}
-      chainId={CHAIN_ID_TERRA}
+      chainId={chainId}
     />
   );
 }
