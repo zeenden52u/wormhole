@@ -11,8 +11,9 @@ import axios from "axios";
 import { TERRA_GAS_PRICES_URL, TERRA_HOST } from "./consts";
 
 export const NATIVE_TERRA_DECIMALS = 6;
-export const LUNA_CLASSIC_SYMBOL = "LUNC"
+export const LUNA_CLASSIC_SYMBOL = "LUNC";
 
+// TODO: terra2 support
 export const getNativeTerraIcon = (symbol = "") =>
   `https://assets.terra.money/icon/60/${
     symbol === LUNA_CLASSIC_SYMBOL ? "Luna" : symbol.slice(0, symbol.length - 1)
@@ -51,6 +52,7 @@ export async function waitForTerraExecution(transaction: TxResult) {
   return info;
 }
 
+// TODO: terra2 support
 export const isValidTerraAddress = (address: string) => {
   if (isNativeDenom(address)) {
     return true;
@@ -73,7 +75,6 @@ export async function postWithFees(
 ) {
   // don't try/catch, let errors propagate
   const lcd = new LCDClient(TERRA_HOST);
-  //let gasPrices = await lcd.config.gasPrices //Unsure if the values returned from this are hardcoded or not.
   //Thus, we are going to pull it directly from the current FCD.
   const gasPrices = await axios
     .get(TERRA_GAS_PRICES_URL)
@@ -102,6 +103,8 @@ export async function postWithFees(
     feeDenoms,
     gasPrices,
     fee: feeEstimate,
+    // @ts-ignore, https://github.com/terra-money/terra.js/pull/295 (adding isClassic property)
+    isClassic: lcd.config.isClassic,
   });
 
   return result;

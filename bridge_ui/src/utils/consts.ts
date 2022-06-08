@@ -420,20 +420,27 @@ export const SOLANA_HOST = process.env.REACT_APP_SOLANA_API_URL
 export const TERRA_HOST =
   CLUSTER === "mainnet"
     ? {
-        URL: "https://lcd.terra.dev",
+        //URL: "https://phoenix-lcd.terra.dev",
+        //chainId: "phoenix-1"
+        URL: "https://columbus-lcd.terra.dev",
         chainID: "columbus-5",
         name: "mainnet",
+        isClassic: true,
       }
     : CLUSTER === "testnet"
     ? {
+        //URL: "https://pisco-lcd.terra.dev",
+        //chainId: "pisco-1"
         URL: "https://bombay-lcd.terra.dev",
         chainID: "bombay-12",
         name: "testnet",
+        isClassic: true,
       }
     : {
         URL: "http://localhost:1317",
         chainID: "columbus-5",
         name: "localterra",
+        isClassic: true,
       };
 export const ALGORAND_HOST =
   CLUSTER === "mainnet"
@@ -1294,9 +1301,9 @@ export const TERRA_DEFAULT_FEE_DENOM = SUPPORTED_TERRA_TOKENS[0];
 // TODO: terra2 support
 export const TERRA_FCD_BASE =
   CLUSTER === "mainnet"
-    ? "https://fcd.terra.dev"
+    ? "https://columbus-fcd.terra.dev" //https://phoenix-fcd.terra.dev
     : CLUSTER === "testnet"
-    ? "https://bombay-fcd.terra.dev"
+    ? "https://bombay-fcd.terra.dev" //https://pisco-fcd.terra.dev
     : "http://localhost:3060";
 export const TERRA_GAS_PRICES_URL = `${TERRA_FCD_BASE}/v1/txs/gas_prices`;
 

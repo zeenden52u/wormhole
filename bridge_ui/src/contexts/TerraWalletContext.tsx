@@ -6,12 +6,14 @@ const mainnet: NetworkInfo = {
   name: "mainnet",
   chainID: "columbus-5",
   lcd: "https://lcd.terra.dev",
+  walletconnectID: 1, // TODO: not sure what this does///
 };
 
 const testnet: NetworkInfo = {
   name: "testnet",
   chainID: "bombay-12",
   lcd: "https://bombay-lcd.terra.dev",
+  walletconnectID: 1, // TODO: not sure what this does///
 };
 
 const walletConnectChainIds: Record<number, NetworkInfo> = {
