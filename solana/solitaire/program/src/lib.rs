@@ -1,108 +1,89 @@
+//! Solitaire is a framework intended to make building programs on the Solana blockchain easier
+//! while providing a more secure foundation for building applications. It provides a mechanism for
+//! verifying data passed into Solana programs as well as various utilities that make it easier to
+//! work with the Solana ecosystem itself.
 
 #![feature(adt_const_params)]
+#![feature(generic_const_exprs)]
 #![allow(warnings)]
 
-// We need a few Solana things in scope in order to properly abstract Solana.
-use solana_program::{
-    account_info::{
-        next_account_info,
-        AccountInfo,
-    },
-    entrypoint,
-    entrypoint::ProgramResult,
-    instruction::{
-        AccountMeta,
-        Instruction,
-    },
-    program::invoke_signed,
-    program_error::ProgramError,
-    program_pack::Pack,
-    pubkey::Pubkey,
-    rent::Rent,
-    system_instruction,
-    system_program,
-    sysvar::{
-        self,
-        SysvarId,
-    },
-};
-
-use std::{
-    io::{
-        ErrorKind,
-        Write,
-    },
-    marker::PhantomData,
-    ops::{
-        Deref,
-        DerefMut,
-    },
-    slice::Iter,
-    string::FromUtf8Error,
-};
-
-pub use borsh::{
-    BorshDeserialize,
-    BorshSerialize,
-};
-
-// Expose all submodules from this crate.
+// Expose all submodules.
+pub mod accounts;
+pub mod context;
+pub mod create;
 pub mod error;
+pub mod iterator;
+pub mod layers;
 pub mod macros;
-pub mod processors;
-pub mod types;
 
-// This is the set of imports that is re-exported to act as the public API for this library.
-pub use crate::{
-    error::{
-        ErrBox,
-        Result,
-        SolitaireError,
-    },
-    macros::*,
-    processors::{
-        keyed::Keyed,
-        peel::Peel,
-        persist::Persist,
-        seeded::{
-            invoke_seeded,
-            AccountOwner,
-            AccountSize,
-            Creatable,
-            Owned,
-            Seeded,
-        },
-    },
-    types::*,
-};
+/// Solitaire Prelude
+///
+/// This module wholesale re-exports everything required to write a Solitaire instruction. This
+/// is similar to `Prelude` in Haskell, an batteries included starting point.
+mod prelude {
+    pub use borsh::{
+        BorshDeserialize,
+        BorshSerialize,
+    };
+    pub use solana_program::account_info::AccountInfo;
+    pub use solana_program::pubkey::Pubkey;
 
-/// Library name and version to print in entrypoint. Must be evaluated in this crate in order to do
-/// the right thing.
-pub const PKG_NAME_VERSION: &'static str =
-    concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
-
-pub struct ExecutionContext<'a, 'b: 'a> {
-    /// A reference to the program_id of the currently executing program.
-    pub program_id: &'a Pubkey,
-
-    /// This is the original list of accounts passed to the entrypoint. This can be used to access
-    /// any trailing accounts that were not processed by the program. Be careful when using this
-    /// directly.
-    pub accounts: &'a [AccountInfo<'b>],
+    pub use crate::accounts::{
+        HasInfo,
+        HasOwner,
+    };
+    pub use crate::create::{
+        create_account,
+        CreateArgs,
+        Rent,
+    };
+    pub use crate::instruction;
+    pub use crate::layers::*;
 }
 
-/// Lamports to pay to an account being created
-pub enum CreationLamports {
-    Exempt,
-    Amount(u64),
-}
+mod example {
+    use crate::prelude::AccountState::*;
+    use crate::prelude::*;
 
-impl CreationLamports {
-    /// Amount of lamports to be paid in account creation
-    pub fn amount(self, size: usize) -> u64 {
-        match self {
-            CreationLamports::Exempt => Rent::default().minimum_balance(size),
-            CreationLamports::Amount(v) => v,
+    #[derive(BorshDeserialize, BorshSerialize)]
+    pub struct ExampleData {}
+
+    #[derive(BorshDeserialize, BorshSerialize, Default)]
+    pub struct Config {}
+
+    impl HasOwner for Config {
+    }
+
+    instruction!(
+        example,
+        ExampleData,
+        ExampleAccounts {
+            foo: Derive<Borsh<Config, {Uninit}>>,
+            bar: Info,
+            pay: Info,
         }
+    );
+
+    pub fn example(
+        prog: &Pubkey,
+        accs: &mut ExampleAccounts,
+        data: ExampleData,
+    ) -> crate::error::Result<()> {
+        // Create Foo account.
+        let foo = accs.foo.derive("Foo")?.info();
+        let bar = accs.bar.info();
+        create_account(
+            foo,
+            accs.all,
+            CreateArgs {
+                payer: accs.pay.key,
+                owner: accs.program_id,
+                rent:  Rent::Exempt,
+                size:  foo.info().data.borrow().len(),
+                seeds: Some("Foo"),
+            },
+        )?;
+
+        Ok(())
     }
 }

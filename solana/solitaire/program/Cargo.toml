@@ -9,15 +9,16 @@ crate-type = ["cdylib", "lib"]
 name = "solitaire"
 
 [features]
-client = ["no-entrypoint"]
-cpi = ["no-entrypoint"]
-default = []
+default       = ["client"]
+
+client        = ["no-entrypoint", "solana-sdk"]
+cpi           = ["no-entrypoint"]
 no-entrypoint = []
-trace = []
+trace         = []
 
 [dependencies]
-borsh = "=0.9.1"
-byteorder = "1.4.3"
-
-sha3 = "0.9.1"
+borsh          = "=0.9.1"
+byteorder      = "1.4.3"
+sha3           = "0.9.1"
 solana-program = "=1.9.4"
+solana-sdk     = { version = "=1.9.4", optional = true }

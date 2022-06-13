@@ -1,12 +1,6 @@
-//! This module acts as a root for macros used within the solitaire framework. Each macro is
-//! documented in the respective module.
+//! Module containing all macros defined by Solitaire.
 
-use std::ops::{
-    Deref,
-    DerefMut,
-};
-
-mod accounts;
-mod pack_type;
+mod instruction;
+mod require;
 mod solitaire;
 mod tracing;

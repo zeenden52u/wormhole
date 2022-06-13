@@ -1,7 +1,11 @@
-use solana_program::{
-    program_error::ProgramError,
-    pubkey::Pubkey,
-};
+//! Solitaire specific Error handling.
+//!
+//! Solitaire wraps a lot of core Solana behaviour, and in many cases can provider clearer errors
+//! to the program caller. Solitaire will bubble up the Solana ProgramError to the caller for any
+//! error it does not wrap.
+
+use solana_program::program_error::ProgramError;
+use solana_program::pubkey::Pubkey;
 
 /// Quality of life Result type for the Solitaire stack.
 pub type Result<T> = std::result::Result<T, SolitaireError>;
@@ -12,9 +16,15 @@ pub type ErrBox = Box<dyn std::error::Error>;
 /// There are several places in Solitaire that might fail, we want descriptive errors.
 #[derive(Debug)]
 pub enum SolitaireError {
+    /// Returned when a TypeIter is invoked at runtime that should not have been invoked.
+    InvalidIterator,
+
     /// The AccountInfo parser expected a mutable key where a readonly
     /// was found, or vice versa. Second item is the found value.
     InvalidMutability(Pubkey, bool),
+
+    /// The AccountInfo parser expected a specific key, but the account did not match.
+    InvalidKey(Pubkey),
 
     /// The AccountInfo parser expected a Signer, but the account did not sign.
     InvalidSigner(Pubkey),
@@ -45,6 +55,9 @@ pub enum SolitaireError {
 
     /// Account has already been initialized
     AlreadyInitialized(Pubkey),
+
+    /// Account is uninitialied when it should not be.
+    Uninitialized(Pubkey),
 
     /// An instruction that wasn't recognised was sent.
     UnknownInstruction(u8),

@@ -1,5 +1,5 @@
 # Merge similar crates together to avoid multiple use statements.
-imports_granularity = "Crate"
+imports_granularity = "Module"
 
 # Consistency in formatting makes tool based searching/editing better.
 empty_item_single_line = false
@@ -9,3 +9,6 @@ imports_layout = "Vertical"
 
 # Default rustfmt formatting of match arms with branches is awful.
 match_arm_leading_pipes = "Preserve"
+
+# Align field definitions.
+struct_field_align_threshold = 100
