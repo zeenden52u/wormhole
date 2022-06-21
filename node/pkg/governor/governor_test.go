@@ -3,8 +3,11 @@ package governor
 import (
 	"context"
 	"encoding/binary"
+	"strings"
+
 	// "encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -630,7 +633,7 @@ func TestIfAnythingIsQueuedEverythingIsQueued(t *testing.T) {
 	err = gov.SetTokenPriceForTesting(vaa.ChainIDEthereum, tokenAddrStr, 1774.62)
 	assert.NoError(t, err)
 
-	// A bigg VAA should be queued.
+	// A big VAA should be queued.
 	payloadBytes1 := buildMockTransferPayloadBytes(1,
 		vaa.ChainIDEthereum,
 		tokenAddrStr,
@@ -691,4 +694,148 @@ func TestIfAnythingIsQueuedEverythingIsQueued(t *testing.T) {
 	assert.Equal(t, uint64(0), valueTrans)
 	assert.Equal(t, 2, numPending)
 	assert.Equal(t, uint64(1774619+1774), valuePending)
+}
+
+func TestInitCoinGecko(t *testing.T) {
+	ctx := context.Background()
+	gov, err := newChainGovernorForTest(ctx)
+	assert.Nil(t, err)
+	assert.Equal(t, "", gov.coinGeckoQuery)
+
+	gov.initCoinGecko(ctx)
+
+	// not checking full string match, because it changes every time
+	assert.Equal(t, true, strings.HasPrefix(gov.coinGeckoQuery, "https://api.coingecko.com/api/v3/simple/price?ids="))
+	assert.Equal(t, true, strings.HasSuffix(gov.coinGeckoQuery, "&vs_currencies=usd"))
+}
+
+func TestProcessMsgForTime(t *testing.T) {
+	unknownAddr, err := vaa.StringToAddress("0x0290fb167208af455bb137780163b7b7a9a10c16")
+	assert.Nil(t, err)
+
+	type test struct {
+		label     string
+		msg       common.MessagePublication
+		result    bool
+		errString string
+	}
+
+	tests := []test{
+		{label: "unknown address",
+			msg:       common.MessagePublication{Sequence: 1, EmitterChain: vaa.ChainIDEthereum, EmitterAddress: unknownAddr},
+			result:    true,
+			errString: "",
+		},
+		{label: "missing sequence",
+			msg:       common.MessagePublication{EmitterChain: vaa.ChainIDEthereum, EmitterAddress: unknownAddr},
+			result:    true,
+			errString: "",
+		},
+		{label: "missing emitter chain",
+			msg:       common.MessagePublication{Sequence: 1, EmitterAddress: unknownAddr},
+			result:    true,
+			errString: "",
+		},
+		{label: "missing emitter address",
+			msg:       common.MessagePublication{Sequence: 1, EmitterChain: vaa.ChainIDEthereum},
+			result:    true,
+			errString: "",
+		},
+		{label: "empty payload",
+			msg:       common.MessagePublication{Sequence: 1, EmitterChain: vaa.ChainIDEthereum, EmitterAddress: unknownAddr, Payload: []byte{}},
+			result:    true,
+			errString: "",
+		},
+		{label: "minimum viable payload",
+			msg:       common.MessagePublication{Sequence: 1, EmitterChain: vaa.ChainIDEthereum, EmitterAddress: unknownAddr, Payload: []byte{0x1}},
+			result:    true,
+			errString: "buffer too short",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.label, func(t *testing.T) {
+			ctx := context.Background()
+			gov, _ := newChainGovernorForTest(ctx)
+
+			bool, err := gov.ProcessMsgForTime(&tc.msg, time.Now())
+			assert.Equal(t, tc.result, bool)
+
+			if tc.errString == "" {
+				assert.Nil(t, err)
+			} else {
+				assert.Equal(t, tc.errString, err.Error())
+			}
+		})
+	}
+}
+
+func TestUpdatePrice(t *testing.T) {
+	addr, err := vaa.StringToAddress("0x0290fb167208af455bb137780163b7b7a9a10c16")
+	assert.Nil(t, err)
+
+	decimalsFloat := big.NewFloat(math.Pow(10.0, float64(18)))
+	decimals, _ := decimalsFloat.Int(nil)
+
+	tk := tokenKey{chain: vaa.ChainIDEthereum, addr: addr}
+
+	type test struct {
+		label string
+		te    tokenEntry
+		price *big.Float
+	}
+
+	tests := []test{
+		{label: "Use max of cfgPrice and coinGeckoPrice",
+			te:    tokenEntry{price: big.NewFloat(1.0), decimals: decimals, symbol: "foo", coinGeckoId: "foo", token: tk, cfgPrice: big.NewFloat(4.0), coinGeckoPrice: big.NewFloat(3.0), priceTime: time.Now()},
+			price: big.NewFloat(4.0),
+		},
+		{label: "Use cfgPrice when coinGeckoPrice is nil",
+			te:    tokenEntry{price: big.NewFloat(1.0), decimals: decimals, symbol: "foo", coinGeckoId: "foo", token: tk, cfgPrice: big.NewFloat(4.0), priceTime: time.Now()},
+			price: big.NewFloat(4.0),
+		},
+		{label: "Use coinGeckoPrice when coinGeckoPrice is not nil and when coinGeckoPrice is more than cfgPrice",
+			te:    tokenEntry{price: big.NewFloat(1.0), decimals: decimals, symbol: "foo", coinGeckoId: "foo", token: tk, cfgPrice: big.NewFloat(4.0), coinGeckoPrice: big.NewFloat(5.0), priceTime: time.Now()},
+			price: big.NewFloat(5.0),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.label, func(t *testing.T) {
+			tc.te.updatePrice()
+			assert.Equal(t, tc.price, tc.te.price)
+		})
+	}
+}
+
+func TestTkString(t *testing.T) {
+	addr, err := vaa.StringToAddress("0x0290fb167208af455bb137780163b7b7a9a10c16")
+	assert.Nil(t, err)
+
+	type test struct {
+		label    string
+		tk       tokenKey
+		tkString string
+	}
+
+	tests := []test{
+		{label: "simple",
+			tk:       tokenKey{chain: vaa.ChainIDEthereum, addr: addr},
+			tkString: "ethereum:0000000000000000000000000290fb167208af455bb137780163b7b7a9a10c16",
+		},
+		{label: "missing chain",
+			tk:       tokenKey{addr: addr},
+			tkString: "unset:0000000000000000000000000290fb167208af455bb137780163b7b7a9a10c16",
+		},
+		{label: "missing addr",
+			tk:       tokenKey{chain: vaa.ChainIDEthereum},
+			tkString: "ethereum:0000000000000000000000000000000000000000000000000000000000000000",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.label, func(t *testing.T) {
+			assert.Equal(t, tc.tkString, tc.tk.String())
+		})
+	}
 }
