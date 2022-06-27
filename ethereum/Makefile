@@ -12,8 +12,8 @@ dependencies: node_modules
 
 build: node_modules ${SOURCE_FILES}
 	mkdir -p build
-	touch -m build
 	npm run build
+	touch -m build
 
 .env: .env.test
 	cp $< $@
