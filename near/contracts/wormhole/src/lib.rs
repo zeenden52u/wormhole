@@ -442,6 +442,10 @@ impl Wormhole {
         }
     }
 
+    pub fn message_fee(&self) -> u128 {
+        self.message_fee
+    }
+
     pub fn boot_wormhole(&mut self, gset: u32, addresses: Vec<String>) {
         if self.owner_pk != env::signer_account_pk() {
             env::panic_str("invalidSigner");
