@@ -14,7 +14,7 @@ use near_sdk::{
 };
 use serde::{Deserialize, Serialize};
 
-use near_sdk::utils::{assert_one_yocto, is_promise_success};
+use near_sdk::utils::{is_promise_success};
 
 use std::str;
 
@@ -91,6 +91,7 @@ pub struct TransferMsgPayload {
     chain: u16,
     fee: String,
     payload: String,
+    message_fee: Balance,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -696,6 +697,7 @@ impl Portal {
         chain: u16,
         fee: String,
         payload: String,
+        message_fee: Balance
     ) -> Promise {
         require!(
             env::prepaid_gas() >= Gas(100_000_000_000_000),
@@ -707,7 +709,7 @@ impl Portal {
             )
         );
 
-        let amount = env::attached_deposit();
+        let amount = env::attached_deposit() - message_fee;
 
         let namount = amount / NEAR_MULT;
         let nfee = fee.parse::<u128>().unwrap() / NEAR_MULT;
@@ -750,6 +752,7 @@ impl Portal {
         }
 
         ext_worm_hole::ext(self.core.clone())
+            .with_attached_deposit(message_fee)
             .publish_message(hex::encode(p), env::block_height() as u32)
     }
 
@@ -762,8 +765,11 @@ impl Portal {
         chain: u16,
         fee: String,
         payload: String,
+        message_fee: Balance
     ) -> Promise {
-        assert_one_yocto();
+        if env::attached_deposit() < message_fee  || env::attached_deposit() == 0 {
+            refund_and_panic("MessageFeeRequired", &env::predecessor_account_id());
+        }
 
         require!(
             env::prepaid_gas() >= Gas(100_000_000_000_000),
@@ -785,15 +791,19 @@ impl Portal {
                     fee.parse().unwrap(),
                     payload,
                 )
-                .then(Self::ext(env::current_account_id()).send_transfer_token_wormhole_callback())
+                .then(Self::ext(env::current_account_id())
+                      .with_attached_deposit(env::attached_deposit())
+                      .send_transfer_token_wormhole_callback(message_fee))
         } else {
             env::panic_str("NotWormhole");
         }
     }
 
     #[private]
+    #[payable]
     pub fn send_transfer_token_wormhole_callback(
-        &self,
+        &mut self,
+        message_fee: Balance,
         #[callback_result] payload: Result<String, PromiseError>,
     ) -> Promise {
         if payload.is_err() {
@@ -801,6 +811,7 @@ impl Portal {
         }
 
         ext_worm_hole::ext(self.core.clone())
+            .with_attached_deposit(message_fee)
             .publish_message(payload.unwrap(), env::block_height() as u32)
     }
 
@@ -926,7 +937,12 @@ impl Portal {
         }
     }
 
-    pub fn attest_near(&mut self) -> Promise {
+    #[payable]
+    pub fn attest_near(&mut self, message_fee: Balance) -> Promise {
+        if env::attached_deposit() < message_fee {
+            refund_and_panic("InvalidDeposit", &env::predecessor_account_id());
+        }
+
         require!(
             env::prepaid_gas() >= Gas(100_000_000_000_000),
             &format!(
@@ -953,11 +969,16 @@ impl Portal {
         }
 
         ext_worm_hole::ext(self.core.clone())
+            .with_attached_deposit(message_fee)
             .publish_message(hex::encode(p), env::block_height() as u32)
     }
 
     #[payable]
-    pub fn attest_token(&mut self, token: String) -> Promise {
+    pub fn attest_token(&mut self, token: String, message_fee: Balance) -> Promise {
+        if env::attached_deposit() < message_fee {
+            refund_and_panic("InvalidDeposit", &env::predecessor_account_id());
+        }
+
         if env::prepaid_gas() < Gas(100_000_000_000_000) {
             refund_and_panic("MoreGasRequired", &env::predecessor_account_id());
         }
@@ -973,7 +994,7 @@ impl Portal {
                     Self::ext(env::current_account_id())
                         .with_unused_gas_weight(10)
                         .with_attached_deposit(env::attached_deposit())
-                        .attest_token_callback(token, env::predecessor_account_id()),
+                        .attest_token_callback(token, env::predecessor_account_id(), message_fee),
                 )
         }
     }
@@ -984,6 +1005,7 @@ impl Portal {
         &mut self,
         token: String,
         refund_to: AccountId,
+        message_fee: Balance,
         #[callback_result] ft_info: Result<FungibleTokenMetadata, PromiseError>,
     ) -> Promise {
         if ft_info.is_err() {
@@ -995,6 +1017,8 @@ impl Portal {
         let bridge_token_account = AccountId::new_unchecked(token.clone());
         let account_hash = env::sha256(token.as_bytes());
         let tkey = token_key(account_hash.to_vec(), CHAIN_ID_NEAR);
+
+        let mut deposit = env::attached_deposit();
 
         let storage_used = env::storage_usage();
 
@@ -1014,7 +1038,7 @@ impl Portal {
         let required_cost =
             (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
 
-        if required_cost > env::attached_deposit() {
+        if required_cost > deposit {
             env::log_str(&format!(
                 "portal/{}#{}: attest_token_callback: {} {}",
                 file!(),
@@ -1025,7 +1049,7 @@ impl Portal {
 
             refund_and_panic("DepositUnderflowForRegistration", &refund_to);
         }
-        let refund = env::attached_deposit() - required_cost;
+        deposit -= required_cost;
 
         let p = [
             (2_u8).to_be_bytes().to_vec(),
@@ -1042,19 +1066,26 @@ impl Portal {
             refund_and_panic("formatting error", &refund_to);
         }
 
+        if deposit < message_fee {
+            refund_and_panic("MessageFeeUnderflow", &refund_to);
+        }
+
+        deposit -= message_fee;
+
         let mut prom = ext_worm_hole::ext(self.core.clone())
+            .with_attached_deposit(message_fee)
             .publish_message(hex::encode(p), env::block_height() as u32);
 
-        if refund > 0 {
+        if deposit > 0 {
             env::log_str(&format!(
                 "portal/{}#{}: refunding {} to {}",
                 file!(),
                 line!(),
-                refund,
+                deposit,
                 refund_to
             ));
 
-            prom = prom.then(Promise::new(refund_to).transfer(refund));
+            prom = prom.then(Promise::new(refund_to).transfer(deposit));
         }
 
         prom
@@ -1145,6 +1176,7 @@ impl Portal {
 
         PromiseOrValue::Promise(
             ext_worm_hole::ext(self.core.clone())
+                .with_attached_deposit(tp.message_fee)
                 .publish_message(hex::encode(p), env::block_height() as u32)
                 .then(Self::ext(env::current_account_id()).emitter_callback_pov()),
         )
