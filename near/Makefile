@@ -85,3 +85,8 @@ cycle: build
 	(cd ../sdk/js; npm run build)
 	npm ci
 	ts-node test/sdk.ts
+
+.PHONY: testnet
+testnet: build
+	cp contracts/*/target/wasm32-unknown-unknown/release/*.wasm .
+	ts-node devnet_deploy.ts
