@@ -14,7 +14,7 @@ use near_sdk::{
 };
 use serde::{Deserialize, Serialize};
 
-use near_sdk::utils::{is_promise_success};
+use near_sdk::utils::is_promise_success;
 
 use std::str;
 
@@ -117,6 +117,8 @@ pub struct Portal {
     tokens: LookupMap<AccountId, TokenData>,
     key_map: LookupMap<Vec<u8>, AccountId>,
     hash_map: LookupMap<Vec<u8>, AccountId>,
+
+    bank: LookupMap<AccountId, Balance>,
 }
 
 impl Default for Portal {
@@ -133,6 +135,8 @@ impl Default for Portal {
             tokens: LookupMap::new(b"t".to_vec()),
             key_map: LookupMap::new(b"k".to_vec()),
             hash_map: LookupMap::new(b"a".to_vec()),
+
+            bank: LookupMap::new(b"b".to_vec()),
         }
     }
 }
@@ -673,6 +677,103 @@ impl Portal {
         ret
     }
 
+    #[payable]
+    pub fn register_bank(&mut self) -> PromiseOrValue<bool> {
+        require!(
+            env::prepaid_gas() >= Gas(100_000_000_000_000),
+            &format!(
+                "portal/{}#{}: more gas is required {}",
+                file!(),
+                line!(),
+                serde_json::to_string(&env::prepaid_gas()).unwrap()
+            )
+        );
+
+        let refund_to = env::predecessor_account_id();
+        let mut deposit = env::attached_deposit();
+
+        if !self.bank.contains_key(&refund_to) {
+            let b = 0;
+
+            let storage_used = env::storage_usage();
+
+            self.bank.insert(&refund_to, &b);
+
+            let required_cost =
+                (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
+
+            if required_cost > deposit {
+                refund_and_panic("DepositUnderflowForRegistration", &refund_to);
+            }
+            deposit -= required_cost;
+        }
+
+        if deposit > 0 {
+            PromiseOrValue::Promise(Promise::new(refund_to).transfer(deposit))
+        } else {
+            PromiseOrValue::Value(false)
+        }
+    }
+
+    #[payable]
+    pub fn fill_bank(&mut self) {
+        require!(
+            env::prepaid_gas() >= Gas(100_000_000_000_000),
+            &format!(
+                "portal/{}#{}: more gas is required {}",
+                file!(),
+                line!(),
+                serde_json::to_string(&env::prepaid_gas()).unwrap()
+            )
+        );
+
+        let refund_to = env::predecessor_account_id();
+
+        if !self.bank.contains_key(&refund_to) {
+            refund_and_panic("UnregisteredAccount", &refund_to);
+        }
+
+        let b = self.bank.get(&refund_to).unwrap() + env::attached_deposit();
+        self.bank.insert(&refund_to, &b);
+    }
+
+    #[payable]
+    pub fn drain_bank(&mut self) -> Promise {
+        require!(
+            env::prepaid_gas() >= Gas(100_000_000_000_000),
+            &format!(
+                "portal/{}#{}: more gas is required {}",
+                file!(),
+                line!(),
+                serde_json::to_string(&env::prepaid_gas()).unwrap()
+            )
+        );
+
+        let refund_to = env::predecessor_account_id();
+        if env::attached_deposit() != 1 {
+            refund_and_panic("unauthorized", &refund_to);
+        }
+
+        if !self.bank.contains_key(&refund_to) {
+            refund_and_panic("UnregisteredAccount", &refund_to);
+        }
+
+        let b = self.bank.get(&refund_to).unwrap();
+        let nv = 0;
+        self.bank.insert(&refund_to, &nv);
+
+        Promise::new(refund_to).transfer(b)
+    }
+
+    pub fn bank_balance(&self) -> (bool, Balance) {
+        let acct = env::predecessor_account_id();
+        if self.bank.contains_key(&acct) {
+            (true, self.bank.get(&acct).unwrap())
+        } else {
+            (false, 0)
+        }
+    }
+
     pub fn hash_account(&self, account: String) -> (bool, String) {
         // Yes, you could hash it yourself but then you wouldn't know
         // if it was already registered...
@@ -697,7 +798,7 @@ impl Portal {
         chain: u16,
         fee: String,
         payload: String,
-        message_fee: Balance
+        message_fee: Balance,
     ) -> Promise {
         require!(
             env::prepaid_gas() >= Gas(100_000_000_000_000),
@@ -765,9 +866,9 @@ impl Portal {
         chain: u16,
         fee: String,
         payload: String,
-        message_fee: Balance
+        message_fee: Balance,
     ) -> Promise {
-        if env::attached_deposit() < message_fee  || env::attached_deposit() == 0 {
+        if env::attached_deposit() < message_fee || env::attached_deposit() == 0 {
             refund_and_panic("MessageFeeRequired", &env::predecessor_account_id());
         }
 
@@ -791,9 +892,11 @@ impl Portal {
                     fee.parse().unwrap(),
                     payload,
                 )
-                .then(Self::ext(env::current_account_id())
-                      .with_attached_deposit(env::attached_deposit())
-                      .send_transfer_token_wormhole_callback(message_fee))
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_attached_deposit(env::attached_deposit())
+                        .send_transfer_token_wormhole_callback(message_fee),
+                )
         } else {
             env::panic_str("NotWormhole");
         }
