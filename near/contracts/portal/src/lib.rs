@@ -872,8 +872,10 @@ impl Portal {
         payload: String,
         message_fee: Balance,
     ) -> Promise {
-        if env::attached_deposit() != message_fee && env::attached_deposit() != 1 {
-            refund_and_panic("MessageFeeRequired", &env::predecessor_account_id());
+        if (message_fee > 0) && (env::attached_deposit() < message_fee)
+            || (env::attached_deposit() == 0)
+        {
+            refund_and_panic("DepositRequired", &env::predecessor_account_id());
         }
 
         require!(
@@ -1050,7 +1052,9 @@ impl Portal {
 
     #[payable]
     pub fn attest_near(&mut self, message_fee: Balance) -> Promise {
-        if env::attached_deposit() != message_fee && env::attached_deposit() != 1 {
+        if (message_fee > 0) && (env::attached_deposit() < message_fee)
+            || (env::attached_deposit() == 0)
+        {
             refund_and_panic("DepositRequired", &env::predecessor_account_id());
         }
 
@@ -1086,7 +1090,9 @@ impl Portal {
 
     #[payable]
     pub fn attest_token(&mut self, token: String, message_fee: Balance) -> Promise {
-        if env::attached_deposit() != message_fee && env::attached_deposit() != 1 {
+        if (message_fee > 0) && (env::attached_deposit() < message_fee)
+            || (env::attached_deposit() == 0)
+        {
             refund_and_panic("DepositRequired", &env::predecessor_account_id());
         }
 
