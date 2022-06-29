@@ -92,7 +92,7 @@ async function initNear() {
       config.wormholeAccount,
       masterKey.getPublicKey(),
       wormholeContract,
-      new BN(10).pow(new BN(25))
+      new BN("20000000000000000000000000")
     );
   } else {
     // This uses the standard API to redeploy ... we can migrate over to the vaa's later
@@ -114,7 +114,7 @@ async function initNear() {
       config.tokenAccount,
       masterKey.getPublicKey(),
       tokenContract,
-      new BN(10).pow(new BN(25))
+      new BN("20000000000000000000000000")
     );
   } else {
     // This uses the standard API to redeploy ... we can migrate over to the vaa's later
@@ -148,7 +148,7 @@ async function initNear() {
       config.testAccount,
       masterKey.getPublicKey(),
       testContract,
-      new BN(10).pow(new BN(25))
+      new BN("20000000000000000000000000")
     );
 
     console.log("booting wormhole to devnet keys");

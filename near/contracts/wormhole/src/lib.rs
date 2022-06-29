@@ -1,6 +1,8 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedSet};
-use near_sdk::{env, near_bindgen, require, Gas, Promise, PublicKey};
+use near_sdk::{
+    env, near_bindgen, require, AccountId, Balance, Gas, Promise, PromiseOrValue, PublicKey,
+};
 
 use serde::Serialize;
 
@@ -69,7 +71,7 @@ pub struct Wormhole {
     emitters: LookupMap<String, u64>,
     guardian_set_expirity: u64,
     guardian_set_index: u32,
-    message_fee: u64,
+    message_fee: u128,
     owner_pk: PublicKey,
     upgrade_hash: Vec<u8>,
 }
@@ -156,10 +158,16 @@ fn parse_and_verify_vaa(storage: &Wormhole, data: &[u8]) -> state::ParsedVAA {
     vaa
 }
 
-fn vaa_update_contract(storage: &mut Wormhole, _vaa: &state::ParsedVAA, data: &[u8]) {
+fn vaa_update_contract(
+    storage: &mut Wormhole,
+    _vaa: &state::ParsedVAA,
+    data: &[u8],
+    deposit: Balance,
+    refund_to: AccountId,
+) -> PromiseOrValue<bool> {
     let chain = data.get_u16(33);
     if chain != CHAIN_ID_NEAR {
-        env::panic_str("InvalidContractUpgradeChain");
+        refund_and_panic("InvalidContractUpgradeChain", refund_to);
     }
 
     let uh = data.get_bytes32(0);
@@ -170,14 +178,26 @@ fn vaa_update_contract(storage: &mut Wormhole, _vaa: &state::ParsedVAA, data: &[
         hex::encode(&uh)
     ));
     storage.upgrade_hash = uh.to_vec();
+
+    if deposit > 0 {
+        PromiseOrValue::Promise(Promise::new(refund_to).transfer(deposit))
+    } else {
+        PromiseOrValue::Value(true)
+    }
 }
 
-fn vaa_update_guardian_set(storage: &mut Wormhole, _vaa: &state::ParsedVAA, data: &[u8]) {
+fn vaa_update_guardian_set(
+    storage: &mut Wormhole,
+    _vaa: &state::ParsedVAA,
+    data: &[u8],
+    mut deposit: Balance,
+    refund_to: AccountId,
+) -> PromiseOrValue<bool> {
     const ADDRESS_LEN: usize = 20;
     let new_guardian_set_index = data.get_u32(0);
 
     if storage.guardian_set_index + 1 != new_guardian_set_index {
-        env::panic_str("InvalidGovernanceSetIndex");
+        refund_and_panic("InvalidGovernanceSetIndex", refund_to);
     }
 
     let n_guardians = data.get_u8(4);
@@ -203,18 +223,66 @@ fn vaa_update_guardian_set(storage: &mut Wormhole, _vaa: &state::ParsedVAA, data
         expiration_time: 0,
     };
 
+    let storage_used = env::storage_usage();
+
     storage.guardians.insert(&new_guardian_set_index, &g);
     storage.guardian_set_index = new_guardian_set_index;
+
+    let required_cost =
+        (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
+
+    if required_cost > deposit {
+        refund_and_panic("DepositUnderflowForGuardianSet", refund_to);
+    }
+    deposit -= required_cost;
+
+    if deposit > 0 {
+        PromiseOrValue::Promise(Promise::new(refund_to).transfer(deposit))
+    } else {
+        PromiseOrValue::Value(true)
+    }
 }
 
-fn handle_set_fee(storage: &mut Wormhole, _vaa: &state::ParsedVAA, payload: &[u8]) {
+fn handle_set_fee(
+    storage: &mut Wormhole,
+    _vaa: &state::ParsedVAA,
+    payload: &[u8],
+    deposit: Balance,
+    refund_to: AccountId,
+) -> PromiseOrValue<bool> {
     let (_, amount) = payload.get_u256(0);
 
-    storage.message_fee = amount as u64;
+    storage.message_fee = amount as u128;
+
+    if deposit > 0 {
+        PromiseOrValue::Promise(Promise::new(refund_to).transfer(deposit))
+    } else {
+        PromiseOrValue::Value(true)
+    }
 }
 
-fn handle_transfer_fee(_storage: &mut Wormhole, _vaa: &state::ParsedVAA, _payload: &[u8]) {
-    env::panic_str("handle_transfer_fee not implemented");
+fn handle_transfer_fee(
+    _storage: &mut Wormhole,
+    _vaa: &state::ParsedVAA,
+    _payload: &[u8],
+    _deposit: Balance,
+    refund_to: AccountId,
+) -> PromiseOrValue<bool> {
+    refund_and_panic("handle_transfer_fee not implemented", refund_to);
+}
+
+fn refund_and_panic(s: &str, refund_to: AccountId) -> ! {
+    if env::attached_deposit() > 0 {
+        env::log_str(&format!(
+            "wormhole/{}#{}: refund {} to {}",
+            file!(),
+            line!(),
+            env::attached_deposit(),
+            refund_to
+        ));
+        Promise::new(refund_to.clone()).transfer(env::attached_deposit());
+    }
+    env::panic_str(s);
 }
 
 #[near_bindgen]
@@ -238,6 +306,7 @@ impl Wormhole {
         self.guardian_set_index as u32
     }
 
+    #[payable]
     pub fn publish_message(&mut self, data: String, nonce: u32) -> Promise {
         require!(
             env::prepaid_gas() >= Gas(10_000_000_000_000),
@@ -248,6 +317,13 @@ impl Wormhole {
                 serde_json::to_string(&env::prepaid_gas()).unwrap()
             )
         );
+
+        if self.message_fee > 0 {
+            require!(
+                env::attached_deposit() >= self.message_fee,
+                "message_fee not provided"
+            )
+        }
 
         let s = env::predecessor_account_id().to_string();
 
@@ -294,28 +370,49 @@ impl Wormhole {
         seq
     }
 
-    pub fn submit_vaa(&mut self, vaa: String) {
+    #[payable]
+    pub fn submit_vaa(&mut self, vaa: String) -> PromiseOrValue<bool> {
+        let refund_to = env::predecessor_account_id();
+        let mut deposit = env::attached_deposit();
+
+        if env::attached_deposit() == 0 {
+            refund_and_panic("PayForStorage", refund_to);
+        }
+
+        if env::prepaid_gas() < Gas(300_000_000_000_000) {
+            refund_and_panic("NotEnoughGas", refund_to);
+        }
+
         let h = hex::decode(vaa).expect("invalidVaa");
         let vaa = parse_and_verify_vaa(self, &h);
 
         // Check if VAA with this hash was already accepted
         if self.dups.contains(&vaa.hash) {
-            env::panic_str("alreadyExecuted");
+            refund_and_panic("alreadyExecuted", refund_to);
         }
+
+        let storage_used = env::storage_usage();
         self.dups.insert(&vaa.hash);
+        let required_cost =
+            (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
+
+        if required_cost > deposit {
+            refund_and_panic("DepositUnderflowForDupSuppression", refund_to);
+        }
+        deposit -= required_cost;
 
         if (CHAIN_ID_SOL != vaa.emitter_chain)
             || (hex::decode("0000000000000000000000000000000000000000000000000000000000000004")
                 .unwrap()
                 != vaa.emitter_address)
         {
-            env::panic_str("InvalidGovernanceEmitter");
+            refund_and_panic("InvalidGovernanceEmitter", refund_to);
         }
 
         // This is the core contract... it SHOULD only get governance packets and be on the latest
 
         if self.guardian_set_index != vaa.guardian_set_index {
-            env::panic_str("InvalidGovernanceSet");
+            refund_and_panic("InvalidGovernanceSet", refund_to);
         }
 
         let data: &[u8] = &vaa.payload;
@@ -324,24 +421,24 @@ impl Wormhole {
             != hex::decode("00000000000000000000000000000000000000000000000000000000436f7265")
                 .unwrap()
         {
-            env::panic_str("InvalidGovernanceModule");
+            refund_and_panic("InvalidGovernanceModule", refund_to);
         }
 
         let chain = data.get_u16(33);
         let action = data.get_u8(32);
 
         if !((action == 2 && chain == 0) || chain == CHAIN_ID_NEAR) {
-            env::panic_str("InvalidGovernanceChain");
+            refund_and_panic("InvalidGovernanceChain", refund_to);
         }
 
         let payload = &data[35..];
 
         match action {
-            1u8 => vaa_update_contract(self, &vaa, payload),
-            2u8 => vaa_update_guardian_set(self, &vaa, payload),
-            3u8 => handle_set_fee(self, &vaa, payload),
-            4u8 => handle_transfer_fee(self, &vaa, payload),
-            _ => env::panic_str("InvalidGovernanceAction"),
+            1u8 => vaa_update_contract(self, &vaa, payload, deposit, refund_to.clone()),
+            2u8 => vaa_update_guardian_set(self, &vaa, payload, deposit, refund_to.clone()),
+            3u8 => handle_set_fee(self, &vaa, payload, deposit, refund_to.clone()),
+            4u8 => handle_transfer_fee(self, &vaa, payload, deposit, refund_to.clone()),
+            _ => refund_and_panic("InvalidGovernanceAction", refund_to),
         }
     }
 
