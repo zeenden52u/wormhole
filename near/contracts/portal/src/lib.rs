@@ -1084,7 +1084,7 @@ impl Portal {
         }
 
         ext_worm_hole::ext(self.core.clone())
-            .with_attached_deposit(message_fee)
+            .with_attached_deposit(env::attached_deposit())
             .publish_message(hex::encode(p), env::block_height() as u32)
     }
 
@@ -1246,6 +1246,12 @@ impl Portal {
         let ft = ft_info.unwrap();
         let tp: TransferMsgPayload = near_sdk::serde_json::from_str(&msg).unwrap();
 
+        if tp.message_fee > 0 {
+            if !self.bank.contains_key(&sender_id) {
+                env::panic_str("senderHasNoBank");
+            }
+        }
+
         let mut near_mult: u128 = 1;
 
         if ft.decimals > 8 {
@@ -1289,6 +1295,15 @@ impl Portal {
             if p.len() != (133 + (tp.payload.len() / 2)) {
                 env::panic_str(&format!("paylod3 formatting errro  len = {}", p.len()));
             }
+        }
+
+        if tp.message_fee > 0 {
+            let mut b = self.bank.get(&sender_id).unwrap();
+            if b < tp.message_fee {
+                env::panic_str("bank underflow");
+            }
+            b -= tp.message_fee;
+            self.bank.insert(&sender_id, &b);
         }
 
         PromiseOrValue::Promise(
