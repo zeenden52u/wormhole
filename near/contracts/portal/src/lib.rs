@@ -103,6 +103,22 @@ pub struct TokenData {
     chain: u16,
 }
 
+//#[near_bindgen]
+//#[derive(BorshDeserialize, BorshSerialize)]
+//pub struct OldPortal {
+//    booted: bool,
+//    core: AccountId,
+//    dups: UnorderedSet<Vec<u8>>,
+//    owner_pk: PublicKey,
+//    emitter_registration: LookupMap<u16, Vec<u8>>,
+//    last_asset: u32,
+//    upgrade_hash: Vec<u8>,
+//
+//    tokens: LookupMap<AccountId, TokenData>,
+//    key_map: LookupMap<Vec<u8>, AccountId>,
+//    hash_map: LookupMap<Vec<u8>, AccountId>,
+//}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Portal {
@@ -1435,6 +1451,33 @@ impl Portal {
                 env::attached_deposit(),
             ))
     }
+
+//    #[init(ignore_state)]
+//    #[payable]
+//    pub fn migrate() -> Self {
+//        if env::attached_deposit() != 1 {
+//            env::panic_str("Need money");
+//        }
+//        let old_state: OldPortal = env::state_read().expect("failed");
+//        if env::signer_account_pk() != old_state.owner_pk {
+//            env::panic_str("CannotCallMigrate");
+//        }
+//        env::log_str(&format!("portal/{}#{}: migrate", file!(), line!(),));
+//        Self {
+//            booted: old_state.booted,
+//            core: old_state.core,
+//            dups: old_state.dups,
+//            owner_pk: old_state.owner_pk,
+//            emitter_registration: old_state.emitter_registration,
+//            last_asset: old_state.last_asset,
+//            upgrade_hash: old_state.upgrade_hash,
+//            tokens: old_state.tokens,
+//            key_map: old_state.key_map,
+//            hash_map: old_state.hash_map,
+//
+//            bank: LookupMap::new(b"b".to_vec()),
+//        }
+//    }
 }
 
 //  let result = await userAccount.functionCall({

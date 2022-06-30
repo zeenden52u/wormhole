@@ -63,6 +63,19 @@ impl WormholeEvent {
     }
 }
 
+//#[near_bindgen]
+//#[derive(BorshDeserialize, BorshSerialize)]
+//pub struct OldWormhole {
+//    guardians: LookupMap<u32, GuardianSetInfo>,
+//    dups: UnorderedSet<Vec<u8>>,
+//    emitters: LookupMap<String, u64>,
+//    guardian_set_expirity: u64,
+//    guardian_set_index: u32,
+//    message_fee: u64,
+//    owner_pk: PublicKey,
+//    upgrade_hash: Vec<u8>,
+//}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Wormhole {
@@ -71,9 +84,10 @@ pub struct Wormhole {
     emitters: LookupMap<String, u64>,
     guardian_set_expirity: u64,
     guardian_set_index: u32,
-    message_fee: u128,
     owner_pk: PublicKey,
     upgrade_hash: Vec<u8>,
+    message_fee: u128,
+    bank: u128,
 }
 
 impl Default for Wormhole {
@@ -84,9 +98,10 @@ impl Default for Wormhole {
             emitters: LookupMap::new(b"e".to_vec()),
             guardian_set_index: u32::MAX,
             guardian_set_expirity: 24 * 60 * 60 * 1_000_000_000, // 24 hours in nanoseconds
-            message_fee: 0,
             owner_pk: env::signer_account_pk(),
             upgrade_hash: b"".to_vec(),
+            message_fee: 0,
+            bank: 0,
         }
     }
 }
@@ -521,6 +536,31 @@ impl Wormhole {
                 env::attached_deposit(),
             ))
     }
+
+//    #[init(ignore_state)]
+//    #[payable]
+//    pub fn migrate() -> Self {
+//        if env::attached_deposit() != 1 {
+//            env::panic_str("Need money");
+//        }
+//        let old_state: OldWormhole = env::state_read().expect("failed");
+//        if env::signer_account_pk() != old_state.owner_pk {
+//            env::panic_str("CannotCallMigrate");
+//        }
+//        env::log_str(&format!("wormhole/{}#{}: migrate", file!(), line!(),));
+//        Self {
+//            guardians: old_state.guardians,
+//            dups: old_state.dups,
+//            emitters: old_state.emitters,
+//            guardian_set_index: old_state.guardian_set_index,
+//            guardian_set_expirity: old_state.guardian_set_expirity,
+//            owner_pk: old_state.owner_pk,
+//            upgrade_hash: old_state.upgrade_hash,
+//
+//            message_fee: 0,
+//            bank: 0,
+//        }
+//    }
 }
 
 //  let result = await userAccount.functionCall({
