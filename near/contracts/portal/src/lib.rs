@@ -4,7 +4,7 @@
 //#![allow(dead_code)]
 
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
-use near_sdk::json_types::{Base64VecU8, U128};
+use near_sdk::json_types::U128;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedSet};
@@ -534,10 +534,6 @@ fn vaa_asset_meta(
         deposit -= required_cost;
     }
 
-    // Stick some useful meta-data into the asset to allow us to map backwards from a on-chain asset to the wormhole meta data
-    let reference = hex::encode(&tkey);
-    let ref_hash = env::sha256(reference.as_bytes());
-
     let symbol = data.get_bytes32(35).to_vec();
     let name = data.get_bytes32(67).to_vec();
     let wname = get_string_from_32(&name) + " (Wormhole)";
@@ -551,9 +547,9 @@ fn vaa_asset_meta(
         spec: FT_METADATA_SPEC.to_string(),
         name: wname,
         symbol: get_string_from_32(&symbol),
-        icon: Some("".to_string()), // Is there ANY way to supply this?
-        reference: Some(reference),
-        reference_hash: Some(Base64VecU8::from(ref_hash)),
+        icon: None,
+        reference: None,
+        reference_hash: None,
         decimals,
     };
 
@@ -916,7 +912,10 @@ impl Portal {
                 .then(
                     Self::ext(env::current_account_id())
                         .with_attached_deposit(env::attached_deposit())
-                        .send_transfer_token_wormhole_callback(message_fee),
+                        .send_transfer_token_wormhole_callback(
+                            message_fee,
+                            env::predecessor_account_id(),
+                        ),
                 )
         } else {
             env::panic_str("NotWormhole");
@@ -928,6 +927,7 @@ impl Portal {
     pub fn send_transfer_token_wormhole_callback(
         &mut self,
         message_fee: Balance,
+        refund_to: AccountId,
         #[callback_result] payload: Result<String, PromiseError>,
     ) -> Promise {
         if payload.is_err() {
@@ -938,9 +938,17 @@ impl Portal {
             env::panic_str("DepositUnderflow");
         }
 
-        ext_worm_hole::ext(self.core.clone())
-            .with_attached_deposit(message_fee)
-            .publish_message(payload.unwrap(), env::block_height() as u32)
+        // publish_message... should we catch an error and try to
+        // unwind the token transfer?!  So many many issues...
+        let mut p = ext_worm_hole::ext(self.core.clone())
+            .with_attached_deposit(env::attached_deposit())
+            .publish_message(payload.unwrap(), env::block_height() as u32);
+
+        if env::attached_deposit() > message_fee {
+            p = p.then(Promise::new(refund_to).transfer(env::attached_deposit() - message_fee));
+        }
+
+        p
     }
 
     pub fn is_transfer_completed(&self, vaa: String) -> bool {
@@ -1261,10 +1269,8 @@ impl Portal {
         let ft = ft_info.unwrap();
         let tp: TransferMsgPayload = near_sdk::serde_json::from_str(&msg).unwrap();
 
-        if tp.message_fee > 0 {
-            if !self.bank.contains_key(&sender_id) {
-                env::panic_str("senderHasNoBank");
-            }
+        if (tp.message_fee > 0) && !self.bank.contains_key(&sender_id) {
+            env::panic_str("senderHasNoBank");
         }
 
         let mut near_mult: u128 = 1;
@@ -1452,32 +1458,32 @@ impl Portal {
             ))
     }
 
-//    #[init(ignore_state)]
-//    #[payable]
-//    pub fn migrate() -> Self {
-//        if env::attached_deposit() != 1 {
-//            env::panic_str("Need money");
-//        }
-//        let old_state: OldPortal = env::state_read().expect("failed");
-//        if env::signer_account_pk() != old_state.owner_pk {
-//            env::panic_str("CannotCallMigrate");
-//        }
-//        env::log_str(&format!("portal/{}#{}: migrate", file!(), line!(),));
-//        Self {
-//            booted: old_state.booted,
-//            core: old_state.core,
-//            dups: old_state.dups,
-//            owner_pk: old_state.owner_pk,
-//            emitter_registration: old_state.emitter_registration,
-//            last_asset: old_state.last_asset,
-//            upgrade_hash: old_state.upgrade_hash,
-//            tokens: old_state.tokens,
-//            key_map: old_state.key_map,
-//            hash_map: old_state.hash_map,
-//
-//            bank: LookupMap::new(b"b".to_vec()),
-//        }
-//    }
+    //    #[init(ignore_state)]
+    //    #[payable]
+    //    pub fn migrate() -> Self {
+    //        if env::attached_deposit() != 1 {
+    //            env::panic_str("Need money");
+    //        }
+    //        let old_state: OldPortal = env::state_read().expect("failed");
+    //        if env::signer_account_pk() != old_state.owner_pk {
+    //            env::panic_str("CannotCallMigrate");
+    //        }
+    //        env::log_str(&format!("portal/{}#{}: migrate", file!(), line!(),));
+    //        Self {
+    //            booted: old_state.booted,
+    //            core: old_state.core,
+    //            dups: old_state.dups,
+    //            owner_pk: old_state.owner_pk,
+    //            emitter_registration: old_state.emitter_registration,
+    //            last_asset: old_state.last_asset,
+    //            upgrade_hash: old_state.upgrade_hash,
+    //            tokens: old_state.tokens,
+    //            key_map: old_state.key_map,
+    //            hash_map: old_state.hash_map,
+    //
+    //            bank: LookupMap::new(b"b".to_vec()),
+    //        }
+    //    }
 }
 
 //  let result = await userAccount.functionCall({
