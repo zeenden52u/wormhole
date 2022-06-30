@@ -216,9 +216,11 @@ export async function attestFromAlgorand(
  */
 export async function attestTokenFromNear(
   client: nearAccount,
+  coreBridge: string,
   tokenBridge: string,
   asset: string
 ): Promise<[number, string]> {
+  let message_fee = await client.viewFunction(coreBridge, "message_fee", {});
   // Non-signing event
   if (!getIsWrappedAssetNear(tokenBridge, asset)) {
     // Non-signing event that hits the RPC
@@ -245,8 +247,8 @@ export async function attestTokenFromNear(
   let result = await client.functionCall({
     contractId: tokenBridge,
     methodName: "attest_token",
-    args: { token: asset },
-    attachedDeposit: new BN("3000000000000000000000"), // 0.003 NEAR
+    args: { token: asset, message_fee: message_fee },
+    attachedDeposit: new BN("3000000000000000000000") + new BN(message_fee), // 0.003 NEAR
     gas: new BN("100000000000000"),
   });
 
@@ -261,12 +263,17 @@ export async function attestTokenFromNear(
  */
 export async function attestNearFromNear(
   client: nearAccount,
+  coreBridge: string,
   tokenBridge: string
 ): Promise<[number, string]> {
+  let message_fee =
+    (await client.viewFunction(coreBridge, "message_fee", {})) + 1;
+
   let result = await client.functionCall({
     contractId: tokenBridge,
     methodName: "attest_near",
-    args: {},
+    args: { message_fee: message_fee },
+    attachedDeposit: new BN(message_fee),
     gas: new BN("100000000000000"),
   });
 

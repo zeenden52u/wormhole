@@ -648,6 +648,7 @@ export async function transferFromAlgorand(
  */
 export async function transferTokenFromNear(
   client: nearAccount,
+  coreBridge: string,
   tokenBridge: string,
   assetId: string,
   qty: bigint,
@@ -660,6 +661,9 @@ export async function transferTokenFromNear(
 
   let result;
 
+  let message_fee =
+    (await client.viewFunction(coreBridge, "message_fee", {})) + 1;
+
   if (wormhole) {
     result = await client.functionCall({
       contractId: tokenBridge,
@@ -671,8 +675,9 @@ export async function transferTokenFromNear(
         chain: chain,
         fee: fee.toString(10),
         payload: payload,
+        message_fee: message_fee,
       },
-      attachedDeposit: new BN("1"),
+      attachedDeposit: new BN(message_fee),
       gas: new BN("100000000000000"),
     });
   } else {
@@ -704,9 +709,10 @@ export async function transferTokenFromNear(
           chain: chain,
           fee: fee.toString(10),
           payload: payload,
+          message_fee: message_fee,
         }),
       },
-      attachedDeposit: new BN("1"),
+      attachedDeposit: new BN(message_fee),
       gas: new BN("100000000000000"),
     });
   }
@@ -727,6 +733,7 @@ export async function transferTokenFromNear(
  */
 export async function transferNearFromNear(
   client: nearAccount,
+  coreBridge: string,
   tokenBridge: string,
   qty: bigint,
   receiver: Uint8Array,
@@ -734,6 +741,8 @@ export async function transferNearFromNear(
   fee: bigint,
   payload: string = ""
 ): Promise<[number, string]> {
+  let message_fee = await client.viewFunction(coreBridge, "message_fee", {});
+
   let result = await client.functionCall({
     contractId: tokenBridge,
     methodName: "send_transfer_near",
@@ -742,8 +751,9 @@ export async function transferNearFromNear(
       chain: chain,
       fee: fee.toString(10),
       payload: payload,
+      message_fee: message_fee,
     },
-    attachedDeposit: new BN(qty.toString(10)),
+    attachedDeposit: new BN(qty.toString(10)) + new BN(message_fee),
     gas: new BN("100000000000000"),
   });
 
