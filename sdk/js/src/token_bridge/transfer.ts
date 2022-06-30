@@ -698,11 +698,11 @@ export async function transferTokenFromNear(
     }
 
     if (message_fee > 0) {
-      let bank = await client.viewFunction(tokenBridge, "bank_balance", {});
+      let bank = await client.viewFunction(tokenBridge, "bank_balance", { acct: client.accountId });
 
       if (!bank[0]) {
         await client.functionCall({
-          contractId: assetId,
+          contractId: tokenBridge,
           methodName: "register_bank",
           args: {},
           gas: new BN("100000000000000"),
@@ -712,7 +712,7 @@ export async function transferTokenFromNear(
 
       if (bank[1] < message_fee) {
         await client.functionCall({
-          contractId: assetId,
+          contractId: tokenBridge,
           methodName: "fill_bank",
           args: {},
           gas: new BN("100000000000000"),
@@ -735,7 +735,7 @@ export async function transferTokenFromNear(
           message_fee: message_fee,
         }),
       },
-      attachedDeposit: new BN(message_fee + 1),
+      attachedDeposit: new BN(1),
       gas: new BN("100000000000000"),
     });
   }

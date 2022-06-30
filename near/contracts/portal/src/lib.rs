@@ -765,8 +765,7 @@ impl Portal {
         Promise::new(refund_to).transfer(b)
     }
 
-    pub fn bank_balance(&self) -> (bool, Balance) {
-        let acct = env::predecessor_account_id();
+    pub fn bank_balance(&self, acct: AccountId) -> (bool, Balance) {
         if self.bank.contains_key(&acct) {
             (true, self.bank.get(&acct).unwrap())
         } else {

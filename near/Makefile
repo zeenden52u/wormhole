@@ -81,7 +81,7 @@ reset: build
 	-echo done
 
 .PHONY: cycle
-cycle: build
+cycle: reset
 	(cd ../sdk/js; npm run build)
 	npm ci
 	ts-node test/sdk.ts
