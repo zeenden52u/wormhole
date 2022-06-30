@@ -10,7 +10,7 @@ import "./Setters.sol";
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-abstract contract Governance is GovernanceStructs, Messages, Setters, ERC1967Upgrade {
+abstract contract Governance is GovernanceStructs, Messages, ERC1967Upgrade {
     event ContractUpgraded(address indexed oldContract, address indexed newContract);
     event GuardianSetAdded(uint32 indexed index);
 
