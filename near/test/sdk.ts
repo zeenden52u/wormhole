@@ -231,6 +231,7 @@ async function testNearSDK() {
   );
 
   let token_bridge = CONTRACTS.DEVNET.near.token_bridge;
+  let core_bridge = CONTRACTS.DEVNET.near.core;
 
   console.log("Setting up algorand wallet");
 
@@ -322,7 +323,7 @@ async function testNearSDK() {
   let nativeAttest;
   {
     console.log("attesting: " + randoToken);
-    let s = await attestTokenFromNear(userAccount, token_bridge, randoToken);
+    let s = await attestTokenFromNear(userAccount, core_bridge, token_bridge, randoToken);
     console.log(s);
     const { vaaBytes: signedVAA } = await getSignedVAAWithRetry(
       ["http://localhost:7071"],
@@ -356,7 +357,7 @@ async function testNearSDK() {
   let nearAttest;
   {
     console.log("attesting Near itself");
-    let s = await attestNearFromNear(userAccount, token_bridge);
+    let s = await attestNearFromNear(userAccount, core_bridge, token_bridge);
 
     const { vaaBytes: signedVAA } = await getSignedVAAWithRetry(
       ["http://localhost:7071"],
@@ -412,6 +413,7 @@ async function testNearSDK() {
     console.log("transfer wrapped token from near to algorand");
     let s = await transferTokenFromNear(
       userAccount,
+      core_bridge,
       token_bridge,
       usdc,
       BigInt(100),
@@ -439,6 +441,7 @@ async function testNearSDK() {
     console.log("transfer rando token from near to algorand");
     let s = await transferTokenFromNear(
       userAccount,
+      core_bridge,
       token_bridge,
       randoToken,
       BigInt(10000000),
@@ -466,6 +469,7 @@ async function testNearSDK() {
     console.log("transfer near from near to algorand");
     let s = await transferNearFromNear(
       userAccount,
+      core_bridge,
       token_bridge,
       BigInt(1000000000000000000000000),
       decodeAddress(algoWallet.addr).publicKey,
