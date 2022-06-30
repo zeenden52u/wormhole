@@ -118,6 +118,37 @@ contract Messages is Getters, Setters {
         return (true, "");
     }
 
+   /**
+    * @dev `verifyVM` serves to validate an arbitrary vm against a valid Guardian set
+    *  - it aims to make sure the VM is for a known guardianSet
+    *  - it aims to ensure the guardianSet is not expired
+    *  - it aims to ensure the VM has reached quorum
+    *  - it aims to verify the signatures provided against the guardianSet
+    */
+    function verifyVM(Structs.VM memory vm) public view returns (bool valid, string memory reason) {
+        Structs.Header memory header;
+        header.guardianSetIndex = vm.guardianSetIndex;
+        header.signatures = vm.signatures;
+        header.hash = vm.hash;
+        return verifyHeader(header);
+    }
+
+    function verifyVM3(Structs.VM3 memory vm) public view returns (bool valid, string memory reason) {
+        if (verifiedHashCached(vm.hash)) {
+            return (true, "");
+        } else {
+            return (false, "Could not find hash in cache");
+        }
+    }
+
+    function verifyBatchHeader(Structs.BatchHeader memory vm) public view returns (bool valid, string memory reason) {
+        Structs.Header memory header;
+        header.guardianSetIndex = vm.guardianSetIndex;
+        header.signatures = vm.signatures;
+        header.hash = vm.hash;
+        return verifyHeader(header);
+    }
+
     /**
     * @dev verifyVM serves to validate an arbitrary VM against a valid Guardian set
     *  - it aims to make sure the VM is for a known guardianSet
@@ -425,6 +456,19 @@ contract Messages is Getters, Setters {
         // This is necessary to confirm that the observationsLen byte was set correctly
         // for partial batches.
         require(encodedVM2.length == index, "invalid VM2");
+    }
+
+    function parseVM3(bytes memory encodedVM) public pure virtual returns (Structs.VM3 memory vm) {
+        uint256 index = 3;
+
+        vm.version = encodedVM.toUint8(index);
+        index += 1;
+        require(vm.version == 3, "VM version incompatible");
+        vm.observation = parseObservation(index, encodedVM.length, encodedVM);
+
+        // Hash the body
+        bytes memory body = encodedVM.slice(index, encodedVM.length - index);
+        vm.hash = keccak256(abi.encodePacked(keccak256(body)));
     }
 
     /**
