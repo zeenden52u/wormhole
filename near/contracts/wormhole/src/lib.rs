@@ -7,9 +7,10 @@ use near_sdk::{
 use serde::Serialize;
 
 pub mod byte_utils;
+
 pub mod state;
 
-use crate::byte_utils::ByteUtils;
+use crate::byte_utils::{get_string_from_32, ByteUtils};
 
 const CHAIN_ID_NEAR: u16 = 15;
 const CHAIN_ID_SOL: u16 = 1;
@@ -277,13 +278,29 @@ fn handle_set_fee(
 }
 
 fn handle_transfer_fee(
-    _storage: &mut Wormhole,
+    storage: &mut Wormhole,
     _vaa: &state::ParsedVAA,
-    _payload: &[u8],
-    _deposit: Balance,
+    payload: &[u8],
+    deposit: Balance,
     refund_to: AccountId,
 ) -> PromiseOrValue<bool> {
-    refund_and_panic("handle_transfer_fee not implemented", refund_to);
+    let (_, amount) = payload.get_u256(0);
+    let destination = payload.get_bytes32(32).to_vec();
+
+    if amount > storage.bank {
+        refund_and_panic("bankUnderFlow", refund_to);
+    }
+
+    // We only support addresses 32 bytes or shorter...  No, we don't
+    // support hash addresses in this governance message
+    let d = AccountId::new_unchecked(get_string_from_32(&destination));
+
+    if (deposit + amount) > 0 {
+        storage.bank -= amount;
+        PromiseOrValue::Promise(Promise::new(d).transfer(deposit + amount))
+    } else {
+        PromiseOrValue::Value(true)
+    }
 }
 
 fn refund_and_panic(s: &str, refund_to: AccountId) -> ! {
@@ -337,7 +354,8 @@ impl Wormhole {
             require!(
                 env::attached_deposit() >= self.message_fee,
                 "message_fee not provided"
-            )
+            );
+            self.bank += env::attached_deposit();
         }
 
         let s = env::predecessor_account_id().to_string();
