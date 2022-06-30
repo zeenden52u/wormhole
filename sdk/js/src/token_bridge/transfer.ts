@@ -661,8 +661,7 @@ export async function transferTokenFromNear(
 
   let result;
 
-  let message_fee =
-    (await client.viewFunction(coreBridge, "message_fee", {})) + 1;
+  let message_fee = (await client.viewFunction(coreBridge, "message_fee", {}));
 
   if (wormhole) {
     result = await client.functionCall({
@@ -677,7 +676,7 @@ export async function transferTokenFromNear(
         payload: payload,
         message_fee: message_fee,
       },
-      attachedDeposit: new BN(message_fee),
+      attachedDeposit: new BN(message_fee + 1),
       gas: new BN("100000000000000"),
     });
   } else {
@@ -698,6 +697,30 @@ export async function transferTokenFromNear(
       );
     }
 
+    if (message_fee > 0) {
+      let bank = await client.viewFunction(tokenBridge, "bank_balance", {});
+
+      if (!bank[0]) {
+        await client.functionCall({
+          contractId: assetId,
+          methodName: "register_bank",
+          args: {},
+          gas: new BN("100000000000000"),
+          attachedDeposit: new BN("2000000000000000000000"), // 0.002 NEAR
+        });
+      }
+
+      if (bank[1] < message_fee) {
+        await client.functionCall({
+          contractId: assetId,
+          methodName: "fill_bank",
+          args: {},
+          gas: new BN("100000000000000"),
+          attachedDeposit: new BN(message_fee),
+        });
+      }
+    }
+
     result = await client.functionCall({
       contractId: assetId,
       methodName: "ft_transfer_call",
@@ -712,7 +735,7 @@ export async function transferTokenFromNear(
           message_fee: message_fee,
         }),
       },
-      attachedDeposit: new BN(message_fee),
+      attachedDeposit: new BN(message_fee + 1),
       gas: new BN("100000000000000"),
     });
   }
