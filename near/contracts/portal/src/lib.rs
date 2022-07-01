@@ -168,18 +168,17 @@ fn vaa_register_chain(
     storage: &mut Portal,
     vaa: &state::ParsedVAA,
     mut deposit: Balance,
-    refund_to: &AccountId,
 ) -> Balance {
     let data: &[u8] = &vaa.payload;
     let target_chain = data.get_u16(33);
     let chain = data.get_u16(35);
 
     if (target_chain != CHAIN_ID_NEAR) && (target_chain != 0) {
-        refund_and_panic("InvalidREegisterChainChain", refund_to);
+        env::panic_str("InvalidREegisterChainChain");
     }
 
     if storage.emitter_registration.contains_key(&chain) {
-        refund_and_panic("DuplicateChainRegistration", refund_to);
+        env::panic_str("DuplicateChainRegistration");
     }
     let storage_used = env::storage_usage();
     storage
@@ -189,7 +188,7 @@ fn vaa_register_chain(
         (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
 
     if required_cost > deposit {
-        refund_and_panic("DepositUnderflowForRegistration", refund_to);
+        env::panic_str("DepositUnderflowForRegistration");
     }
     deposit -= required_cost;
 
@@ -202,16 +201,11 @@ fn vaa_register_chain(
     deposit
 }
 
-fn vaa_upgrade_contract(
-    storage: &mut Portal,
-    vaa: &state::ParsedVAA,
-    deposit: Balance,
-    refund_to: &AccountId,
-) -> Balance {
+fn vaa_upgrade_contract(storage: &mut Portal, vaa: &state::ParsedVAA, deposit: Balance) -> Balance {
     let data: &[u8] = &vaa.payload;
     let chain = data.get_u16(33);
     if chain != CHAIN_ID_NEAR {
-        refund_and_panic("InvalidContractUpgradeChain", refund_to);
+        env::panic_str("InvalidContractUpgradeChain");
     }
 
     let uh = data.get_bytes32(0);
@@ -230,10 +224,9 @@ fn vaa_governance(
     vaa: &state::ParsedVAA,
     gov_idx: u32,
     deposit: Balance,
-    refund_to: &AccountId,
 ) -> Balance {
     if gov_idx != vaa.guardian_set_index {
-        refund_and_panic("InvalidGovernanceSet", refund_to);
+        env::panic_str("InvalidGovernanceSet");
     }
 
     if (CHAIN_ID_SOL != vaa.emitter_chain)
@@ -241,16 +234,16 @@ fn vaa_governance(
             .unwrap()
             != vaa.emitter_address)
     {
-        refund_and_panic("InvalidGovernanceEmitter", refund_to);
+        env::panic_str("InvalidGovernanceEmitter");
     }
 
     let data: &[u8] = &vaa.payload;
     let action = data.get_u8(32);
 
     match action {
-        1u8 => vaa_register_chain(storage, vaa, deposit, refund_to),
-        2u8 => vaa_upgrade_contract(storage, vaa, deposit, refund_to),
-        _ => refund_and_panic("InvalidGovernanceAction", refund_to),
+        1u8 => vaa_register_chain(storage, vaa, deposit),
+        2u8 => vaa_upgrade_contract(storage, vaa, deposit),
+        _ => env::panic_str("InvalidGovernanceAction"),
     }
 }
 
@@ -277,11 +270,11 @@ fn vaa_transfer(
     };
 
     if recipient_chain != CHAIN_ID_NEAR {
-        refund_and_panic("InvalidRecipientChain", &refund_to);
+        env::panic_str("InvalidRecipientChain");
     }
 
     if !storage.hash_map.contains_key(&recipient) {
-        refund_and_panic("UnregisteredReceipient", &refund_to);
+        env::panic_str("UnregisteredReceipient");
     }
     let mr = storage.hash_map.get(&recipient).unwrap();
 
@@ -306,7 +299,7 @@ fn vaa_transfer(
         ));
 
         if !storage.key_map.contains_key(&p) {
-            refund_and_panic("AssetNotAttested", &refund_to);
+            env::panic_str("AssetNotAttested");
         }
 
         storage.key_map.get(&p).unwrap()
@@ -325,7 +318,7 @@ fn vaa_transfer(
             env::signer_account_id(),
             mr
         ));
-        refund_and_panic("Payload3NotImplemented", &refund_to);
+        env::panic_str("Payload3NotImplemented");
     }
 
     if token_chain == CHAIN_ID_NEAR {
@@ -339,7 +332,7 @@ fn vaa_transfer(
             let namount = amount.1 * NEAR_MULT;
             let nfee = fee.1 * NEAR_MULT;
             if nfee > namount {
-                refund_and_panic("nfee > namount", &refund_to);
+                env::panic_str("nfee > namount");
             }
 
             // Once you create a Promise, there is no going back..
@@ -376,7 +369,7 @@ fn vaa_transfer(
             let mut near_mult: u128 = 1;
 
             let td = if !storage.tokens.contains_key(&account) {
-                refund_and_panic("AssetNotAttested2", &refund_to);
+                env::panic_str("AssetNotAttested2");
             } else {
                 storage.tokens.get(&account).unwrap()
             };
@@ -399,7 +392,7 @@ fn vaa_transfer(
             ));
 
             if namount == 0 {
-                refund_and_panic("EmptyTransfer", &refund_to);
+                env::panic_str("EmptyTransfer");
             }
 
             // Once you create a Promise, there is no going back..
@@ -449,20 +442,6 @@ fn vaa_transfer(
     PromiseOrValue::Promise(prom)
 }
 
-fn refund_and_panic(s: &str, refund_to: &AccountId) -> ! {
-    if env::attached_deposit() > 0 {
-        env::log_str(&format!(
-            "portal/{}#{}: refund {} to {}",
-            file!(),
-            line!(),
-            env::attached_deposit(),
-            refund_to
-        ));
-        Promise::new(refund_to.clone()).transfer(env::attached_deposit());
-    }
-    env::panic_str(s);
-}
-
 fn vaa_asset_meta(
     storage: &mut Portal,
     vaa: &state::ParsedVAA,
@@ -482,7 +461,7 @@ fn vaa_asset_meta(
 
     let token_chain = data.get_u16(32);
     if token_chain == CHAIN_ID_NEAR {
-        refund_and_panic("CannotAttestNearAssets", &refund_to);
+        env::panic_str("CannotAttestNearAssets");
     }
     let tkey = token_key(data[0..32].to_vec(), token_chain);
 
@@ -535,7 +514,7 @@ fn vaa_asset_meta(
         let required_cost = (Balance::from(env::storage_usage()) - Balance::from(storage_used))
             * env::storage_byte_cost();
         if required_cost > deposit {
-            refund_and_panic("DepositUnderflowForToken", &refund_to);
+            env::panic_str("DepositUnderflowForToken");
         }
 
         deposit -= required_cost;
@@ -572,7 +551,7 @@ fn vaa_asset_meta(
         let cost = (TRANSFER_BUFFER + BRIDGE_TOKEN_BINARY.len() as u128) * env::storage_byte_cost();
 
         if cost > deposit {
-            refund_and_panic("PrecheckFailedDepositUnderFlow", &refund_to);
+            env::panic_str("PrecheckFailedDepositUnderFlow");
         }
 
         deposit -= cost;
@@ -683,14 +662,14 @@ impl Portal {
         self.hash_map.insert(&account_hash, &a);
 
         if env::storage_usage() < storage_used {
-            refund_and_panic("ImpossibleStorage", &refund_to);
+            env::panic_str("ImpossibleStorage");
         }
 
         let required_cost =
             (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
         let mut deposit = env::attached_deposit();
         if required_cost > deposit {
-            refund_and_panic("DepositUnderflowForToken2", &refund_to);
+            env::panic_str("DepositUnderflowForToken2");
         }
 
         deposit -= required_cost;
@@ -736,7 +715,7 @@ impl Portal {
                 (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
 
             if required_cost > deposit {
-                refund_and_panic("DepositUnderflowForRegistration", &refund_to);
+                env::panic_str("DepositUnderflowForRegistration");
             }
             deposit -= required_cost;
         }
@@ -763,7 +742,7 @@ impl Portal {
         let refund_to = env::predecessor_account_id();
 
         if !self.bank.contains_key(&refund_to) {
-            refund_and_panic("UnregisteredAccount", &refund_to);
+            env::panic_str("UnregisteredAccount");
         }
 
         let b = self.bank.get(&refund_to).unwrap() + env::attached_deposit();
@@ -784,11 +763,11 @@ impl Portal {
 
         let refund_to = env::predecessor_account_id();
         if env::attached_deposit() != 1 {
-            refund_and_panic("unauthorized", &refund_to);
+            env::panic_str("unauthorized");
         }
 
         if !self.bank.contains_key(&refund_to) {
-            refund_and_panic("UnregisteredAccount", &refund_to);
+            env::panic_str("UnregisteredAccount");
         }
 
         let b = self.bank.get(&refund_to).unwrap();
@@ -843,7 +822,7 @@ impl Portal {
         );
 
         if message_fee > env::attached_deposit() {
-            refund_and_panic("MessageFeeExceedsDeposit", &env::predecessor_account_id());
+            env::panic_str("MessageFeeExceedsDeposit");
         }
 
         let amount = env::attached_deposit() - message_fee;
@@ -852,7 +831,7 @@ impl Portal {
         let nfee = fee.parse::<u128>().unwrap() / NEAR_MULT;
 
         if namount == 0 {
-            refund_and_panic("EmptyTransfer", &env::predecessor_account_id());
+            env::panic_str("EmptyTransfer");
         }
         //let dust = amount - (namount * NEAR_MULT) - (nfee * NEAR_MULT);
 
@@ -879,12 +858,12 @@ impl Portal {
         if payload.is_empty() {
             p = [p, vec![0; 24], (nfee as u64).to_be_bytes().to_vec()].concat();
             if p.len() != 133 {
-                refund_and_panic("Payload1 formatting error", &env::predecessor_account_id());
+                env::panic_str("Payload1 formatting error");
             }
         } else {
             p = [p, hex::decode(&payload).unwrap()].concat();
             if p.len() != (133 + (payload.len() / 2)) {
-                refund_and_panic("Payload3 formatting error", &env::predecessor_account_id());
+                env::panic_str("Payload3 formatting error");
             }
         }
 
@@ -907,7 +886,7 @@ impl Portal {
         if (message_fee > 0) && (env::attached_deposit() < message_fee)
             || (env::attached_deposit() == 0)
         {
-            refund_and_panic("DepositRequired", &env::predecessor_account_id());
+            env::panic_str("DepositRequired");
         }
 
         require!(
@@ -986,11 +965,11 @@ impl Portal {
         }
 
         if env::prepaid_gas() < Gas(300_000_000_000_000) {
-            refund_and_panic("NotEnoughGas", &refund_to.unwrap());
+            env::panic_str("NotEnoughGas");
         }
 
         if env::attached_deposit() < (TRANSFER_BUFFER * env::storage_byte_cost()) {
-            refund_and_panic("StorageDepositUnderflow", &refund_to.unwrap());
+            env::panic_str("StorageDepositUnderflow");
         }
 
         ext_worm_hole::ext(self.core.clone())
@@ -1001,6 +980,24 @@ impl Portal {
                     .with_attached_deposit(env::attached_deposit())
                     .submit_vaa_callback(vaa, refund_to.unwrap()),
             )
+            .then(
+                Self::ext(env::current_account_id())
+                    .refunder(env::predecessor_account_id(), env::attached_deposit()),
+            )
+    }
+
+    #[private]
+    pub fn refunder(&mut self, refund_to: AccountId, amt: Balance) {
+        if !is_promise_success() {
+            env::log_str(&format!(
+                "portal/{}#{}: should we refund {} to {}?",
+                file!(),
+                line!(),
+                amt,
+                refund_to
+            ));
+//            Promise::new(refund_to).transfer(amt);
+        }
     }
 
     #[private] // So, all of wormhole security rests in this one statement?
@@ -1022,19 +1019,19 @@ impl Portal {
         ));
 
         if gov_idx.is_err() {
-            refund_and_panic("vaaVerifyFail", &refund_to);
+            env::panic_str("vaaVerifyFail");
         }
 
         let vaa_str = hex::decode(&vaa);
         let h = match vaa_str {
             Ok(v) => v,
-            Err(e) => refund_and_panic(&e.to_string(), &refund_to),
+            Err(e) => env::panic_str(&e.to_string()),
         };
 
         let pvaa = state::ParsedVAA::parse(&h);
 
         if pvaa.version != 1 {
-            refund_and_panic("invalidVersion", &refund_to);
+            env::panic_str("invalidVersion");
         }
 
         let data: &[u8] = &pvaa.payload;
@@ -1049,19 +1046,19 @@ impl Portal {
 
         // Check if VAA with this hash was already accepted
         if self.dups.contains(&pvaa.hash) {
-            refund_and_panic("alreadyExecuted", &refund_to);
+            env::panic_str("alreadyExecuted");
         }
         self.dups.insert(&pvaa.hash);
 
         let required_cost =
             (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
         if required_cost > deposit {
-            refund_and_panic("DepositUnderflowForHash", &refund_to);
+            env::panic_str("DepositUnderflowForHash");
         }
         deposit -= required_cost;
 
         if governance {
-            let bal = vaa_governance(self, &pvaa, gov_idx.unwrap(), deposit, &refund_to);
+            let bal = vaa_governance(self, &pvaa, gov_idx.unwrap(), deposit);
             if bal > 0 {
                 env::log_str(&format!(
                     "portal/{}#{}: refunding {} to {}",
@@ -1079,11 +1076,11 @@ impl Portal {
         env::log_str(&format!("looking up chain {}", pvaa.emitter_chain));
 
         if !self.emitter_registration.contains_key(&pvaa.emitter_chain) {
-            refund_and_panic("ChainNotRegistered", &refund_to);
+            env::panic_str("ChainNotRegistered");
         }
 
         if self.emitter_registration.get(&pvaa.emitter_chain).unwrap() != pvaa.emitter_address {
-            refund_and_panic("InvalidRegistration", &refund_to);
+            env::panic_str("InvalidRegistration");
         }
 
         match action {
@@ -1091,7 +1088,7 @@ impl Portal {
             2u8 => vaa_asset_meta(self, &pvaa, deposit, refund_to.clone()),
             3u8 => vaa_transfer(self, &pvaa, action, deposit, refund_to.clone()),
             _ => {
-                refund_and_panic("invalidPortAction", &refund_to);
+                env::panic_str("invalidPortAction");
             }
         }
     }
@@ -1101,7 +1098,7 @@ impl Portal {
         if (message_fee > 0) && (env::attached_deposit() < message_fee)
             || (env::attached_deposit() == 0)
         {
-            refund_and_panic("DepositRequired", &env::predecessor_account_id());
+            env::panic_str("DepositRequired");
         }
 
         require!(
@@ -1139,15 +1136,15 @@ impl Portal {
         if (message_fee > 0) && (env::attached_deposit() < message_fee)
             || (env::attached_deposit() == 0)
         {
-            refund_and_panic("DepositRequired", &env::predecessor_account_id());
+            env::panic_str("DepositRequired");
         }
 
         if env::prepaid_gas() < Gas(100_000_000_000_000) {
-            refund_and_panic("MoreGasRequired", &env::predecessor_account_id());
+            env::panic_str("MoreGasRequired");
         }
 
         if self.is_wormhole(&token) {
-            refund_and_panic("CannotAttestAWormholeToken", &env::predecessor_account_id())
+            env::panic_str("CannotAttestAWormholeToken")
         } else {
             env::log_str(&format!("portal/{}#{}", file!(), line!()));
 
@@ -1172,7 +1169,7 @@ impl Portal {
         #[callback_result] ft_info: Result<FungibleTokenMetadata, PromiseError>,
     ) -> Promise {
         if ft_info.is_err() {
-            refund_and_panic("FailedToRetrieveMetaData", &refund_to);
+            env::panic_str("FailedToRetrieveMetaData");
         }
 
         let ft = ft_info.unwrap();
@@ -1210,7 +1207,7 @@ impl Portal {
                 env::attached_deposit()
             ));
 
-            refund_and_panic("DepositUnderflowForRegistration", &refund_to);
+            env::panic_str("DepositUnderflowForRegistration");
         }
         deposit -= required_cost;
 
@@ -1226,11 +1223,11 @@ impl Portal {
 
         if p.len() != 100 {
             env::log_str(&format!("len: {}  val: {}", p.len(), hex::encode(p)));
-            refund_and_panic("formatting error", &refund_to);
+            env::panic_str("formatting error");
         }
 
         if deposit < message_fee {
-            refund_and_panic("MessageFeeUnderflow", &refund_to);
+            env::panic_str("MessageFeeUnderflow");
         }
 
         deposit -= message_fee;

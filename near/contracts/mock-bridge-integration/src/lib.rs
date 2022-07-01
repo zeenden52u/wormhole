@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
@@ -30,6 +31,11 @@ pub trait MockFtContract {
     fn airdrop(&self, a: AccountId, amount: u128);
 }
 
+#[ext_contract(ext_wormhole)]
+pub trait MockWormhole {
+    fn pass(&self) -> bool;
+}
+
 #[ext_contract(ext_nft_contract)]
 pub trait MockNftContract {
     fn new(owner_id: AccountId, metadata: NFTContractMetadata, seq_number: u64) -> Self;
@@ -45,14 +51,12 @@ pub trait MockNftContract {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct PortalTest {
-    cnt: u32
+    cnt: u32,
 }
 
 impl Default for PortalTest {
     fn default() -> Self {
-        Self {
-            cnt: 0
-        }
+        Self { cnt: 0 }
     }
 }
 
@@ -102,10 +106,45 @@ impl PortalTest {
         Self::ext(env::current_account_id())
             .with_attached_deposit(env::attached_deposit())
             .chunks(s)
+            .then(
+                Self::ext(env::current_account_id())
+                    .refunder(env::predecessor_account_id(), env::attached_deposit()),
+            )
+    }
+
+    #[private]
+    pub fn refunder(&mut self, refund_to: AccountId, amt: Balance) {
+        if !is_promise_success() {
+            env::log_str(&format!(
+                "mock-bridge-integration/{}#{}: refunding {} to {}",
+                file!(),
+                line!(),
+                amt,
+                refund_to
+            ));
+            Promise::new(refund_to).transfer(amt);
+        }
     }
 
     #[payable]
-    pub fn chunks(&mut self, s: String) {
+    pub fn chunks(&mut self, s: String) -> Promise {
+        self.cnt += 1;
+
+        env::log_str(&format!(
+            "mock-bridge-integration/{}#{}: amount: {}  cnt: {}",
+            file!(),
+            line!(),
+            env::attached_deposit(),
+            self.cnt
+        ));
+
+        ext_wormhole::ext(AccountId::new_unchecked("wormhole.test.near".to_string()))
+            .with_attached_deposit(env::attached_deposit())
+            .pass()
+            .then(Self::ext(env::current_account_id()).thrower(s))
+    }
+
+    pub fn thrower(&mut self, s: String) -> Promise {
         self.cnt += 1;
 
         env::log_str(&format!(
