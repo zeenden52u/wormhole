@@ -43,8 +43,18 @@ pub trait MockNftContract {
 }
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, Default)]
-pub struct PortalTest {}
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct PortalTest {
+    cnt: u32
+}
+
+impl Default for PortalTest {
+    fn default() -> Self {
+        Self {
+            cnt: 0
+        }
+    }
+}
 
 #[near_bindgen]
 impl PortalTest {
@@ -75,6 +85,37 @@ impl PortalTest {
             )
             // And then lets tell us we are done!
             .then(Self::ext(env::current_account_id()).finish_deploy(bridge_token_account))
+    }
+
+    #[payable]
+    pub fn chunker(&mut self, s: String) -> Promise {
+        self.cnt += 1;
+
+        env::log_str(&format!(
+            "mock-bridge-integration/{}#{}: amount: {}  cnt: {}",
+            file!(),
+            line!(),
+            env::attached_deposit(),
+            self.cnt
+        ));
+
+        Self::ext(env::current_account_id())
+            .with_attached_deposit(env::attached_deposit())
+            .chunks(s)
+    }
+
+    #[payable]
+    pub fn chunks(&mut self, s: String) {
+        self.cnt += 1;
+
+        env::log_str(&format!(
+            "mock-bridge-integration/{}#{}: amount: {}  cnt: {}",
+            file!(),
+            line!(),
+            env::attached_deposit(),
+            self.cnt
+        ));
+        env::panic_str(&s);
     }
 
     #[payable]
