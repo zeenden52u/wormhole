@@ -1,4 +1,4 @@
-//#![allow(unused_mut)]
+#![allow(unused_mut)]
 //#![allow(unused_imports)]
 //#![allow(unused_variables)]
 //#![allow(dead_code)]
@@ -959,15 +959,17 @@ impl Portal {
     }
 
     #[payable]
-    pub fn submit_vaa(&mut self, vaa: String) -> Promise {
-        let refund_to = env::predecessor_account_id();
+    pub fn submit_vaa(&mut self, vaa: String, mut refund_to: Option<AccountId>) -> Promise {
+        if refund_to == None {
+            refund_to = Some(env::predecessor_account_id());
+        }
 
         if env::prepaid_gas() < Gas(300_000_000_000_000) {
-            refund_and_panic("NotEnoughGas", &refund_to);
+            refund_and_panic("NotEnoughGas", &refund_to.unwrap());
         }
 
         if env::attached_deposit() < (TRANSFER_BUFFER * env::storage_byte_cost()) {
-            refund_and_panic("StorageDepositUnderflow", &refund_to);
+            refund_and_panic("StorageDepositUnderflow", &refund_to.unwrap());
         }
 
         ext_worm_hole::ext(self.core.clone())
@@ -976,7 +978,7 @@ impl Portal {
                 Self::ext(env::current_account_id())
                     .with_unused_gas_weight(10)
                     .with_attached_deposit(env::attached_deposit())
-                    .submit_vaa_callback(vaa, refund_to),
+                    .submit_vaa_callback(vaa, refund_to.unwrap()),
             )
     }
 
