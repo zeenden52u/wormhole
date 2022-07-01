@@ -1,5 +1,5 @@
 #![allow(unused_mut)]
-//#![allow(unused_imports)]
+#![allow(unused_imports)]
 //#![allow(unused_variables)]
 //#![allow(dead_code)]
 
@@ -89,7 +89,7 @@ pub trait Wormhole {
 
 #[ext_contract(ext_portal)]
 pub trait ExtPortal {
-    fn finish_deploy(&self, token: AccountId);
+    fn finish_deploy(&self, token: AccountId, tkey: Vec<u8>, do_clean: bool);
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -588,12 +588,14 @@ fn vaa_asset_meta(
             .transfer(cost)
             .add_full_access_key(storage.owner_pk.clone())
             .deploy_contract(BRIDGE_TOKEN_BINARY.to_vec())
-            .function_call_weight(
+            .function_call(
                 "new".to_string(),
-                serde_json::to_string(&new_args).unwrap().as_bytes().to_vec(),
+                serde_json::to_string(&new_args)
+                    .unwrap()
+                    .as_bytes()
+                    .to_vec(),
                 0,
-                Gas(0),
-                GasWeight(1),
+                Gas(10_000_000_000_000),
             )
 
         // And then lets tell us we are done!
@@ -610,9 +612,13 @@ fn vaa_asset_meta(
         p = p.then(Promise::new(refund_to).transfer(deposit));
     }
 
-    PromiseOrValue::Promise(p.then(
-        ext_portal::ext(env::current_account_id()).finish_deploy(bridge_token_account.clone()),
-    ))
+    PromiseOrValue::Promise(
+        p.then(ext_portal::ext(env::current_account_id()).finish_deploy(
+            bridge_token_account.clone(),
+            tkey,
+            fresh,
+        )),
+    )
 }
 
 fn token_key(address: Vec<u8>, chain: u16) -> Vec<u8> {
@@ -1249,11 +1255,17 @@ impl Portal {
     }
 
     #[private]
-    pub fn finish_deploy(&mut self, token: AccountId) -> String {
+    pub fn finish_deploy(&mut self, token: AccountId, tkey: Vec<u8>, do_clean: bool) -> String {
         if is_promise_success() {
             token.to_string()
         } else {
-            env::panic_str("bad deploy");
+            if do_clean {
+                self.tokens.remove(&token);
+                self.key_map.remove(&tkey);
+                self.hash_map
+                    .remove(&env::sha256(token.to_string().as_bytes()));
+            }
+            "".to_string()
         }
     }
 
