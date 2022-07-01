@@ -9,8 +9,8 @@ use near_sdk::json_types::U128;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedSet};
 use near_sdk::{
-    env, ext_contract, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault, Promise,
-    PromiseError, PromiseOrValue, PublicKey,
+    env, ext_contract, near_bindgen, require, AccountId, Balance, Gas, GasWeight, PanicOnDefault,
+    Promise, PromiseError, PromiseOrValue, PublicKey,
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,13 @@ const NEAR_MULT: u128 = 10_000_000_000_000_000; // 1e16
 
 /// Gas to call mint method on bridge token.
 //const MINT_GAS: Gas = Gas(10_000_000_000_000);
+
+#[derive(BorshSerialize, Serialize)]
+struct NewArgs {
+    metadata: FungibleTokenMetadata,
+    asset_meta: Vec<u8>,
+    seq_number: u64,
+}
 
 #[ext_contract(ext_ft_contract)]
 pub trait FtContract {
@@ -570,17 +577,24 @@ fn vaa_asset_meta(
 
         deposit -= cost;
 
+        let new_args = NewArgs {
+            metadata: ft,
+            asset_meta: data.to_vec(),
+            seq_number: vaa.sequence,
+        };
+
         Promise::new(bridge_token_account.clone())
             .create_account()
             .transfer(cost)
             .add_full_access_key(storage.owner_pk.clone())
             .deploy_contract(BRIDGE_TOKEN_BINARY.to_vec())
-            // Lets initialize it with useful stuff
-            .then(ext_ft_contract::ext(bridge_token_account.clone()).new(
-                ft,
-                data.to_vec(),
-                vaa.sequence,
-            ))
+            .function_call_weight(
+                "new".to_string(),
+                serde_json::to_string(&new_args).unwrap().as_bytes().to_vec(),
+                0,
+                Gas(0),
+                GasWeight(1),
+            )
 
         // And then lets tell us we are done!
     };
