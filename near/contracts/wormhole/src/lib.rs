@@ -312,7 +312,7 @@ fn refund_and_panic(s: &str, refund_to: AccountId) -> ! {
             env::attached_deposit(),
             refund_to
         ));
-        Promise::new(refund_to.clone()).transfer(env::attached_deposit());
+ //       Promise::new(refund_to.clone()).transfer(env::attached_deposit());
     }
     env::panic_str(s);
 }

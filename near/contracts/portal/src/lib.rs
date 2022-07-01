@@ -581,6 +581,7 @@ fn vaa_asset_meta(
                 data.to_vec(),
                 vaa.sequence,
             ))
+
         // And then lets tell us we are done!
     };
 

@@ -147,3 +147,9 @@ function getConfig(env) {
   }
 }
 
+   .function_call(
+                b"new".to_vec(),
+                ft,
+                data.to_vec(),
+                vaa.sequence,
+            )
