@@ -215,21 +215,6 @@ async function testNearSDK() {
     config.user2Account
   );
 
-  console.log(
-    "Creating new random non-wormhole token and air dropping some tokens to myself"
-  );
-
-  let randoToken = nearAPI.providers.getTransactionLastResult(
-    await userAccount.functionCall({
-      contractId: "test.test.near",
-      methodName: "deploy_ft",
-      args: {
-        account: userAccount.accountId,
-      },
-      gas: 300000000000000,
-    })
-  );
-
   let token_bridge = CONTRACTS.DEVNET.near.token_bridge;
   let core_bridge = CONTRACTS.DEVNET.near.core;
 
@@ -316,13 +301,11 @@ async function testNearSDK() {
       await redeemOnNear(userAccount, token_bridge, hexToUint8Array(trans))
     );
   }
-  console.log(".. created some USDC");
-
-  console.log("Shock and awe...");
+  console.log(".. created some USDC on near");
 
   let wrappedTransfer;
   {
-    console.log("transfer wrapped token from near to algorand");
+    console.log("transfer USDC from near to algorand");
     let s = await transferTokenFromNear(
       userAccount,
       core_bridge,
@@ -460,11 +443,6 @@ async function testNearSDK() {
       )
     ).vaaBytes;
   }
-
-  console.log("redeeming P3 random on Near");
-  console.log(
-    await redeemOnNear(user2Account, token_bridge, transferAlgoToNearRandoP3)
-  );
 
   console.log("What next?");
 }
