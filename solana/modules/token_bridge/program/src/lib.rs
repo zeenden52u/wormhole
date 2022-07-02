@@ -62,7 +62,10 @@ pub use api::{
     UpgradeContractData,
 };
 
-use solitaire::*;
+use solitaire::{
+    prelude::SolitaireError,
+    *,
+};
 
 // Static list of invalid VAA Message accounts.
 pub(crate) static INVALID_VAAS: &[&str; 7] = &[

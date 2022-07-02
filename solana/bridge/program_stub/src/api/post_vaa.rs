@@ -18,10 +18,7 @@ use bridge::{
     instructions::hash_vaa,
     PostVAAData,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    CreationLamports::Exempt,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct PostVAA<'b> {

@@ -10,16 +10,12 @@ use crate::{
     },
     GuardianSet,
     GuardianSetDerivationData,
-    IsSigned::*,
     SignatureSet,
     MAX_LEN_GUARDIAN_KEYS,
 };
 use byteorder::ByteOrder;
 use solana_program::program_error::ProgramError;
-use solitaire::{
-    processors::seeded::Seeded,
-    CreationLamports::Exempt,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct VerifySignatures<'b> {

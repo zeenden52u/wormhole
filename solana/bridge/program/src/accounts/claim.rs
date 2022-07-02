@@ -9,13 +9,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountOwner,
-    AccountState,
-    Data,
-    Owned,
-};
+use solitaire::prelude::*;
 
 pub type Claim<'a, const State: AccountState> = Data<'a, ClaimData, { State }>;
 

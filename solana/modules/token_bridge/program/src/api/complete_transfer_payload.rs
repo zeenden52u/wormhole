@@ -16,18 +16,16 @@ use crate::{
     types::*,
     TokenBridgeError::*,
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     vaa::ClaimableVAA,
     CHAIN_ID_SOLANA,
 };
 use solana_program::account_info::AccountInfo;
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    *,
-};
+use solitaire::prelude::*;
 
 use solana_program::pubkey::Pubkey;
 

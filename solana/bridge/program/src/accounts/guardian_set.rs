@@ -10,13 +10,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountOwner,
-    AccountState,
-    Data,
-    Owned,
-};
+use solitaire::prelude::*;
 
 pub type GuardianSet<'b, const State: AccountState> = Data<'b, GuardianSetData, { State }>;
 

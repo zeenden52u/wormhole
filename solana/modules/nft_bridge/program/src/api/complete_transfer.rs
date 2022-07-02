@@ -18,6 +18,10 @@ use crate::{
     types::*,
     TokenBridgeError::*,
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     vaa::ClaimableVAA,
     PayloadMessage,
@@ -30,14 +34,7 @@ use solana_program::{
         invoke_signed,
     },
 };
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    CreationLamports::Exempt,
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct CompleteNative<'b> {

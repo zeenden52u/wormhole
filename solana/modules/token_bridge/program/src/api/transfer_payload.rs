@@ -16,6 +16,10 @@ use crate::{
     types::*,
     TokenBridgeError::InvalidChain,
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     api::PostMessageData,
     types::ConsistencyLevel,
@@ -32,10 +36,7 @@ use solana_program::{
     pubkey::Pubkey,
     sysvar::clock::Clock,
 };
-use solitaire::{
-    processors::seeded::invoke_seeded,
-    *,
-};
+use solitaire::prelude::*;
 
 use super::{
     verify_and_execute_native_transfers,

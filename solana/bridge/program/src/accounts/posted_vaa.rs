@@ -3,13 +3,7 @@ use borsh::{
     BorshDeserialize,
     BorshSerialize,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountOwner,
-    AccountState,
-    Data,
-    Owned,
-};
+use solitaire::prelude::*;
 use std::{
     io::{
         Error,

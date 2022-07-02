@@ -52,26 +52,26 @@ pub fn derive_from_accounts(input: TokenStream) -> TokenStream {
     let persist_method = generate_persist(&input.data);
     let expanded = quote! {
         /// Macro generated implementation of FromAccounts by Solitaire.
-        impl #combined_impl_g solitaire::FromAccounts #peel_type_g for #name #type_g {
-            fn from<DataType>(pid: &'a solana_program::pubkey::Pubkey, iter: &'c mut std::slice::Iter<'a, solana_program::account_info::AccountInfo<'b>>, data: &'a DataType) -> solitaire::Result<Self> {
+        impl #combined_impl_g solitaire::prelude::FromAccounts #peel_type_g for #name #type_g {
+            fn from<DataType>(pid: &'a solana_program::pubkey::Pubkey, iter: &'c mut std::slice::Iter<'a, solana_program::account_info::AccountInfo<'b>>, data: &'a DataType) -> solitaire::prelude::Result<Self> {
                 #from_method
             }
         }
 
-        impl #combined_impl_g solitaire::Peel<'a, 'b, 'c> for #name #type_g {
-            fn peel<I>(ctx: &'c mut solitaire::Context<'a, 'b, 'c, I>) -> solitaire::Result<Self> where Self: Sized {
+        impl #combined_impl_g solitaire::prelude::Peel<'a, 'b, 'c> for #name #type_g {
+            fn peel<I>(ctx: &'c mut solitaire::prelude::Context<'a, 'b, 'c, I>) -> solitaire::prelude::Result<Self> where Self: Sized {
                 let v: #name #type_g = FromAccounts::from(ctx.this, ctx.iter, ctx.data)?;
                 Ok(v)
             }
 
-            fn persist(&self, program_id: &solana_program::pubkey::Pubkey) -> solitaire::Result<()> {
-                solitaire::Persist::persist(self, program_id)
+            fn persist(&self, program_id: &solana_program::pubkey::Pubkey) -> solitaire::prelude::Result<()> {
+                solitaire::prelude::Persist::persist(self, program_id)
             }
         }
 
         /// Macro generated implementation of Persist by Solitaire.
-        impl #type_impl_g solitaire::Persist for #name #type_g {
-            fn persist(&self, program_id: &solana_program::pubkey::Pubkey) -> solitaire::Result<()> {
+        impl #type_impl_g solitaire::prelude::Persist for #name #type_g {
+            fn persist(&self, program_id: &solana_program::pubkey::Pubkey) -> solitaire::prelude::Result<()> {
                 #persist_method
             }
         }
@@ -100,7 +100,7 @@ fn generate_fields(name: &syn::Ident, data: &Data) -> TokenStream2 {
 
                         quote! {
                             trace!(stringify!(#name));
-                            let #name: #ty = solitaire::Peel::peel(&mut solitaire::Context::new(
+                            let #name: #ty = solitaire::prelude::Peel::peel(&mut solitaire::prelude::Context::new(
                                 pid,
                                 iter,
                                 data,
@@ -155,7 +155,7 @@ fn generate_persist(data: &Data) -> TokenStream2 {
 
                         quote! {
                             trace!(stringify!(#name));
-                            Peel::persist(&self.#name, program_id)?;
+                            solitaire::prelude::Peel::persist(&self.#name, program_id)?;
                         }
                     });
 

@@ -1,5 +1,4 @@
 #![allow(incomplete_features)]
-
 #![feature(adt_const_params)]
 
 use api::{
@@ -9,10 +8,7 @@ use api::{
     migrate_tokens::*,
     remove_liquidity::*,
 };
-use solitaire::{
-    solitaire,
-    SolitaireError,
-};
+use solitaire::prelude::*;
 
 pub mod accounts;
 pub mod api;

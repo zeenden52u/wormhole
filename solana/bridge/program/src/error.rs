@@ -2,7 +2,7 @@
 //! make up the wormhole bridge.
 
 use crate::trace;
-use solitaire::SolitaireError;
+use solitaire::prelude::SolitaireError;
 
 #[derive(Debug)]
 pub enum Error {

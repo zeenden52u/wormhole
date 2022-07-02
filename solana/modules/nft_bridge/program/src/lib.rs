@@ -1,4 +1,3 @@
-
 #![feature(adt_const_params)]
 #![allow(incomplete_features)]
 #![deny(unused_must_use)]
@@ -47,7 +46,7 @@ pub use api::{
     UpgradeContractData,
 };
 
-use solitaire::*;
+use solitaire::prelude::*;
 
 pub enum TokenBridgeError {
     AlreadyExecuted,

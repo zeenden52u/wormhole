@@ -7,12 +7,7 @@ use serde::{
     Serialize,
 };
 use solana_program::pubkey::Pubkey;
-use solitaire::{
-    AccountOwner,
-    AccountState,
-    Data,
-    Owned,
-};
+use solitaire::prelude::*;
 use std::{
     io::{
         Error,
@@ -87,7 +82,7 @@ impl BorshSerialize for PostedMessageData {
 impl BorshDeserialize for PostedMessageData {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
         if buf.len() < 3 {
-            return Err(Error::new(InvalidData, "Not enough bytes"))
+            return Err(Error::new(InvalidData, "Not enough bytes"));
         }
 
         let expected = b"msg";
@@ -157,7 +152,7 @@ impl BorshSerialize for PostedMessageUnreliableData {
 impl BorshDeserialize for PostedMessageUnreliableData {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
         if buf.len() < 3 {
-            return Err(Error::new(InvalidData, "Not enough bytes"))
+            return Err(Error::new(InvalidData, "Not enough bytes"));
         }
 
         let expected = b"msu";

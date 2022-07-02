@@ -12,6 +12,10 @@ use crate::{
     types::*,
     TokenBridgeError::*,
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     api::PostMessageData,
     types::ConsistencyLevel,
@@ -27,13 +31,7 @@ use solana_program::{
     program::invoke,
     sysvar::clock::Clock,
 };
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    *,
-};
+use solitaire::prelude::*;
 use spl_token_metadata::state::Metadata;
 
 #[derive(FromAccounts)]

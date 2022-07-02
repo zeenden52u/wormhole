@@ -4,10 +4,7 @@ use bridge::{
     api::ForeignAddress,
 };
 use solana_program::pubkey::Pubkey;
-use solitaire::{
-    processors::seeded::Seeded,
-    *,
-};
+use solitaire::prelude::*;
 
 pub type AuthoritySigner<'b> = Derive<Info<'b>, "authority_signer">;
 pub type CustodySigner<'b> = Derive<Info<'b>, "custody_signer">;

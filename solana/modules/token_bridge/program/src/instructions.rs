@@ -61,16 +61,9 @@ use solana_program::{
     },
     pubkey::Pubkey,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-};
+use solitaire::prelude::*;
 
-pub fn initialize(
-    program_id: Pubkey,
-    payer: Pubkey,
-    bridge: Pubkey,
-) -> solitaire::Result<Instruction> {
+pub fn initialize(program_id: Pubkey, payer: Pubkey, bridge: Pubkey) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     Ok(Instruction {
         program_id,
@@ -96,7 +89,7 @@ pub fn complete_native(
     fee_recipient: Option<Pubkey>,
     mint: Pubkey,
     data: CompleteNativeData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let (message_acc, claim_acc) = claimable_vaa(program_id, message_key, vaa.clone());
     let endpoint = Endpoint::<'_, { AccountState::Initialized }>::key(
@@ -152,7 +145,7 @@ pub fn complete_native_with_payload(
     fee_recipient: Option<Pubkey>,
     mint: Pubkey,
     data: CompleteNativeWithPayloadData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let (message_acc, claim_acc) = claimable_vaa(program_id, message_key, vaa.clone());
     let endpoint = Endpoint::<'_, { AccountState::Initialized }>::key(
@@ -212,7 +205,7 @@ pub fn complete_wrapped(
     to: Pubkey,
     fee_recipient: Option<Pubkey>,
     data: CompleteWrappedData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let (message_acc, claim_acc) = claimable_vaa(program_id, message_key, vaa.clone());
     let endpoint = Endpoint::<'_, { AccountState::Initialized }>::key(
@@ -275,7 +268,7 @@ pub fn complete_wrapped_with_payload(
     to_owner: Pubkey,
     fee_recipient: Option<Pubkey>,
     data: CompleteWrappedWithPayloadData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let (message_acc, claim_acc) = claimable_vaa(program_id, message_key, vaa.clone());
     let endpoint = Endpoint::<'_, { AccountState::Initialized }>::key(
@@ -339,7 +332,7 @@ pub fn create_wrapped(
     vaa: PostVAAData,
     payload: PayloadAssetMeta,
     data: CreateWrappedData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let (message_acc, claim_acc) = claimable_vaa(program_id, message_key, vaa.clone());
     let endpoint = Endpoint::<'_, { AccountState::Initialized }>::key(
@@ -399,7 +392,7 @@ pub fn register_chain(
     vaa: PostVAAData,
     payload: PayloadGovernanceRegisterChain,
     data: RegisterChainData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let (message_acc, claim_acc) = claimable_vaa(program_id, message_key, vaa);
     let endpoint = Endpoint::<'_, { AccountState::Initialized }>::key(
@@ -476,7 +469,27 @@ pub fn transfer_native(
     from: Pubkey,
     mint: Pubkey,
     data: TransferNativeData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
+    transfer_native_raw(
+        program_id,
+        bridge_id,
+        payer,
+        message_key,
+        from,
+        mint,
+        (crate::instruction::Instruction::TransferNative, data).try_to_vec()?,
+    )
+}
+
+fn transfer_native_raw(
+    program_id: Pubkey,
+    bridge_id: Pubkey,
+    payer: Pubkey,
+    message_key: Pubkey,
+    from: Pubkey,
+    mint: Pubkey,
+    data: Vec<u8>,
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let custody_key = CustodyAccount::<'_, { AccountState::Initialized }>::key(
         &CustodyAccountDerivationData { mint },
@@ -556,7 +569,7 @@ pub fn transfer_native_with_payload(
     from: Pubkey,
     mint: Pubkey,
     data: TransferNativeWithPayloadData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let custody_key = CustodyAccount::<'_, { AccountState::Initialized }>::key(
         &CustodyAccountDerivationData { mint },
@@ -644,7 +657,32 @@ pub fn transfer_wrapped(
     token_chain: u16,
     token_address: ForeignAddress,
     data: TransferWrappedData,
-) -> solitaire::Result<Instruction> {
+) -> solitaire::prelude::Result<Instruction> {
+    transfer_wrapped_raw(
+        program_id,
+        bridge_id,
+        payer,
+        message_key,
+        from,
+        from_owner,
+        token_chain,
+        token_address,
+        (crate::instruction::Instruction::TransferWrapped, data).try_to_vec()?,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn transfer_wrapped_raw(
+    program_id: Pubkey,
+    bridge_id: Pubkey,
+    payer: Pubkey,
+    message_key: Pubkey,
+    from: Pubkey,
+    from_owner: Pubkey,
+    token_chain: u16,
+    token_address: ForeignAddress,
+    data: Vec<u8>,
+) -> solitaire::prelude::Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
 
     let wrapped_mint_key = WrappedMint::<'_, { AccountState::Uninitialized }>::key(
@@ -736,7 +774,7 @@ pub fn transfer_wrapped_with_payload(
     token_chain: u16,
     token_address: ForeignAddress,
     data: TransferWrappedWithPayloadData,
-) -> solitaire::Result<Instruction> {
+) -> solitaire::prelude::Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
 
     let wrapped_mint_key = WrappedMint::<'_, { AccountState::Uninitialized }>::key(
@@ -808,7 +846,7 @@ pub fn attest(
     message_key: Pubkey,
     mint: Pubkey,
     nonce: u32,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let config_key = ConfigAccount::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let emitter_key = EmitterAccount::key(None, &program_id);
 

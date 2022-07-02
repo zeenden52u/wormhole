@@ -21,10 +21,7 @@ use solana_sdk::{
     },
     transport::TransportError,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-};
+use solitaire::prelude::*;
 
 use std::{
     collections::HashMap,
@@ -104,7 +101,7 @@ impl Sequencer {
     }
 }
 
-async fn set_up() -> Result<Context, TransportError> {
+async fn set_up() -> std::result::Result<Context, TransportError> {
     let (guardians, guardian_keys) = common::generate_keys(6);
 
     let (mut client, payer, bridge, token_bridge) = common::setup().await;
@@ -267,7 +264,7 @@ async fn create_wrapped(context: &mut Context) -> Pubkey {
 }
 
 // Create an SPL Metadata account to test attestations for wrapped tokens.
-async fn create_wrapped_account(context: &mut Context) -> Result<Pubkey, TransportError> {
+async fn create_wrapped_account(context: &mut Context) -> std::result::Result<Pubkey, TransportError> {
     common::create_spl_metadata(
         &mut context.client,
         &context.payer,

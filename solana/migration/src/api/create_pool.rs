@@ -17,10 +17,7 @@ use borsh::{
     BorshSerialize,
 };
 use solana_program::program::invoke_signed;
-use solitaire::{
-    CreationLamports::Exempt,
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct CreatePool<'b> {

@@ -3,13 +3,7 @@ use borsh::{
     BorshSerialize,
 };
 use solana_program::pubkey::Pubkey;
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-    AccountOwner,
-    Data,
-    Owned,
-};
+use solitaire::prelude::*;
 
 pub type Sequence<'b> = Data<'b, SequenceTracker, { AccountState::MaybeInitialized }>;
 

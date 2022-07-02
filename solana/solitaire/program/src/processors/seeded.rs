@@ -1,23 +1,26 @@
 use super::keyed::Keyed;
-use crate::{
-    create_account,
-    AccountState,
-    CreationLamports,
-    Data,
-    Derive,
-    ExecutionContext,
-    IsSigned::*,
-    Result,
-    SolitaireError,
-};
-use borsh::{
-    BorshSerialize,
-};
+use borsh::BorshSerialize;
 use solana_program::{
     entrypoint::ProgramResult,
     instruction::Instruction,
     program::invoke_signed,
     pubkey::Pubkey,
+};
+
+use crate::{
+    error::{
+        Result,
+        SolitaireError,
+    },
+    types::{
+        create_account,
+        AccountState,
+        Data,
+        Derive,
+        IsSigned::SignedWithSeeds,
+    },
+    CreationLamports,
+    ExecutionContext,
 };
 
 pub trait AccountSize {

@@ -1,9 +1,10 @@
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::types::ConsistencyLevel;
 use solana_program::program::invoke;
-use solitaire::{
-    trace,
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct PostMessage<'b> {

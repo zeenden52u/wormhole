@@ -4,12 +4,7 @@ use borsh::{
     BorshDeserialize,
     BorshSerialize,
 };
-use solitaire::{
-    AccountOwner,
-    AccountState,
-    Data,
-    Owned,
-};
+use solitaire::prelude::*;
 
 pub type SignatureSet<'b, const State: AccountState> = Data<'b, SignatureSetData, { State }>;
 

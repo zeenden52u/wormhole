@@ -24,7 +24,7 @@ use solana_program::{
     program_error::ProgramError::InvalidAccountData,
     pubkey::Pubkey,
 };
-use solitaire::SolitaireError;
+use solitaire::prelude::SolitaireError;
 use std::{
     self,
     io::{

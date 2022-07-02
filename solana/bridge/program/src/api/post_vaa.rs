@@ -35,10 +35,7 @@ use serde::{
 };
 use sha3::Digest;
 use solana_program::program_error::ProgramError;
-use solitaire::{
-    processors::seeded::Seeded,
-    CreationLamports::Exempt,
-};
+use solitaire::prelude::*;
 use std::io::{
     Cursor,
     Write,

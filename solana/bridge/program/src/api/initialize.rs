@@ -9,11 +9,12 @@ use crate::{
     error::Error::TooManyGuardians,
     MAX_LEN_GUARDIAN_KEYS,
 };
-use solana_program::sysvar::clock::Clock;
-use solitaire::{
-    CreationLamports::Exempt,
-    *,
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
 };
+use solana_program::sysvar::clock::Clock;
+use solitaire::prelude::*;
 
 type Payer<'a> = Signer<Info<'a>>;
 

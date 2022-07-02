@@ -13,10 +13,7 @@ use byteorder::{
     WriteBytesExt,
 };
 use sha3::Digest;
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-};
+use solitaire::prelude::*;
 use std::io::{
     Cursor,
     Write,
@@ -53,7 +50,7 @@ pub fn initialize(
     fee: u64,
     guardian_set_expiration_time: u32,
     initial_guardians: &[[u8; 20]],
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let bridge = Bridge::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let guardian_set = GuardianSet::<'_, { AccountState::Uninitialized }>::key(
         &GuardianSetDerivationData { index: 0 },
@@ -92,7 +89,7 @@ pub fn post_message(
     nonce: u32,
     payload: Vec<u8>,
     commitment: ConsistencyLevel,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let bridge = Bridge::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let fee_collector = FeeCollector::<'_>::key(None, &program_id);
     let sequence = Sequence::<'_>::key(
@@ -135,7 +132,7 @@ pub fn post_message_unreliable(
     nonce: u32,
     payload: Vec<u8>,
     commitment: ConsistencyLevel,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let bridge = Bridge::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
     let fee_collector = FeeCollector::<'_>::key(None, &program_id);
     let sequence = Sequence::<'_>::key(
@@ -176,7 +173,7 @@ pub fn verify_signatures(
     guardian_set_index: u32,
     signature_set: Pubkey,
     data: VerifySignaturesData,
-) -> solitaire::Result<Instruction> {
+) -> Result<Instruction> {
     let guardian_set = GuardianSet::<'_, { AccountState::Uninitialized }>::key(
         &GuardianSetDerivationData {
             index: guardian_set_index,

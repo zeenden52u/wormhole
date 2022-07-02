@@ -2,14 +2,16 @@ use solana_program::sysvar::Sysvar as SolanaSysvar;
 
 use crate::{
     processors::seeded::Owned,
-    AccountState,
-    Data,
-    Derive,
-    Info,
-    Mut,
-    Signer,
-    System,
-    Sysvar,
+    types::{
+        AccountState,
+        Data,
+        Derive,
+        Info,
+        Mut,
+        Signer,
+        System,
+        Sysvar,
+    },
 };
 
 pub trait Keyed<'a, 'b: 'a> {

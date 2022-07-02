@@ -17,7 +17,7 @@ pub fn post_message(
     nonce: u32,
     payload: Vec<u8>,
     commitment: ConsistencyLevel,
-) -> solitaire::Result<Instruction> {
+) -> solitaire::prelude::Result<Instruction> {
     let ix = bridge::instructions::post_message(
         bridge_id, payer, emitter, message, nonce, payload, commitment,
     )?;

@@ -20,13 +20,7 @@ use borsh::{
 };
 
 use crate::accounts::MigrationPoolDerivationData;
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct MigrateTokens<'b> {

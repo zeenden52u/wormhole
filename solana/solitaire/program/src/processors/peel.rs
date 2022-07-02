@@ -11,15 +11,27 @@ use solana_program::{
 };
 
 use crate::{
+    error::{
+        Result,
+        SolitaireError,
+    },
     processors::seeded::{
         AccountOwner,
         Owned,
     },
     trace,
-    types::*,
-    Context,
-    Result,
-    SolitaireError,
+    types::{
+        AccountState,
+        Context,
+        Data,
+        Derive,
+        Info,
+        MaybeMut,
+        Mut,
+        Signer,
+        System,
+        Sysvar,
+    },
 };
 use borsh::BorshSerialize;
 
@@ -85,9 +97,10 @@ impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>> Peel<'a, 'b, 'c> for Mut<T> {
         ctx.immutable = false;
         match ctx.info().is_writable {
             true => T::peel(ctx).map(|v| Mut(v)),
-            _ => Err(
-                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable),
-            ),
+            _ => Err(SolitaireError::InvalidMutability(
+                *ctx.info().key,
+                ctx.info().is_writable,
+            )),
         }
     }
 
@@ -160,9 +173,10 @@ where
 impl<'a, 'b: 'a, 'c> Peel<'a, 'b, 'c> for Info<'b> {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
         if ctx.immutable && ctx.info().is_writable {
-            return Err(
-                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable),
-            );
+            return Err(SolitaireError::InvalidMutability(
+                *ctx.info().key,
+                ctx.info().is_writable,
+            ));
         }
 
         Ok(ctx.info().clone())
@@ -185,9 +199,10 @@ impl<
 {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
         if ctx.immutable && ctx.info().is_writable {
-            return Err(
-                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable),
-            );
+            return Err(SolitaireError::InvalidMutability(
+                *ctx.info().key,
+                ctx.info().is_writable,
+            ));
         }
 
         // If we're initializing the type, we should emit system/rent as deps.
@@ -198,9 +213,7 @@ impl<
                 }
                 (false, T::default())
             }
-            AccountState::Initialized => {
-                (true, T::try_from_slice(*ctx.info().data.borrow_mut())?)
-            }
+            AccountState::Initialized => (true, T::try_from_slice(*ctx.info().data.borrow_mut())?),
             AccountState::MaybeInitialized => {
                 if ctx.info().data.borrow().is_empty() {
                     (false, T::default())

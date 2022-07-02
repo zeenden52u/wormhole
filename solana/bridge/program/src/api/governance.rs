@@ -1,5 +1,7 @@
-use solitaire::*;
-
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use solana_program::{
     program::invoke_signed,
     pubkey::Pubkey,
@@ -8,10 +10,7 @@ use solana_program::{
         rent::Rent,
     },
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    CreationLamports::Exempt,
-};
+use solitaire::prelude::*;
 
 use crate::{
     accounts::{

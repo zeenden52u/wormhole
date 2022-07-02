@@ -22,6 +22,10 @@ use crate::{
         WrongAccountOwner,
     },
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     api::PostMessageData,
     types::ConsistencyLevel,
@@ -42,14 +46,7 @@ use solana_program::{
     program_option::COption,
     sysvar::clock::Clock,
 };
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    CreationLamports::Exempt,
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct TransferNative<'b> {

@@ -9,13 +9,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use solitaire::{
-    AccountOwner,
-    AccountState,
-    Data,
-    Derive,
-    Owned,
-};
+use solitaire::prelude::*;
 
 pub type Bridge<'a, const State: AccountState> = Derive<Data<'a, BridgeData, { State }>, "Bridge">;
 
@@ -41,8 +35,8 @@ impl Owned for BridgeData {
 #[cfg(feature = "cpi")]
 impl Owned for BridgeData {
     fn owner(&self) -> AccountOwner {
-        use std::str::FromStr;
         use solana_program::pubkey::Pubkey;
+        use std::str::FromStr;
         AccountOwner::Other(Pubkey::from_str(env!("BRIDGE_ADDRESS")).unwrap())
     }
 }

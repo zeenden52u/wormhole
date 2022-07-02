@@ -39,7 +39,7 @@ macro_rules! solitaire {
                 program_error::ProgramError,
                 pubkey::Pubkey,
             };
-            use solitaire::{
+            use solitaire::prelude::{
                 trace,
                 ExecutionContext,
                 FromAccounts,

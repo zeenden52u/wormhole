@@ -1,6 +1,3 @@
-use borsh::{
-    BorshDeserialize,
-};
 use byteorder::{
     BigEndian,
     WriteBytesExt,
@@ -67,6 +64,7 @@ pub async fn execute<T: Signers>(
 
 mod helpers {
     use super::*;
+    use borsh::BorshDeserialize;
     use bridge::{
         accounts::FeeCollector,
         types::ConsistencyLevel,

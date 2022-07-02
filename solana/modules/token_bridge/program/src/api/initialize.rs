@@ -1,12 +1,13 @@
 use crate::accounts::ConfigAccount;
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use solana_program::{
     account_info::AccountInfo,
     pubkey::Pubkey,
 };
-use solitaire::{
-    CreationLamports::Exempt,
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct Initialize<'b> {

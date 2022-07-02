@@ -33,10 +33,7 @@ use solana_sdk::{
     },
     transport::TransportError,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-};
+use solitaire::prelude::*;
 use std::str::FromStr;
 
 mod common;
@@ -74,7 +71,7 @@ struct Context {
     metadata_account: Pubkey,
 }
 
-async fn set_up() -> Result<Context, TransportError> {
+async fn set_up() -> std::result::Result<Context, TransportError> {
     let (guardians, guardian_keys) = common::generate_keys(6);
 
     let (mut client, payer, bridge, nft_bridge) = common::setup().await;

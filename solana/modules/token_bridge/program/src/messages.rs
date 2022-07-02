@@ -20,7 +20,7 @@ use solana_program::{
     program_error::ProgramError::InvalidAccountData,
     pubkey::Pubkey,
 };
-use solitaire::SolitaireError;
+use solitaire::prelude::*;
 use std::{
     cmp,
     io::{
@@ -47,7 +47,7 @@ pub struct PayloadTransfer {
 }
 
 impl DeserializePayload for PayloadTransfer {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, SolitaireError> {
+    fn deserialize(buf: &mut &[u8]) -> Result<Self> {
         let mut v = Cursor::new(buf);
 
         if v.read_u8()? != 1 {
@@ -88,7 +88,7 @@ impl DeserializePayload for PayloadTransfer {
 }
 
 impl SerializePayload for PayloadTransfer {
-    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), SolitaireError> {
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<()> {
         // Payload ID
         writer.write_u8(1)?;
 
@@ -110,7 +110,7 @@ impl SerializePayload for PayloadTransfer {
 }
 
 impl DeserializePayload for PayloadTransferWithPayload {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, SolitaireError> {
+    fn deserialize(buf: &mut &[u8]) -> Result<Self> {
         let mut v = Cursor::new(buf);
 
         if v.read_u8()? != 3 {
@@ -153,7 +153,7 @@ impl DeserializePayload for PayloadTransferWithPayload {
 }
 
 impl SerializePayload for PayloadTransferWithPayload {
-    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), SolitaireError> {
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<()> {
         // Payload ID
         writer.write_u8(3)?;
 
@@ -207,7 +207,7 @@ pub struct PayloadAssetMeta {
 }
 
 impl DeserializePayload for PayloadAssetMeta {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, SolitaireError> {
+    fn deserialize(buf: &mut &[u8]) -> Result<Self> {
         use bstr::ByteSlice;
 
         let mut v = Cursor::new(buf);
@@ -251,7 +251,7 @@ impl DeserializePayload for PayloadAssetMeta {
 }
 
 impl SerializePayload for PayloadAssetMeta {
-    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), SolitaireError> {
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<()> {
         // Payload ID
         writer.write_u8(2)?;
 
@@ -296,7 +296,7 @@ impl DeserializePayload for PayloadGovernanceRegisterChain
 where
     Self: DeserializeGovernancePayload,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, SolitaireError> {
+    fn deserialize(buf: &mut &[u8]) -> Result<Self> {
         let mut v = Cursor::new(buf);
         Self::check_governance_header(&mut v)?;
 
@@ -319,7 +319,7 @@ impl SerializePayload for PayloadGovernanceRegisterChain
 where
     Self: SerializeGovernancePayload,
 {
-    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), SolitaireError> {
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<()> {
         self.write_governance_header(writer)?;
         // Payload ID
         writer.write_u16::<BigEndian>(self.chain)?;
@@ -336,7 +336,7 @@ pub struct GovernancePayloadUpgrade {
 }
 
 impl SerializePayload for GovernancePayloadUpgrade {
-    fn serialize<W: Write>(&self, v: &mut W) -> std::result::Result<(), SolitaireError> {
+    fn serialize<W: Write>(&self, v: &mut W) -> Result<()> {
         self.write_governance_header(v)?;
         v.write_all(&self.new_contract.to_bytes())?;
         Ok(())
@@ -347,7 +347,7 @@ impl DeserializePayload for GovernancePayloadUpgrade
 where
     Self: DeserializeGovernancePayload,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, SolitaireError> {
+    fn deserialize(buf: &mut &[u8]) -> Result<Self> {
         let mut c = Cursor::new(buf);
         Self::check_governance_header(&mut c)?;
 

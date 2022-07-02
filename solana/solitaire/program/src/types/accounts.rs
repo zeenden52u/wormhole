@@ -21,12 +21,14 @@ use std::ops::{
 };
 
 use crate::{
-    processors::seeded::Owned,
+    error::Result,
+    processors::{
+        keyed::Keyed,
+        seeded::Owned,
+    },
+    types::Derive,
     CreationLamports,
-    Derive,
     ExecutionContext,
-    Keyed,
-    Result,
 };
 
 /// A short alias for AccountInfo.

@@ -4,13 +4,7 @@ use crate::types::{
     SplMint,
 };
 use solana_program::pubkey::Pubkey;
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-    Data,
-    Derive,
-    Info,
-};
+use solitaire::prelude::*;
 
 pub type ShareMint<'a, const STATE: AccountState> = Data<'a, SplMint, { STATE }>;
 

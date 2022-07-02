@@ -13,6 +13,10 @@ use crate::{
         InvalidGovernanceKey,
     },
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     vaa::{
         ClaimableVAA,
@@ -29,11 +33,7 @@ use solana_program::{
         rent::Rent,
     },
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    CreationLamports::Exempt,
-    *,
-};
+use solitaire::prelude::*;
 
 // Confirm that a ClaimableVAA came from the correct chain, signed by the right emitter.
 fn verify_governance<T>(vaa: &ClaimableVAA<T>) -> Result<()>

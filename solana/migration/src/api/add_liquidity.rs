@@ -20,7 +20,7 @@ use borsh::{
 };
 
 use crate::accounts::MigrationPoolDerivationData;
-use solitaire::*;
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct AddLiquidity<'b> {

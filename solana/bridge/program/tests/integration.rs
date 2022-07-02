@@ -15,10 +15,7 @@ use solana_sdk::{
         Signer,
     },
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-};
+use solitaire::prelude::*;
 
 use bridge::{
     accounts::{

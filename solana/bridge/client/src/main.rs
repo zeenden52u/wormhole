@@ -55,12 +55,7 @@ use solana_sdk::{
     system_instruction::transfer,
     transaction::Transaction,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    AccountState,
-    Derive,
-    Info,
-};
+use solitaire::prelude::*;
 
 struct Config {
     rpc_client: RpcClient,
@@ -70,7 +65,7 @@ struct Config {
 }
 
 type Error = Box<dyn std::error::Error>;
-type CommmandResult = Result<Option<Transaction>, Error>;
+type CommmandResult = std::result::Result<Option<Transaction>, Error>;
 
 // [`get_recent_blockhash`] is deprecated, but devnet deployment hangs using the
 // recommended method, so allowing deprecated here. This is only the client, so
@@ -438,7 +433,7 @@ fn main() {
     });
 }
 
-pub fn is_u8<T>(amount: T) -> Result<(), String>
+pub fn is_u8<T>(amount: T) -> std::result::Result<(), String>
 where
     T: AsRef<str> + Display,
 {
@@ -452,7 +447,7 @@ where
     }
 }
 
-pub fn is_u32<T>(amount: T) -> Result<(), String>
+pub fn is_u32<T>(amount: T) -> std::result::Result<(), String>
 where
     T: AsRef<str> + Display,
 {
@@ -466,7 +461,7 @@ where
     }
 }
 
-pub fn is_u64<T>(amount: T) -> Result<(), String>
+pub fn is_u64<T>(amount: T) -> std::result::Result<(), String>
 where
     T: AsRef<str> + Display,
 {
@@ -480,7 +475,7 @@ where
     }
 }
 
-pub fn is_hex<T>(value: T) -> Result<(), String>
+pub fn is_hex<T>(value: T) -> std::result::Result<(), String>
 where
     T: AsRef<str> + Display,
 {
@@ -489,7 +484,10 @@ where
         .map_err(|e| format!("{}", e))
 }
 
-fn check_fee_payer_balance(config: &Config, required_balance: u64) -> Result<(), Error> {
+fn check_fee_payer_balance(
+    config: &Config,
+    required_balance: u64,
+) -> std::result::Result<(), Error> {
     let balance = config
         .rpc_client
         .get_balance_with_commitment(

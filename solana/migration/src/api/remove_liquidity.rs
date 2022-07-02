@@ -19,13 +19,7 @@ use borsh::{
     BorshDeserialize,
     BorshSerialize,
 };
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct RemoveLiquidity<'b> {

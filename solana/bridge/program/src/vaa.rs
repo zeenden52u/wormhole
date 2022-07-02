@@ -12,7 +12,6 @@ use crate::{
     Claim,
     ClaimDerivationData,
     PostedVAAData,
-    Result,
     CHAIN_ID_SOLANA,
 };
 use byteorder::{
@@ -27,17 +26,7 @@ use solana_program::{
     account_info::AccountInfo,
     pubkey::Pubkey,
 };
-use solitaire::{
-    processors::seeded::Seeded,
-    trace,
-    Context,
-    CreationLamports::Exempt,
-    Data,
-    ExecutionContext,
-    Peel,
-    SolitaireError,
-    *,
-};
+use solitaire::prelude::*;
 use std::{
     io::{
         Cursor,
@@ -116,7 +105,7 @@ pub struct PayloadMessage<'b, T: DeserializePayload>(
 );
 
 impl<'a, 'b: 'a, 'c, T: DeserializePayload> Peel<'a, 'b, 'c> for PayloadMessage<'b, T> {
-    fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self>
+    fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> solitaire::prelude::Result<Self>
     where
         Self: Sized,
     {
@@ -126,7 +115,7 @@ impl<'a, 'b: 'a, 'c, T: DeserializePayload> Peel<'a, 'b, 'c> for PayloadMessage<
         Ok(PayloadMessage(data, payload))
     }
 
-    fn persist(&self, program_id: &Pubkey) -> Result<()> {
+    fn persist(&self, program_id: &Pubkey) -> solitaire::prelude::Result<()> {
         Data::persist(&self.0, program_id)
     }
 }
@@ -165,7 +154,7 @@ impl<'b, T: DeserializePayload> Deref for ClaimableVAA<'b, T> {
 }
 
 impl<'b, T: DeserializePayload> ClaimableVAA<'b, T> {
-    pub fn verify(&self, program_id: &Pubkey) -> Result<()> {
+    pub fn verify(&self, program_id: &Pubkey) -> solitaire::prelude::Result<()> {
         trace!("Seq: {}", self.message.meta().sequence);
 
         // Verify that the claim account is derived correctly
@@ -187,7 +176,11 @@ impl<'b, T: DeserializePayload> ClaimableVAA<'b, T> {
         self.claim.claimed
     }
 
-    pub fn claim(&mut self, ctx: &ExecutionContext, payer: &Pubkey) -> Result<()> {
+    pub fn claim(
+        &mut self,
+        ctx: &ExecutionContext,
+        payer: &Pubkey,
+    ) -> solitaire::prelude::Result<()> {
         if self.is_claimed() {
             return Err(VAAAlreadyExecuted.into());
         }

@@ -17,18 +17,16 @@ use crate::{
     TokenBridgeError::*,
     INVALID_VAAS,
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     vaa::ClaimableVAA,
     CHAIN_ID_SOLANA,
 };
 use solana_program::account_info::AccountInfo;
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    *,
-};
+use solitaire::prelude::*;
 
 #[derive(FromAccounts)]
 pub struct CompleteNative<'b> {

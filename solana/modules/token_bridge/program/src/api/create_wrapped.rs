@@ -19,6 +19,10 @@ use crate::{
     },
     INVALID_VAAS,
 };
+use borsh::{
+    BorshDeserialize,
+    BorshSerialize,
+};
 use bridge::{
     vaa::ClaimableVAA,
     CHAIN_ID_SOLANA,
@@ -27,14 +31,7 @@ use solana_program::{
     account_info::AccountInfo,
     program::invoke_signed,
 };
-use solitaire::{
-    processors::seeded::{
-        invoke_seeded,
-        Seeded,
-    },
-    CreationLamports::Exempt,
-    *,
-};
+use solitaire::prelude::*;
 
 use spl_token_metadata::state::{
     Data as SplData,
