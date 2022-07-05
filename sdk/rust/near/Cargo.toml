@@ -1,10 +1,10 @@
 [package]
-name    = "wormhole-core"
+name    = "wormhole-near"
 version = "0.1.0"
 edition = "2018"
 
-[lib]
-name = "wormhole"
+
+[features]
 
 
 [profile.release]
@@ -13,14 +13,14 @@ lto       = "thin"
 
 
 [dependencies]
-borsh           = "*"
 bstr            = "*"
 byteorder       = "*"
 hex             = "*"
-hex-literal     = "*"
+near-sdk        = { version = "4.0.0", features = ["unstable"] }
 nom             = { version="7", default-features=false, features=["alloc"] }
 primitive-types = { version="0.9.0", default-features=false }
 sha3            = "0.9.1"
+wormhole-core   = { path = "../core" }
 
 
 [dev-dependencies]
