@@ -13,6 +13,8 @@ serde_json = "*"
 near-sdk = { version = "4.0.0", features = ["unstable"] }
 hex = { version = "0.4.3" }
 bs58 = "*"
+wormhole-core = { path = "../../../sdk/rust/core/", version = "0.1.0" }
+wormhole-near = { path = "../../../sdk/rust/near/", version = "0.1.0" }
 
 [profile.release]
 codegen-units = 1
