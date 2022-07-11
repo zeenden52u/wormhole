@@ -249,30 +249,50 @@ async function initNear() {
     });
   }
 
-  for (const line of vaasNFT) {
-    console.log("Submitting to " + config.nftAccount + ": " + line);
-
-    try {
-      await masterAccount.functionCall({
-        contractId: config.nftAccount,
-        methodName: "submit_vaa",
-        args: {
-          vaa: line,
-        },
-        attachedDeposit: new BN("30000000000000000000000"),
-        gas: new BN("300000000000000"),
-      });
-    } catch {
-      console.log("Exception thrown.. ");
-    }
-  }
-
-  console.log("nft bridge booted");
+//  for (const line of vaasNFT) {
+//    console.log("Submitting to " + config.nftAccount + ": " + line);
+//
+//    try {
+//      await masterAccount.functionCall({
+//        contractId: config.nftAccount,
+//        methodName: "submit_vaa",
+//        args: {
+//          vaa: line,
+//        },
+//        attachedDeposit: new BN("30000000000000000000000"),
+//        gas: new BN("300000000000000"),
+//      });
+//
+//      await masterAccount.functionCall({
+//        contractId: config.nftAccount,
+//        methodName: "submit_vaa",
+//        args: {
+//          vaa: line,
+//        },
+//        attachedDeposit: new BN("30000000000000000000000"),
+//        gas: new BN("300000000000000"),
+//      });
+//    } catch {
+//      console.log("Exception thrown.. ");
+//    }
+//  }
+//
+//  console.log("nft bridge booted");
 
   for (const line of vaasToken) {
     console.log("Submitting to " + config.tokenAccount + ": " + line);
 
     try {
+      await masterAccount.functionCall({
+        contractId: config.tokenAccount,
+        methodName: "submit_vaa",
+        args: {
+          vaa: line,
+        },
+        attachedDeposit: new BN("30000000000000000000001"),
+        gas: new BN("300000000000000"),
+      });
+
       await masterAccount.functionCall({
         contractId: config.tokenAccount,
         methodName: "submit_vaa",

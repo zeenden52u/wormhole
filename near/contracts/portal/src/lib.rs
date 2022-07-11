@@ -1024,7 +1024,7 @@ impl Portal {
                 env::panic_str("alreadyExecuted");
             } else {
                 self.dups.insert(&pvaa.hash, &true);
-                self.submit_vaa_callback(vaa, &pvaa)
+                self.submit_vaa_work(&pvaa, refund_to.unwrap())
             }
         } else {
             PromiseOrValue::Promise(
@@ -1035,21 +1035,40 @@ impl Portal {
                             .with_unused_gas_weight(10)
                             .with_attached_deposit(env::attached_deposit())
                             .verify_vaa_callback(vaa, refund_to.unwrap()),
+                    )
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .refunder(env::predecessor_account_id(), env::attached_deposit()),
                     ),
             )
         }
     }
+
+    #[private]
+    pub fn refunder(&mut self, refund_to: AccountId, amt: Balance) {
+        if !is_promise_success() {
+            env::log_str(&format!(
+                "portal/{}#{}: refunding {} to {}?",
+                file!(),
+                line!(),
+                amt,
+                refund_to
+            ));
+            Promise::new(refund_to).transfer(amt);
+        }
+    }
+
 
     #[private] // So, all of wormhole security rests in this one statement?
     #[payable]
     pub fn verify_vaa_callback(
         &mut self,
         vaa: String,
-        _refund_to: AccountId,
+        refund_to: AccountId,
         #[callback_result] gov_idx: Result<u32, PromiseError>,
-    ) {
+    ) -> Promise {
         env::log_str(&format!(
-            "portal/{}#{}: submit_vaa_callback: {}  {} used: {}  prepaid: {}",
+            "portal/{}#{}: submit_vaa_work: {}  {} used: {}  prepaid: {}",
             file!(),
             line!(),
             env::attached_deposit(),
@@ -1072,19 +1091,39 @@ impl Portal {
 
         // Check if VAA with this hash was already accepted
         if self.dups.contains_key(&pvaa.hash) {
-            env::panic_str("alreadyExecuted");
+            env::panic_str("alreadyExecuted2");
         }
+
+        let storage_used = env::storage_usage();
+        let mut deposit = env::attached_deposit();
+
         self.dups.insert(&pvaa.hash, &false);
+
+        let required_cost =
+            (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
+        if required_cost > deposit {
+            env::panic_str("DepositUnderflowForHash");
+        }
+        deposit -= required_cost;
+
+        env::log_str(&format!(
+            "portal/{}#{}: refunding {} to {}?",
+            file!(),
+            line!(),
+            deposit,
+            refund_to
+        ));
+        Promise::new(refund_to).transfer(deposit)
     }
 
     #[private] // So, all of wormhole security rests in this one statement?
-    fn submit_vaa_callback(
+    fn submit_vaa_work(
         &mut self,
-        _vaa: String,
         pvaa: &state::ParsedVAA,
+        refund_to: AccountId,
     ) -> PromiseOrValue<bool> {
         env::log_str(&format!(
-            "portal/{}#{}: submit_vaa_callback: {}  {} used: {}  prepaid: {}",
+            "portal/{}#{}: submit_vaa_work: {}  {} used: {}  prepaid: {}",
             file!(),
             line!(),
             env::attached_deposit(),
@@ -1092,8 +1131,6 @@ impl Portal {
             serde_json::to_string(&env::used_gas()).unwrap(),
             serde_json::to_string(&env::prepaid_gas()).unwrap()
         ));
-
-        let refund_to = env::predecessor_account_id();
 
         if pvaa.version != 1 {
             env::panic_str("invalidVersion");
@@ -1106,21 +1143,7 @@ impl Portal {
                 .unwrap();
         let action = data.get_u8(0);
 
-        let storage_used = env::storage_usage();
         let mut deposit = env::attached_deposit();
-
-        // Check if VAA with this hash was already accepted
-        if self.dups.contains_key(&pvaa.hash) {
-            env::panic_str("alreadyExecuted");
-        }
-        self.dups.insert(&pvaa.hash, &true);
-
-        let required_cost =
-            (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
-        if required_cost > deposit {
-            env::panic_str("DepositUnderflowForHash");
-        }
-        deposit -= required_cost;
 
         if governance {
             let bal = vaa_governance(self, &pvaa, self.gov_idx, deposit);

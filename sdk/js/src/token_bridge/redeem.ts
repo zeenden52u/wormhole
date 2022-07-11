@@ -341,5 +341,15 @@ export async function redeemOnNear(
     gas: new BN("300000000000000"),
   });
 
+  result = await client.functionCall({
+    contractId: tokenBridge,
+    methodName: "submit_vaa",
+    args: {
+      vaa: uint8ArrayToHex(vaa),
+    },
+    attachedDeposit: new BN("100000000000000000000000"),
+    gas: new BN("300000000000000"),
+  });
+
   return nearAPI.providers.getTransactionLastResult(result);
 }

@@ -94,5 +94,13 @@ export async function createWrappedOnNear(
     gas: new BN("300000000000000"),
   });
 
+  result = await client.functionCall({
+    contractId: tokenBridge,
+    methodName: "submit_vaa",
+    args: { vaa: vaa },
+    attachedDeposit: new BN(res[1]),
+    gas: new BN("300000000000000"),
+  });
+
   return nearApi.providers.getTransactionLastResult(result);
 }
