@@ -2,7 +2,6 @@
 //! library. Check submodules for chain runtime specific documentation.
 use std::convert::TryFrom; // Remove in 2021
 
-
 /// Chain is a mapping of Wormhole supported chains to their u16 representation. These are
 /// universally defined among all Wormhole contracts.
 #[repr(u16)]
