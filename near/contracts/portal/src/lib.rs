@@ -971,7 +971,11 @@ impl Portal {
     }
 
     #[payable]
-    pub fn submit_vaa(&mut self, vaa: String, mut refund_to: Option<AccountId>) -> PromiseOrValue<bool> {
+    pub fn submit_vaa(
+        &mut self,
+        vaa: String,
+        mut refund_to: Option<AccountId>,
+    ) -> PromiseOrValue<bool> {
         if refund_to == None {
             refund_to = Some(env::predecessor_account_id());
         }
@@ -997,14 +1001,16 @@ impl Portal {
                 self.submit_vaa_callback(vaa, &pvaa)
             }
         } else {
-            PromiseOrValue::Promise(ext_worm_hole::ext(self.core.clone())
-                .verify_vaa(vaa.clone())
-                .then(
-                    Self::ext(env::current_account_id())
-                        .with_unused_gas_weight(10)
-                        .with_attached_deposit(env::attached_deposit())
-                        .verify_vaa_callback(vaa, refund_to.unwrap()),
-                ))
+            PromiseOrValue::Promise(
+                ext_worm_hole::ext(self.core.clone())
+                    .verify_vaa(vaa.clone())
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_unused_gas_weight(10)
+                            .with_attached_deposit(env::attached_deposit())
+                            .verify_vaa_callback(vaa, refund_to.unwrap()),
+                    ),
+            )
         }
     }
 
@@ -1049,7 +1055,7 @@ impl Portal {
     fn submit_vaa_callback(
         &mut self,
         _vaa: String,
-        pvaa: &state::ParsedVAA
+        pvaa: &state::ParsedVAA,
     ) -> PromiseOrValue<bool> {
         env::log_str(&format!(
             "portal/{}#{}: submit_vaa_callback: {}  {} used: {}  prepaid: {}",
