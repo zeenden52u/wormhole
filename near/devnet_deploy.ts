@@ -173,7 +173,7 @@ async function initNear() {
       config.testAccount,
       masterKey.getPublicKey(),
       testContract,
-      new BN("20000000000000000000000000")
+      new BN("25000000000000000000000000")
     );
 
     console.log("booting wormhole to devnet keys");

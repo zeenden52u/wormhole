@@ -540,14 +540,14 @@ fn vaa_asset_meta(
     };
 
     let mut p = if !fresh {
-        env::log_str(&format!("portal/{}#{}: vaa_asset_meta", file!(), line!()));
+        env::log_str(&format!("portal/{}#{}: vaa_asset_meta:  !fresh", file!(), line!()));
         ext_ft_contract::ext(bridge_token_account.clone()).update_ft(
             ft,
             data.to_vec(),
             vaa.sequence,
         )
     } else {
-        env::log_str(&format!("portal/{}#{}: vaa_asset_meta", file!(), line!()));
+        env::log_str(&format!("portal/{}#{}: vaa_asset_meta:  fresh", file!(), line!()));
         let cost = (TRANSFER_BUFFER + BRIDGE_TOKEN_BINARY.len() as u128) * env::storage_byte_cost();
 
         if cost > deposit {
@@ -980,10 +980,10 @@ impl Portal {
                     .with_attached_deposit(env::attached_deposit())
                     .submit_vaa_callback(vaa, refund_to.unwrap()),
             )
-            .then(
-                Self::ext(env::current_account_id())
-                    .refunder(env::predecessor_account_id(), env::attached_deposit()),
-            )
+//            .then(
+//                Self::ext(env::current_account_id())
+//                    .refunder(env::predecessor_account_id(), env::attached_deposit()),
+//            )
     }
 
     #[private]
@@ -1254,8 +1254,12 @@ impl Portal {
     #[private]
     pub fn finish_deploy(&mut self, token: AccountId, tkey: Vec<u8>, do_clean: bool) -> String {
         if is_promise_success() {
+            env::log_str(&format!("portal/{}#{}: token: {}", file!(), line!(), token));
+
             token.to_string()
         } else {
+            env::log_str(&format!("portal/{}#{}: token: {}", file!(), line!(), token));
+
             if do_clean {
                 self.tokens.remove(&token);
                 self.key_map.remove(&tkey);
