@@ -110,28 +110,31 @@ pub struct TokenData {
     chain: u16,
 }
 
-//#[near_bindgen]
-//#[derive(BorshDeserialize, BorshSerialize)]
-//pub struct OldPortal {
-//    booted: bool,
-//    core: AccountId,
-//    dups: UnorderedSet<Vec<u8>>,
-//    owner_pk: PublicKey,
-//    emitter_registration: LookupMap<u16, Vec<u8>>,
-//    last_asset: u32,
-//    upgrade_hash: Vec<u8>,
-//
-//    tokens: LookupMap<AccountId, TokenData>,
-//    key_map: LookupMap<Vec<u8>, AccountId>,
-//    hash_map: LookupMap<Vec<u8>, AccountId>,
-//}
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct OldPortal {
+    booted: bool,
+    core: AccountId,
+    dups: UnorderedSet<Vec<u8>>,
+    owner_pk: PublicKey,
+    emitter_registration: LookupMap<u16, Vec<u8>>,
+    last_asset: u32,
+    upgrade_hash: Vec<u8>,
+
+    tokens: LookupMap<AccountId, TokenData>,
+    key_map: LookupMap<Vec<u8>, AccountId>,
+    hash_map: LookupMap<Vec<u8>, AccountId>,
+
+    bank: LookupMap<AccountId, Balance>,
+}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Portal {
     booted: bool,
     core: AccountId,
-    dups: UnorderedSet<Vec<u8>>,
+    gov_idx: u32,
+    dups: LookupMap<Vec<u8>, bool>,
     owner_pk: PublicKey,
     emitter_registration: LookupMap<u16, Vec<u8>>,
     last_asset: u32,
@@ -149,7 +152,8 @@ impl Default for Portal {
         Self {
             booted: false,
             core: AccountId::new_unchecked("".to_string()),
-            dups: UnorderedSet::new(b"d".to_vec()),
+            gov_idx: 0,
+            dups: LookupMap::new(b"d".to_vec()),
             owner_pk: env::signer_account_pk(),
             emitter_registration: LookupMap::new(b"c".to_vec()),
             last_asset: 0,
@@ -540,14 +544,22 @@ fn vaa_asset_meta(
     };
 
     let mut p = if !fresh {
-        env::log_str(&format!("portal/{}#{}: vaa_asset_meta:  !fresh", file!(), line!()));
+        env::log_str(&format!(
+            "portal/{}#{}: vaa_asset_meta:  !fresh",
+            file!(),
+            line!()
+        ));
         ext_ft_contract::ext(bridge_token_account.clone()).update_ft(
             ft,
             data.to_vec(),
             vaa.sequence,
         )
     } else {
-        env::log_str(&format!("portal/{}#{}: vaa_asset_meta:  fresh", file!(), line!()));
+        env::log_str(&format!(
+            "portal/{}#{}: vaa_asset_meta:  fresh",
+            file!(),
+            line!()
+        ));
         let cost = (TRANSFER_BUFFER + BRIDGE_TOKEN_BINARY.len() as u128) * env::storage_byte_cost();
 
         if cost > deposit {
@@ -955,11 +967,11 @@ impl Portal {
         let h = hex::decode(vaa).expect("invalidVaa");
         let pvaa = state::ParsedVAA::parse(&h);
 
-        self.dups.contains(&pvaa.hash)
+        self.dups.contains_key(&pvaa.hash)
     }
 
     #[payable]
-    pub fn submit_vaa(&mut self, vaa: String, mut refund_to: Option<AccountId>) -> Promise {
+    pub fn submit_vaa(&mut self, vaa: String, mut refund_to: Option<AccountId>) -> PromiseOrValue<bool> {
         if refund_to == None {
             refund_to = Some(env::predecessor_account_id());
         }
@@ -972,42 +984,38 @@ impl Portal {
             env::panic_str("StorageDepositUnderflow");
         }
 
-        ext_worm_hole::ext(self.core.clone())
-            .verify_vaa(vaa.clone())
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_unused_gas_weight(10)
-                    .with_attached_deposit(env::attached_deposit())
-                    .submit_vaa_callback(vaa, refund_to.unwrap()),
-            )
-//            .then(
-//                Self::ext(env::current_account_id())
-//                    .refunder(env::predecessor_account_id(), env::attached_deposit()),
-//            )
-    }
+        let h = hex::decode(&vaa).unwrap();
+        let pvaa = state::ParsedVAA::parse(&h);
 
-    #[private]
-    pub fn refunder(&mut self, refund_to: AccountId, amt: Balance) {
-        if !is_promise_success() {
-            env::log_str(&format!(
-                "portal/{}#{}: should we refund {} to {}?",
-                file!(),
-                line!(),
-                amt,
-                refund_to
-            ));
-//            Promise::new(refund_to).transfer(amt);
+        // Check if VAA with this hash was already accepted
+        if self.dups.contains_key(&pvaa.hash) {
+            let e = self.dups.get(&pvaa.hash).unwrap();
+            if e {
+                env::panic_str("alreadyExecuted");
+            } else {
+                self.dups.insert(&pvaa.hash, &true);
+                self.submit_vaa_callback(vaa, &pvaa)
+            }
+        } else {
+            PromiseOrValue::Promise(ext_worm_hole::ext(self.core.clone())
+                .verify_vaa(vaa.clone())
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_unused_gas_weight(10)
+                        .with_attached_deposit(env::attached_deposit())
+                        .verify_vaa_callback(vaa, refund_to.unwrap()),
+                ))
         }
     }
 
     #[private] // So, all of wormhole security rests in this one statement?
     #[payable]
-    pub fn submit_vaa_callback(
+    pub fn verify_vaa_callback(
         &mut self,
         vaa: String,
-        refund_to: AccountId,
+        _refund_to: AccountId,
         #[callback_result] gov_idx: Result<u32, PromiseError>,
-    ) -> PromiseOrValue<bool> {
+    ) {
         env::log_str(&format!(
             "portal/{}#{}: submit_vaa_callback: {}  {} used: {}  prepaid: {}",
             file!(),
@@ -1021,14 +1029,39 @@ impl Portal {
         if gov_idx.is_err() {
             env::panic_str("vaaVerifyFail");
         }
+        self.gov_idx = gov_idx.unwrap();
 
-        let vaa_str = hex::decode(&vaa);
-        let h = match vaa_str {
-            Ok(v) => v,
-            Err(e) => env::panic_str(&e.to_string()),
-        };
-
+        let h = hex::decode(&vaa).unwrap();
         let pvaa = state::ParsedVAA::parse(&h);
+
+        if pvaa.version != 1 {
+            env::panic_str("invalidVersion");
+        }
+
+        // Check if VAA with this hash was already accepted
+        if self.dups.contains_key(&pvaa.hash) {
+            env::panic_str("alreadyExecuted");
+        }
+        self.dups.insert(&pvaa.hash, &false);
+    }
+
+    #[private] // So, all of wormhole security rests in this one statement?
+    fn submit_vaa_callback(
+        &mut self,
+        _vaa: String,
+        pvaa: &state::ParsedVAA
+    ) -> PromiseOrValue<bool> {
+        env::log_str(&format!(
+            "portal/{}#{}: submit_vaa_callback: {}  {} used: {}  prepaid: {}",
+            file!(),
+            line!(),
+            env::attached_deposit(),
+            env::predecessor_account_id(),
+            serde_json::to_string(&env::used_gas()).unwrap(),
+            serde_json::to_string(&env::prepaid_gas()).unwrap()
+        ));
+
+        let refund_to = env::predecessor_account_id();
 
         if pvaa.version != 1 {
             env::panic_str("invalidVersion");
@@ -1045,10 +1078,10 @@ impl Portal {
         let mut deposit = env::attached_deposit();
 
         // Check if VAA with this hash was already accepted
-        if self.dups.contains(&pvaa.hash) {
+        if self.dups.contains_key(&pvaa.hash) {
             env::panic_str("alreadyExecuted");
         }
-        self.dups.insert(&pvaa.hash);
+        self.dups.insert(&pvaa.hash, &true);
 
         let required_cost =
             (Balance::from(env::storage_usage() - storage_used)) * env::storage_byte_cost();
@@ -1058,7 +1091,7 @@ impl Portal {
         deposit -= required_cost;
 
         if governance {
-            let bal = vaa_governance(self, &pvaa, gov_idx.unwrap(), deposit);
+            let bal = vaa_governance(self, &pvaa, self.gov_idx, deposit);
             if bal > 0 {
                 env::log_str(&format!(
                     "portal/{}#{}: refunding {} to {}",
