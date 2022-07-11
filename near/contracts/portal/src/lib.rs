@@ -1143,7 +1143,7 @@ impl Portal {
                 .unwrap();
         let action = data.get_u8(0);
 
-        let mut deposit = env::attached_deposit();
+        let deposit = env::attached_deposit();
 
         if governance {
             let bal = vaa_governance(self, &pvaa, self.gov_idx, deposit);
@@ -1576,32 +1576,32 @@ impl Portal {
             ))
     }
 
-    //    #[init(ignore_state)]
-    //    #[payable]
-    //    pub fn migrate() -> Self {
-    //        if env::attached_deposit() != 1 {
-    //            env::panic_str("Need money");
-    //        }
-    //        let old_state: OldPortal = env::state_read().expect("failed");
-    //        if env::signer_account_pk() != old_state.owner_pk {
-    //            env::panic_str("CannotCallMigrate");
-    //        }
-    //        env::log_str(&format!("portal/{}#{}: migrate", file!(), line!(),));
-    //        Self {
-    //            booted: old_state.booted,
-    //            core: old_state.core,
-    //            dups: old_state.dups,
-    //            owner_pk: old_state.owner_pk,
-    //            emitter_registration: old_state.emitter_registration,
-    //            last_asset: old_state.last_asset,
-    //            upgrade_hash: old_state.upgrade_hash,
-    //            tokens: old_state.tokens,
-    //            key_map: old_state.key_map,
-    //            hash_map: old_state.hash_map,
-    //
-    //            bank: LookupMap::new(b"b".to_vec()),
-    //        }
-    //    }
+    #[init(ignore_state)]
+    #[payable]
+    pub fn migrate() -> Self {
+        if env::attached_deposit() != 1 {
+            env::panic_str("Need money");
+        }
+        let old_state: OldPortal = env::state_read().expect("failed");
+        if env::signer_account_pk() != old_state.owner_pk {
+            env::panic_str("CannotCallMigrate");
+        }
+        env::log_str(&format!("portal/{}#{}: migrate", file!(), line!(),));
+        Self {
+            booted:               old_state.booted,
+            core:                 old_state.core,
+            gov_idx:              0,
+            dups:                 LookupMap::new(b"d".to_vec()),
+            owner_pk:             old_state.owner_pk,
+            emitter_registration: old_state.emitter_registration,
+            last_asset:           old_state.last_asset,
+            upgrade_hash:         old_state.upgrade_hash,
+            tokens:               old_state.tokens,
+            key_map:              old_state.key_map,
+            hash_map:             old_state.hash_map,
+            bank:                 old_state.bank,
+        }
+    }
 }
 
 //  let result = await userAccount.functionCall({
