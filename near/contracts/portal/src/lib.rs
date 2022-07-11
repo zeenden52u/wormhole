@@ -3,25 +3,51 @@
 //#![allow(unused_variables)]
 //#![allow(dead_code)]
 
-use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
-use near_sdk::json_types::U128;
-
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedSet};
-use near_sdk::{
-    env, ext_contract, near_bindgen, require, AccountId, Balance, Gas, GasWeight, PanicOnDefault,
-    Promise, PromiseError, PromiseOrValue, PublicKey,
+use {
+    near_contract_standards::fungible_token::metadata::{
+        FungibleTokenMetadata,
+        FT_METADATA_SPEC,
+    },
+    near_sdk::{
+        borsh::{
+            self,
+            BorshDeserialize,
+            BorshSerialize,
+        },
+        collections::{
+            LookupMap,
+            UnorderedSet,
+        },
+        env,
+        ext_contract,
+        json_types::U128,
+        near_bindgen,
+        require,
+        utils::is_promise_success,
+        AccountId,
+        Balance,
+        Gas,
+        GasWeight,
+        PanicOnDefault,
+        Promise,
+        PromiseError,
+        PromiseOrValue,
+        PublicKey,
+    },
+    serde::{
+        Deserialize,
+        Serialize,
+    },
+    std::str,
 };
-use serde::{Deserialize, Serialize};
-
-use near_sdk::utils::is_promise_success;
-
-use std::str;
 
 pub mod byte_utils;
 pub mod state;
 
-use crate::byte_utils::{get_string_from_32, ByteUtils};
+use crate::byte_utils::{
+    get_string_from_32,
+    ByteUtils,
+};
 
 // near_sdk::setup_alloc!();
 
@@ -44,7 +70,7 @@ const NEAR_MULT: u128 = 10_000_000_000_000_000; // 1e16
 
 #[derive(BorshSerialize, Serialize)]
 struct NewArgs {
-    metadata: FungibleTokenMetadata,
+    metadata:   FungibleTokenMetadata,
     asset_meta: Vec<u8>,
     seq_number: u64,
 }
@@ -94,35 +120,35 @@ pub trait ExtPortal {
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 pub struct TransferMsgPayload {
-    receiver: String,
-    chain: u16,
-    fee: String,
-    payload: String,
+    receiver:    String,
+    chain:       u16,
+    fee:         String,
+    payload:     String,
     message_fee: Balance,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct TokenData {
-    meta: Vec<u8>,
+    meta:     Vec<u8>,
     decimals: u8,
 
     address: String,
-    chain: u16,
+    chain:   u16,
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct OldPortal {
-    booted: bool,
-    core: AccountId,
-    dups: UnorderedSet<Vec<u8>>,
-    owner_pk: PublicKey,
+    booted:               bool,
+    core:                 AccountId,
+    dups:                 UnorderedSet<Vec<u8>>,
+    owner_pk:             PublicKey,
     emitter_registration: LookupMap<u16, Vec<u8>>,
-    last_asset: u32,
-    upgrade_hash: Vec<u8>,
+    last_asset:           u32,
+    upgrade_hash:         Vec<u8>,
 
-    tokens: LookupMap<AccountId, TokenData>,
-    key_map: LookupMap<Vec<u8>, AccountId>,
+    tokens:   LookupMap<AccountId, TokenData>,
+    key_map:  LookupMap<Vec<u8>, AccountId>,
     hash_map: LookupMap<Vec<u8>, AccountId>,
 
     bank: LookupMap<AccountId, Balance>,
@@ -131,17 +157,17 @@ pub struct OldPortal {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Portal {
-    booted: bool,
-    core: AccountId,
-    gov_idx: u32,
-    dups: LookupMap<Vec<u8>, bool>,
-    owner_pk: PublicKey,
+    booted:               bool,
+    core:                 AccountId,
+    gov_idx:              u32,
+    dups:                 LookupMap<Vec<u8>, bool>,
+    owner_pk:             PublicKey,
     emitter_registration: LookupMap<u16, Vec<u8>>,
-    last_asset: u32,
-    upgrade_hash: Vec<u8>,
+    last_asset:           u32,
+    upgrade_hash:         Vec<u8>,
 
-    tokens: LookupMap<AccountId, TokenData>,
-    key_map: LookupMap<Vec<u8>, AccountId>,
+    tokens:   LookupMap<AccountId, TokenData>,
+    key_map:  LookupMap<Vec<u8>, AccountId>,
     hash_map: LookupMap<Vec<u8>, AccountId>,
 
     bank: LookupMap<AccountId, Balance>,
@@ -150,17 +176,17 @@ pub struct Portal {
 impl Default for Portal {
     fn default() -> Self {
         Self {
-            booted: false,
-            core: AccountId::new_unchecked("".to_string()),
-            gov_idx: 0,
-            dups: LookupMap::new(b"d".to_vec()),
-            owner_pk: env::signer_account_pk(),
+            booted:               false,
+            core:                 AccountId::new_unchecked("".to_string()),
+            gov_idx:              0,
+            dups:                 LookupMap::new(b"d".to_vec()),
+            owner_pk:             env::signer_account_pk(),
             emitter_registration: LookupMap::new(b"c".to_vec()),
-            last_asset: 0,
-            upgrade_hash: b"".to_vec(),
+            last_asset:           0,
+            upgrade_hash:         b"".to_vec(),
 
-            tokens: LookupMap::new(b"t".to_vec()),
-            key_map: LookupMap::new(b"k".to_vec()),
+            tokens:   LookupMap::new(b"t".to_vec()),
+            key_map:  LookupMap::new(b"k".to_vec()),
             hash_map: LookupMap::new(b"a".to_vec()),
 
             bank: LookupMap::new(b"b".to_vec()),
@@ -569,7 +595,7 @@ fn vaa_asset_meta(
         deposit -= cost;
 
         let new_args = NewArgs {
-            metadata: ft,
+            metadata:   ft,
             asset_meta: data.to_vec(),
             seq_number: vaa.sequence,
         };
@@ -1223,10 +1249,10 @@ impl Portal {
 
         if !self.tokens.contains_key(&bridge_token_account) {
             let d = TokenData {
-                meta: b"".to_vec(),
+                meta:     b"".to_vec(),
                 decimals: ft.decimals,
-                address: hex::encode(&account_hash),
-                chain: CHAIN_ID_NEAR,
+                address:  hex::encode(&account_hash),
+                chain:    CHAIN_ID_NEAR,
             };
             self.tokens.insert(&bridge_token_account, &d);
         }

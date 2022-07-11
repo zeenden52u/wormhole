@@ -1,16 +1,35 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedSet};
-use near_sdk::{
-    env, near_bindgen, require, AccountId, Balance, Gas, Promise, PromiseOrValue, PublicKey,
+use {
+    near_sdk::{
+        borsh::{
+            self,
+            BorshDeserialize,
+            BorshSerialize,
+        },
+        collections::{
+            LookupMap,
+            UnorderedSet,
+        },
+        env,
+        near_bindgen,
+        require,
+        AccountId,
+        Balance,
+        Gas,
+        Promise,
+        PromiseOrValue,
+        PublicKey,
+    },
+    serde::Serialize,
 };
-
-use serde::Serialize;
 
 pub mod byte_utils;
 
 pub mod state;
 
-use crate::byte_utils::{get_string_from_32, ByteUtils};
+use crate::byte_utils::{
+    get_string_from_32,
+    ByteUtils,
+};
 
 const CHAIN_ID_NEAR: u16 = 15;
 const CHAIN_ID_SOL: u16 = 1;
@@ -22,7 +41,7 @@ pub struct GuardianAddress {
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct GuardianSetInfo {
-    pub addresses: Vec<GuardianAddress>,
+    pub addresses:       Vec<GuardianAddress>,
     pub expiration_time: u64, // Guardian set expiration time
 }
 
@@ -36,12 +55,12 @@ impl GuardianSetInfo {
 #[derive(Serialize, Debug, Clone)]
 pub struct WormholeEvent {
     standard: String,
-    event: String,
-    data: String,
-    nonce: u32,
-    emitter: String,
-    seq: u64,
-    block: u64,
+    event:    String,
+    data:     String,
+    nonce:    u32,
+    emitter:  String,
+    seq:      u64,
+    block:    u64,
 }
 
 impl WormholeEvent {
@@ -80,29 +99,29 @@ impl WormholeEvent {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Wormhole {
-    guardians: LookupMap<u32, GuardianSetInfo>,
-    dups: UnorderedSet<Vec<u8>>,
-    emitters: LookupMap<String, u64>,
+    guardians:             LookupMap<u32, GuardianSetInfo>,
+    dups:                  UnorderedSet<Vec<u8>>,
+    emitters:              LookupMap<String, u64>,
     guardian_set_expirity: u64,
-    guardian_set_index: u32,
-    owner_pk: PublicKey,
-    upgrade_hash: Vec<u8>,
-    message_fee: u128,
-    bank: u128,
+    guardian_set_index:    u32,
+    owner_pk:              PublicKey,
+    upgrade_hash:          Vec<u8>,
+    message_fee:           u128,
+    bank:                  u128,
 }
 
 impl Default for Wormhole {
     fn default() -> Self {
         Self {
-            guardians: LookupMap::new(b"gs".to_vec()),
-            dups: UnorderedSet::new(b"d".to_vec()),
-            emitters: LookupMap::new(b"e".to_vec()),
-            guardian_set_index: u32::MAX,
+            guardians:             LookupMap::new(b"gs".to_vec()),
+            dups:                  UnorderedSet::new(b"d".to_vec()),
+            emitters:              LookupMap::new(b"e".to_vec()),
+            guardian_set_index:    u32::MAX,
             guardian_set_expirity: 24 * 60 * 60 * 1_000_000_000, // 24 hours in nanoseconds
-            owner_pk: env::signer_account_pk(),
-            upgrade_hash: b"".to_vec(),
-            message_fee: 0,
-            bank: 0,
+            owner_pk:              env::signer_account_pk(),
+            upgrade_hash:          b"".to_vec(),
+            message_fee:           0,
+            bank:                  0,
         }
     }
 }
@@ -264,7 +283,7 @@ fn handle_set_fee(
     _vaa: &state::ParsedVAA,
     payload: &[u8],
     deposit: Balance,
-    refund_to: AccountId
+    refund_to: AccountId,
 ) -> PromiseOrValue<bool> {
     let (_, amount) = payload.get_u256(0);
 
@@ -479,7 +498,7 @@ impl Wormhole {
             .collect::<Vec<GuardianAddress>>();
 
         let g = GuardianSetInfo {
-            addresses: addr,
+            addresses:       addr,
             expiration_time: 0,
         };
         self.guardians.insert(&gset, &g);

@@ -1,17 +1,29 @@
 #![allow(unused_variables)]
 
-use near_contract_standards::fungible_token::metadata::{
-    FungibleTokenMetadata, FungibleTokenMetadataProvider,
-};
-
-use near_contract_standards::fungible_token::FungibleToken;
-use near_sdk::collections::LazyOption;
-use near_sdk::json_types::U128;
-
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-
-use near_sdk::{
-    env, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue, StorageUsage,
+use {
+    near_contract_standards::fungible_token::{
+        metadata::{
+            FungibleTokenMetadata,
+            FungibleTokenMetadataProvider,
+        },
+        FungibleToken,
+    },
+    near_sdk::{
+        borsh::{
+            self,
+            BorshDeserialize,
+            BorshSerialize,
+        },
+        collections::LazyOption,
+        env,
+        json_types::U128,
+        near_bindgen,
+        AccountId,
+        Balance,
+        PanicOnDefault,
+        PromiseOrValue,
+        StorageUsage,
+    },
 };
 
 const CHAIN_ID_NEAR: u16 = 15;
@@ -19,17 +31,17 @@ const CHAIN_ID_NEAR: u16 = 15;
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FTContractMeta {
     metadata: FungibleTokenMetadata,
-    vaa: Vec<u8>,
+    vaa:      Vec<u8>,
     sequence: u64,
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FTContract {
-    token: FungibleToken,
-    meta: LazyOption<FTContractMeta>,
+    token:      FungibleToken,
+    meta:       LazyOption<FTContractMeta>,
     controller: AccountId,
-    hash: Vec<u8>,
+    hash:       Vec<u8>,
 }
 
 pub fn get_string_from_32(v: &[u8]) -> String {
@@ -63,10 +75,10 @@ impl FTContract {
         let astr = acct.to_string();
 
         Self {
-            token: FungibleToken::new(b"ft".to_vec()),
-            meta: LazyOption::new(b"md".to_vec(), Some(&meta)),
+            token:      FungibleToken::new(b"ft".to_vec()),
+            meta:       LazyOption::new(b"md".to_vec(), Some(&meta)),
             controller: env::predecessor_account_id(),
-            hash: env::sha256(astr.as_bytes()),
+            hash:       env::sha256(astr.as_bytes()),
         }
     }
 
@@ -144,8 +156,8 @@ impl FTContract {
 
         near_contract_standards::fungible_token::events::FtBurn {
             owner_id: &from,
-            amount: &U128::from(amount),
-            memo: Some("Wormhole burn"),
+            amount:   &U128::from(amount),
+            memo:     Some("Wormhole burn"),
         }
         .emit();
 
@@ -177,8 +189,8 @@ impl FTContract {
 
         near_contract_standards::fungible_token::events::FtMint {
             owner_id: &account_id,
-            amount: &U128::from(amount - fee),
-            memo: Some("wormhole minted tokens"),
+            amount:   &U128::from(amount - fee),
+            memo:     Some("wormhole minted tokens"),
         }
         .emit();
 
@@ -187,8 +199,8 @@ impl FTContract {
 
             near_contract_standards::fungible_token::events::FtMint {
                 owner_id: &env::signer_account_id(),
-                amount: &U128::from(fee),
-                memo: Some("wormhole minted tokens"),
+                amount:   &U128::from(fee),
+                memo:     Some("wormhole minted tokens"),
             }
             .emit();
         }
