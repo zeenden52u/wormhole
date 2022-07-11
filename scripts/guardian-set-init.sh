@@ -100,6 +100,7 @@ ethTokenBridgeVAA=$(node ./clients/js/build/main.js generate registration -m Tok
 terraTokenBridgeVAA=$(node ./clients/js/build/main.js generate registration -m TokenBridge -c terra -a ${terraTokenBridge} -g ${guardiansPrivateCSV})
 bscTokenBridgeVAA=$(node ./clients/js/build/main.js generate registration -m TokenBridge -c bsc -a ${bscTokenBridge} -g ${guardiansPrivateCSV})
 algoTokenBridgeVAA=$(node ./clients/js/build/main.js generate registration -m TokenBridge -c algorand -a ${algoTokenBridge} -g ${guardiansPrivateCSV})
+nearTokenBridgeVAA=$(node ./clients/js/build/main.js generate registration -m TokenBridge -c near -a ${nearTokenBridge} -g ${guardiansPrivateCSV})
 terra2TokenBridgeVAA=$(node ./clients/js/build/main.js generate registration -m TokenBridge -c terra2 -a ${terra2TokenBridge} -g ${guardiansPrivateCSV})
 
 

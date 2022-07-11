@@ -542,7 +542,7 @@ function parseAddress(chain: ChainName, address: string): string {
     // TODO: is there a better native format for algorand?
     return "0x" + evm_address(address)
   } else if (chain === "near") {
-    throw Error("NEAR is not supported yet")
+    return "0x" + evm_address(address)
   } else {
     impossible(chain)
   }
