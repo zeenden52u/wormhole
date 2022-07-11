@@ -41,7 +41,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/certusone/wormhole/node/pkg/terra"
+	cosmwasm "github.com/certusone/wormhole/node/pkg/terra"
 
 	"github.com/certusone/wormhole/node/pkg/algorand"
 	"github.com/certusone/wormhole/node/pkg/near"
@@ -114,6 +114,10 @@ var (
 	terra2WS       *string
 	terra2LCD      *string
 	terra2Contract *string
+
+	injectiveWS       *string
+	injectiveLCD      *string
+	injectiveContract *string
 
 	algorandIndexerRPC   *string
 	algorandIndexerToken *string
@@ -222,6 +226,10 @@ func init() {
 	terra2LCD = NodeCmd.Flags().String("terra2LCD", "", "Path to LCD service root for http calls")
 	terra2Contract = NodeCmd.Flags().String("terra2Contract", "", "Wormhole contract address on Terra 2 blockchain")
 
+	injectiveWS = NodeCmd.Flags().String("injectiveWS", "", "Path to root for Injective websocket connection")
+	injectiveLCD = NodeCmd.Flags().String("injectiveLCD", "", "Path to LCD service root for Injective http calls")
+	injectiveContract = NodeCmd.Flags().String("injectiveContract", "", "Wormhole contract address on Injective blockchain")
+
 	algorandIndexerRPC = NodeCmd.Flags().String("algorandIndexerRPC", "", "Algorand Indexer RPC URL")
 	algorandIndexerToken = NodeCmd.Flags().String("algorandIndexerToken", "", "Algorand Indexer access token")
 	algorandAlgodRPC = NodeCmd.Flags().String("algorandAlgodRPC", "", "Algorand Algod RPC URL")
@@ -280,7 +288,7 @@ const devwarning = `
         +++++++++++++++++++++++++++++++++++++++++++++++++++
         |   NODE IS RUNNING IN INSECURE DEVELOPMENT MODE  |
         |                                                 |
-        |      Do not use -unsafeDevMode in prod.         |
+        |      Do not use --unsafeDevMode in prod.        |
         +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 `
@@ -292,7 +300,18 @@ var NodeCmd = &cobra.Command{
 	Run:   runNode,
 }
 
+// This variable may be overridden by the -X linker flag to "dev" in which case
+// we enforce the --unsafeDevMode flag. Only development binaries/docker images
+// are distributed. Production binaries are required to be built from source by
+// guardians to reduce risk from a compromised builder.
+var Build = "prod"
+
 func runNode(cmd *cobra.Command, args []string) {
+	if Build == "dev" && !*unsafeDevMode {
+		fmt.Println("This is a development build. --unsafeDevMode must be enabled.")
+		os.Exit(1)
+	}
+
 	if *unsafeDevMode {
 		fmt.Print(devwarning)
 	}
@@ -360,6 +379,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		readiness.RegisterComponent(common.ReadinessEthRopstenSyncing)
 		readiness.RegisterComponent(common.ReadinessMoonbeamSyncing)
 		readiness.RegisterComponent(common.ReadinessNeonSyncing)
+		readiness.RegisterComponent(common.ReadinessInjectiveSyncing)
 	}
 
 	if *statusAddr != "" {
@@ -507,6 +527,15 @@ func runNode(cmd *cobra.Command, args []string) {
 		if *neonContract == "" {
 			logger.Fatal("Please specify --neonContract")
 		}
+		if *injectiveWS == "" {
+			logger.Fatal("Please specify --injectiveWS")
+		}
+		if *injectiveLCD == "" {
+			logger.Fatal("Please specify --injectiveLCD")
+		}
+		if *injectiveContract == "" {
+			logger.Fatal("Please specify --injectiveContract")
+		}
 	} else {
 		if *ethRopstenRPC != "" {
 			logger.Fatal("Please do not specify --ethRopstenRPC in non-testnet mode")
@@ -525,6 +554,15 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 		if *neonContract != "" && !*unsafeDevMode {
 			logger.Fatal("Please do not specify --neonContract")
+		}
+		if *injectiveWS != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --injectiveWS")
+		}
+		if *injectiveLCD != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --injectiveLCD")
+		}
+		if *injectiveContract != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --injectiveContract")
 		}
 	}
 	if *nodeName == "" {
@@ -737,6 +775,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		chainObsvReqC[vaa.ChainIDMoonbeam] = make(chan *gossipv1.ObservationRequest)
 		chainObsvReqC[vaa.ChainIDNeon] = make(chan *gossipv1.ObservationRequest)
 		chainObsvReqC[vaa.ChainIDEthereumRopsten] = make(chan *gossipv1.ObservationRequest)
+		chainObsvReqC[vaa.ChainIDInjective] = make(chan *gossipv1.ObservationRequest)
 	}
 
 	// Multiplex observation requests to the appropriate chain
@@ -921,14 +960,22 @@ func runNode(cmd *cobra.Command, args []string) {
 
 		logger.Info("Starting Terra watcher")
 		if err := supervisor.Run(ctx, "terrawatch",
-			terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC, chainObsvReqC[vaa.ChainIDTerra], common.ReadinessTerraSyncing, vaa.ChainIDTerra).Run); err != nil {
+			cosmwasm.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC, chainObsvReqC[vaa.ChainIDTerra], common.ReadinessTerraSyncing, vaa.ChainIDTerra).Run); err != nil {
 			return err
 		}
 
 		logger.Info("Starting Terra 2 watcher")
 		if err := supervisor.Run(ctx, "terra2watch",
-			terra.NewWatcher(*terra2WS, *terra2LCD, *terra2Contract, lockC, setC, chainObsvReqC[vaa.ChainIDTerra2], common.ReadinessTerra2Syncing, vaa.ChainIDTerra2).Run); err != nil {
+			cosmwasm.NewWatcher(*terra2WS, *terra2LCD, *terra2Contract, lockC, setC, chainObsvReqC[vaa.ChainIDTerra2], common.ReadinessTerra2Syncing, vaa.ChainIDTerra2).Run); err != nil {
 			return err
+		}
+
+		if *testnetMode {
+			logger.Info("Starting Injective watcher")
+			if err := supervisor.Run(ctx, "injectivewatch",
+				cosmwasm.NewWatcher(*injectiveWS, *injectiveLCD, *injectiveContract, lockC, setC, chainObsvReqC[vaa.ChainIDInjective], common.ReadinessInjectiveSyncing, vaa.ChainIDInjective).Run); err != nil {
+				return err
+			}
 		}
 
 		if *testnetMode || *unsafeDevMode {
