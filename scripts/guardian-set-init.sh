@@ -167,7 +167,7 @@ upsert_env_file $envFile $terra2TokenBridge $terra2TokenBridgeVAA
 # near token bridge
 upsert_env_file $ethFile $nearTokenBridge $nearTokenBridgeVAA
 upsert_env_file $envFile $nearTokenBridge $nearTokenBridgeVAA
-# terra nft bridge
+# near nft bridge
 upsert_env_file $ethFile $nearNFTBridge $nearNFTBridgeVAA
 upsert_env_file $envFile $nearNFTBridge $nearNFTBridgeVAA
 
