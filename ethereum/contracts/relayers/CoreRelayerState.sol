@@ -23,6 +23,9 @@ abstract contract CoreRelayerStorage {
         // Mapping of initialized implementations
         mapping(address => bool) initializedImplementations;
 
+        mapping(uint16 => bytes32) registeredContracts;
+        address gasOracle;
+
     }
 }
 

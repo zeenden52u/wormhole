@@ -4,8 +4,10 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/IWormhole.sol";
+import "../interfaces/IGasOracle.sol";
 
 import "./CoreRelayerState.sol";
+
 
 abstract contract CoreRelayerGetters is CoreRelayerState {
     function governanceActionIsConsumed(bytes32 hash) public view returns (bool) {
@@ -30,6 +32,14 @@ abstract contract CoreRelayerGetters is CoreRelayerState {
 
     function governanceContract() public view returns (bytes32){
         return _state.provider.governanceContract;
+    }
+
+    function getRegisteredContract(uint16 chain) public view returns (bytes32){
+        return _state.registeredContracts[chain];
+    }
+
+    function gasOracle() public view returns (IGasOracle){
+        return IGasOracle(_state.gasOracle);
     }
 
 }
