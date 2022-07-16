@@ -24,6 +24,12 @@ abstract contract CoreRelayerStorage {
         mapping(address => bool) initializedImplementations;
 
         mapping(uint16 => bytes32) registeredContracts;
+
+        //Delivery VAAs which have already been processed
+        mapping(bytes32 => bool) completedDeliveries;
+
+        mapping(bytes32 => uint256) relayerRewards;
+
         address gasOracle;
 
     }

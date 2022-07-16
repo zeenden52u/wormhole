@@ -16,8 +16,23 @@ import "../interfaces/IWormhole.sol";
 abstract contract CoreRelayerGovernance is CoreRelayerGetters, CoreRelayerSetters, ERC1967Upgrade {
     using BytesLib for bytes;
 
-    //TODO "CoreRelayer" (left padded)
-    bytes32 constant module = 0x000000000000000000000000000000000000000000;
+    //"CoreRelayer" (left padded)
+    bytes32 constant module = 0x000000000000000000000000000000000000000000436F726552656C61796572;
+
+    // Execute a RegisterChain governance message
+    function registerChain(bytes memory encodedVM) public {
+        (IWormhole.VM memory vm, bool valid, string memory reason) = verifyGovernanceVM(encodedVM);
+        require(valid, reason);
+
+        setGovernanceActionConsumed(vm.hash);
+
+        CoreRelayerStructs.RegisterChain memory chain = parseRegisterChain(vm.payload);
+
+        require(chain.chainId == chainId() || chain.chainId == 0, "invalid chain id");
+        require(registeredContract(chain.emitterChainID) == bytes32(0), "chain already registered");
+
+        setRegisteredContract(chain.emitterChainID, chain.emitterAddress);
+    }
 
 
     // Execute a UpgradeContract governance message
@@ -68,6 +83,33 @@ abstract contract CoreRelayerGovernance is CoreRelayerGetters, CoreRelayerSetter
         require(success, string(reason));
 
         emit ContractUpgraded(currentImplementation, newImplementation);
+    }
+
+    function parseRegisterChain(bytes memory encoded) public pure returns (BridgeStructs.RegisterChain memory chain) {
+        uint index = 0;
+
+        // governance header
+
+        chain.module = encoded.toBytes32(index);
+        index += 32;
+        require(chain.module == module, "invalid RegisterChain: wrong module");
+
+        chain.action = encoded.toUint8(index);
+        index += 1;
+        require(chain.action == 1, "invalid RegisterChain: wrong action");
+
+        chain.chainId = encoded.toUint16(index);
+        index += 2;
+
+        // payload
+
+        chain.emitterChainID = encoded.toUint16(index);
+        index += 2;
+
+        chain.emitterAddress = encoded.toBytes32(index);
+        index += 32;
+
+        require(encoded.length == index, "invalid RegisterChain: wrong length");
     }
 
 

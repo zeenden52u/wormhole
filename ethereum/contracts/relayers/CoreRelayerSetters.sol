@@ -29,4 +29,12 @@ abstract contract CoreRelayerSetters is CoreRelayerState {
     function setWormhole(address wh) internal {
         _state.wormhole = payable(wh);
     }
+
+    function markAsDelivered(bytes32 hash) internal {
+        _state.completedDeliveries[hash] = true;
+    }
+
+    function incrementRelayerReward(bytes32 key, uint256 amount) internal {
+        _state.relayerRewards[key] += amount;
+    }
 }

@@ -23,7 +23,7 @@ abstract contract CoreRelayer is CoreRelayerGovernance {
         if(getVMType(instructions.targetChain) == 1 ){
             //EVM relayer parameters only have a gas limit in them.
             require(instructions.relayParameters.length == 8, "Incorrect relayer parameters length");
-            uint64 gasLimit = instructions.relayParameters.toUint64(0);
+            uint64 gasLimit = instructions.relayParameters.toUint64(0); //0th index
             require(gasLimit > 0, "invalid gas limit in relay parameters"); //TODO hardcode more intelligent minimum, or enforce overhead in the fee
 
             //check gas oracle calc requisite fee
@@ -44,7 +44,7 @@ abstract contract CoreRelayer is CoreRelayerGovernance {
     function requestRedelivery(ReDeliveryInstructions instructions) public payable returns (uint64 sequence) {
     }
 
-    function acceptDelivery(bytes memory encodedVM, uint16 deliveryVaaIndex) public view returns (uint64 sequence) {
+    function acceptDelivery(bytes memory encodedVM, uint16 deliveryVaaIndex) public {
         //Verify the batch VAA
         bytes[] vms = wormhole().verifyVM3(encodedVM);
 
@@ -65,21 +65,26 @@ abstract contract CoreRelayer is CoreRelayerGovernance {
         //Make sure this chain is the destination
         require(chainId() == deliveryInstruction.toChain, "The delivery VAA is not for this chain.");
 
-        //TODO
         //Make sure this VAA has not already been delivered
+        require(isDeliveryCompleted(targetVM.hash) == false, "Specified delivery VAA has already been delivered.");
 
-        //TODO
         //Mark this VAA as delivered, are other re-entrancy guards needed?
+        markAsDelivered(targetVM.hash);
 
-        address untrustedTargetContract = hexToNative(deliveryInstruction.toAddress);
-
-        bool result = untrustedTargetContract.call{value:0, gas:deliveryInstruction.gasLimit}(abi.encodeWithSignature("receiveMessage(bytes[])", vms));
-        
-        //TODO 
-        //increment rewards for the relayer
+        //Final step, process the delivery
+        processDelivery(instructions, vms);
     }
 
-    //This function can be called a relayer to receive a VAA for its rewards on other chains.
+    function processDelivery(EVMDeliveryInstructions instructions, bytes[] vms) internal returns (bool result) {
+        address untrustedTargetContract = hexToNative(instructions.toAddress);
+
+        result = untrustedTargetContract.call{value:0, gas:instructions.gasLimit}(abi.encodeWithSignature("receiveMessage(bytes[])", vms));
+        
+        //increment rewards for the relayer
+        incrementRelayerReward(getRewardsKey(msg.sender), instructions.fee);
+    }
+
+    //This function can be called by a relayer to receive a VAA for its rewards on other chains.
     function emitRelayerRewards() public returns (uint64 sequence) {
 
     }
@@ -130,7 +135,14 @@ abstract contract CoreRelayer is CoreRelayerGovernance {
     }
 
     //TODO get this from whatever the common location should be
-    function hexToNative() internal pure returns (address) {
+    function hexToNative(bytes32 hexAddress) internal pure returns (address) {
+        return address(hexAddress[12:]); 
+    }
 
+    function getRewardsKey(address relayerWallet,  uint16 rewardChain) internal pure returns (bytes32 key) {
+        key = bytes32(uint256(uint160(addr)));
+        bytes32 bytesShim = bytes32(rewardChain) << 240;
+        key[0] = bytesShim[0];
+        key[1] = bytesShim[1];
     }
 }

@@ -34,12 +34,16 @@ abstract contract CoreRelayerGetters is CoreRelayerState {
         return _state.provider.governanceContract;
     }
 
-    function getRegisteredContract(uint16 chain) public view returns (bytes32){
+    function registeredContract(uint16 chain) public view returns (bytes32){
         return _state.registeredContracts[chain];
     }
 
     function gasOracle() public view returns (IGasOracle){
         return IGasOracle(_state.gasOracle);
+    }
+
+    function isDeliveryCompleted(bytes32 hash) public view returns (bool) {
+        return _state.completedDeliveries[hash];
     }
 
 }
