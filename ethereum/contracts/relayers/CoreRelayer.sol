@@ -24,7 +24,7 @@ abstract contract CoreRelayer is CoreRelayerGovernance {
             //EVM relayer parameters only have a gas limit in them.
             require(instructions.relayParameters.length == 8, "Incorrect relayer parameters length");
             uint64 gasLimit = instructions.relayParameters.toUint64(0); //0th index
-            require(gasLimit > 0, "invalid gas limit in relay parameters"); //TODO hardcode more intelligent minimum, or enforce overhead in the fee
+            require(gasLimit > 0, "invalid gas limit in relay parameters"); 
 
             //check gas oracle calc requisite fee
             uint256 minimumFee = gasOracle().getQuote(instructions.targetChain) * (gasLimit  + evmGasOverhead) + wormholeFee;

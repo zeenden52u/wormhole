@@ -85,8 +85,22 @@ abstract contract GasOracle is GasOracleGovernance {
         require(index == encoded.length, "Message length not equal to stated length");
     }
 
-    function  (bytes memory encodedVM) internal view returns (GasOracleStructs.SignerUpdate memory parsedVM) {
+    function parseSignerUpdateVAA (bytes memory payload) internal view returns (GasOracleStructs.SignerUpdate memory parsedVM) {
+        uint index = 0;
 
+        bytes32 moduleName = encoded.toBytes32(index);
+        index += 32;
+        require(moduleName == module, "invalid signer update: wrong module");
+
+        uint16 version = encoded.toUint16(index);
+        index += 2;
+        require(version == 1, "invalid signer update message: invalid version number");
+
+        bytes32 signer = encoded.toBytes32(index);
+        index += 32;
+
+        require(index == encoded.length, "Message length not equal to stated length");
+        parsedVM = GasOracleStructs.SignerUpdate(moduleName, version, signer);
     }
 
     // Access control
@@ -101,9 +115,7 @@ abstract contract GasOracle is GasOracleGovernance {
 
         setGovernanceActionConsumed(vm.hash);
 
-        GasOracleStructs.SignerUpdate memory signerUpdate = parse(vm.payload);
-
-        //TODO check module & version, potentially more
+        GasOracleStructs.SignerUpdate memory signerUpdate = parseSignerUpdateVAA(vm.payload);
 
         setApprovedUpdater(address(uint160(uint256(signerUpdate.approvedUpdater))));
     }
