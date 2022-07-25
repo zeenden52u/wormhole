@@ -75,9 +75,10 @@ contract BridgeSetters is BridgeState, ShutdownSwitch {
         view
         virtual
         override
-        returns (Structs.GuardianSet memory)
+        returns (Structs.GuardianSet memory, uint256)
     {
         IWormhole wh = IWormhole(_state.wormhole);
-        return wh.getGuardianSet(wh.getCurrentGuardianSetIndex());
+        Structs.GuardianSet memory gs = wh.getGuardianSet(wh.getCurrentGuardianSetIndex());
+        return (gs, wh.quorum(gs.keys.length));
     }
 }

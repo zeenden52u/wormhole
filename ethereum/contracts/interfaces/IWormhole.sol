@@ -39,4 +39,6 @@ interface IWormhole is Structs {
     function governanceContract() external view returns (bytes32);
 
     function messageFee() external view returns (uint256) ;
+
+    function quorum(uint256 numGuardians) external view returns (uint256);
 }

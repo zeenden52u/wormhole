@@ -43,14 +43,10 @@ import "./interfaces/IWormhole.sol";
 abstract contract ShutdownSwitch {
     using BytesLib for bytes;
 
-    /// @dev Returns the threshold of the number of votes required to disable transfers.
-    function requiredVotesToShutdown() public view returns (uint16) {
-        return computeRequiredVotesToShutdown(getCurrentGuardianSet().keys.length);
-    }
-
-    /// @dev Returns the current number of votes to disable transfers. When this value reaches requiredVotesToShutdown(), then transfers will be disabled.
+    /// @dev Returns the current number of votes to disable transfers. When this value reaches quorum, then transfers will be disabled.
     function numVotesToShutdown() public view returns (uint16) {
-        return computeNumVotesShutdown(getCurrentGuardianSet());
+        (Structs.GuardianSet memory gs, ) = getCurrentGuardianSet();
+        return computeNumVotesShutdown(gs);        
     }
 
     /// @dev returns the current shutdown status, where true means transfers are enabled.
@@ -58,13 +54,13 @@ abstract contract ShutdownSwitch {
         return _getState().enabled;
     }
 
-    /// @dev Returns the current number of votes to disable transfers.
+    /// @dev Returns the list of votes to disable transfers.
     function currentVotesToShutdown() public view returns (address[] memory) {
-        Structs.GuardianSet memory gs = getCurrentGuardianSet();
+        (Structs.GuardianSet memory gs, ) = getCurrentGuardianSet();
         address[] memory ret = new address[](computeNumVotesShutdown(gs));
         uint retIdx = 0;
         for (uint idx = 0; (idx < gs.keys.length); idx++) {
-            if (_getShutdownVote(gs.keys[idx])) {
+            if (_getState().shutdownVotes[gs.keys[idx]]) {
                 ret[retIdx++] = gs.keys[idx];
             }
         }
@@ -79,10 +75,7 @@ abstract contract ShutdownSwitch {
     event ShutdownStatusChanged(bool enabledFlag, uint16 numVotesToShutdown);
 
     /// @dev Function that must be implemented by contracts inheriting from this one.
-    function getCurrentGuardianSet() public virtual view returns (Structs.GuardianSet memory);
-
-    /// @dev The number of disable votes required to disable transfers (assuming there are at least that many guardians).
-    uint16 constant REQUIRED_NO_VOTES = 3;
+    function getCurrentGuardianSet() public virtual view returns (Structs.GuardianSet memory, uint256);
    
     constructor() {
         setUpShutdownSwitch();
@@ -90,12 +83,12 @@ abstract contract ShutdownSwitch {
 
     /// @dev Function that should be called from setup() on new contract deployments, or initialize() on the initial upgrade to deploy this feature.
     function setUpShutdownSwitch() internal {
-        _setEnabled(true);
+        _getState().enabled = true;
     }
 
     /// @dev modifier used to block transfers when shutdown.
     modifier isEnabled {
-        require(enabledFlag(), "transfers are temporarily disabled");
+        require(_getState().enabled, "transfers are temporarily disabled");
         _;
     }
 
@@ -113,23 +106,27 @@ abstract contract ShutdownSwitch {
         address voter = decodeVoter(msg.sender, authProof);
 
         // We always use the current guardian set.
-        Structs.GuardianSet memory gs = getCurrentGuardianSet();
+        (Structs.GuardianSet memory gs, uint256 quorum) = getCurrentGuardianSet();
 
         // Only currently active guardians are allowed to vote.
         require(isRegisteredVoter(voter, gs), "you are not a registered voter");
 
-        // Update the status of this voter.
-        _updateShutdownVote(voter, _enabled);
+        // Update the status of this voter. Only votes to disable are maintained in the map.
+        if (_enabled) {
+            delete _getState().shutdownVotes[voter];
+        } else {
+            _getState().shutdownVotes[voter] = true;
+        }
 
         // Update the number of votes to disable.
         uint16 votesToShutdown = computeNumVotesShutdown(gs);
 
         // Determine the new shutdown status and generate the appropriate events.
-        bool newEnabledFlag = (votesToShutdown < computeRequiredVotesToShutdown(gs.keys.length));
+        bool newEnabledFlag = (votesToShutdown < quorum);
         emit ShutdownSwitch.ShutdownVoteCast(voter, _enabled, votesToShutdown, newEnabledFlag);
 
-        if (newEnabledFlag != enabledFlag()) {
-            _setEnabled(newEnabledFlag);
+        if (newEnabledFlag != _getState().enabled) {
+            _getState().enabled = newEnabledFlag;
             emit ShutdownSwitch.ShutdownStatusChanged(newEnabledFlag, votesToShutdown);
         }
     }
@@ -162,17 +159,11 @@ abstract contract ShutdownSwitch {
         return false;
     }
 
-    /// @dev Returns the number of disable votes required to go disabled.
-    function computeRequiredVotesToShutdown(uint numGuardians) private pure returns(uint16) {
-        // If the number of active guardians is less than the pre-configured threshold, use that.
-        return uint16(numGuardians >= REQUIRED_NO_VOTES ? REQUIRED_NO_VOTES : numGuardians);
-    }
-
     /// @dev Counts up the number of current guardians that have active votes to disable.
     function computeNumVotesShutdown(Structs.GuardianSet memory gs) private view returns (uint16) {
         uint16 votesToShutdown = 0;
         for (uint idx = 0; (idx < gs.keys.length); idx++) {
-            if (_getShutdownVote(gs.keys[idx])) {
+            if (_getState().shutdownVotes[gs.keys[idx]]) {
                 votesToShutdown++;
             }
         }
@@ -200,26 +191,6 @@ abstract contract ShutdownSwitch {
         bytes32 slot = _STATE_SLOT;
         assembly {
             r.slot := slot
-        }
-    }
-    
-    /// @dev Updates the enabled flag in deterministic storage.
-    function _setEnabled(bool val) private {
-        _getState().enabled = val;
-    }
-
-    /// @dev Gets the shutdown state for a given address from our deterministic storage. 
-    function _getShutdownVote(address voter) private view returns (bool) {
-        return _getState().shutdownVotes[voter];
-    }
-
-    /// @dev Updates the voter map in deterministic storage.
-    function _updateShutdownVote(address voter, bool enabled) private {
-        // Only votes to disable are maintained in the map.
-        if (enabled) {
-            delete _getState().shutdownVotes[voter];
-        } else {
-            _getState().shutdownVotes[voter] = true;
         }
     }
 }
