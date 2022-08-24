@@ -422,3 +422,44 @@ export async function checkQueue(key: string): Promise<string | null> {
 
   return null;
 }
+
+//V2 starts about here
+
+/*
+
+REDIS FUNCTIONS
+
+createConnection
+getConnection
+createTable
+readFullTable
+insertItemToTable
+removeItemFromTable
+modifyItem
+getBackupQueue
+enqueueBackup
+popBackupQueue
+
+STORAGE
+getStorageHandle
+ensurePluginTables
+getNextAction
+getStagingArea
+applyActionUpdate
+applyStagingAreaUpdate
+
+
+
+*/
+interface RedisHelper {
+  createConnection();
+  getConnection();
+  createTable();
+  readFullTable();
+  insertItemToTable();
+  removeItemFromTable();
+  modifyItem();
+  getBackupQueue();
+  enqueueBackup();
+  popBackupQueue();
+}

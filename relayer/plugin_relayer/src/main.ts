@@ -36,6 +36,7 @@ async function main() {
       commonEnv.promPort,
       PromMode.Listen
     );
+    //TODO start listener harness
     redisHelper.init(promHelper);
   } else if (process.env.MODE === "executor") {
     // init executor harness
@@ -44,6 +45,7 @@ async function main() {
       commonEnv.promPort,
       PromMode.Execute
     );
+    //TODO start executor harness
     redisHelper.init(promHelper);
   } else {
     throw new Error(
