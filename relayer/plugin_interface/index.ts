@@ -120,11 +120,10 @@ export abstract class DefaultPlugin implements Plugin {
 }
 
 export interface Listener {
+  shouldSpy: boolean;
+  shouldRest: boolean;
   getFilters(): ContractFilter[];
-  consumeEvent(
-    vaa: Uint8Array,
-    stagingArea: Uint8Array[]
-  ): ActionQueueUpdate[];
+  consumeEvent(vaa: Buffer, stagingArea: Uint8Array[]): ActionQueueUpdate[];
 }
 
 export type ActionQueueUpdate = {
@@ -134,3 +133,5 @@ export type ActionQueueUpdate = {
 
 // todo: import from sdk
 export type ChainId = number;
+
+export type StagingArea = Object;
