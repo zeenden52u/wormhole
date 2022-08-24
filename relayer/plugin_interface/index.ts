@@ -119,9 +119,9 @@ export abstract class DefaultPlugin implements Plugin {
     | undefined;
 }
 
-export abstract class Listener {
-  abstract getFilters(): ContractFilter[];
-  abstract consumeEvent(
+export interface Listener {
+  getFilters(): ContractFilter[];
+  consumeEvent(
     vaa: Uint8Array,
     stagingArea: Uint8Array[]
   ): ActionQueueUpdate[];
