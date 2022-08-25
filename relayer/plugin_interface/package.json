@@ -9,5 +9,8 @@
   "license": "ISC",
   "dependencies": {
     "prom-client": "^14.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.7.13"
   }
 }

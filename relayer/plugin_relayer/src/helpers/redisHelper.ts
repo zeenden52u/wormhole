@@ -451,12 +451,16 @@ applyStagingAreaUpdate
 
 
 */
+
+// TODO
+interface RedisConnectionConfig {}
+
 interface RedisHelper {
-  createConnection();
-  getConnection();
-  createTable();
-  readFullTable();
-  insertItemToTable();
+  createConnection(config: RedisConnectionConfig): RedisHelper;
+  getConnection(): RedisHelper;
+  createTable(tableName: string);
+  readFullTable(tableName: string): Map<string, Object>;
+  insertItemToTable(tableName: string, key: string, );
   removeItemFromTable();
   modifyItem();
   getBackupQueue();

@@ -16,6 +16,10 @@ export type CommonEnvironment = {
   envType: EnvTypes | string;
 };
 
+export type ListenerEnv = {};
+
+export type ExecutorEnv = {};
+
 export enum EnvTypes {
   MAIN_NET,
   DEV_NET,
@@ -45,7 +49,11 @@ export type CosmToolbox = {};
 //TODO add loggers
 
 //TODO scheduler w/ staging area for when multiple VAAs are rolling in
-export interface Executor {
+interface PluginCommonFields {
+  name: string
+  env: any;
+}
+export interface Executor extends PluginCommonFields {
   relayEvmAction?: (
     walletToolbox: EVMToolbox,
     action: WorkerAction,
@@ -63,9 +71,12 @@ export interface Executor {
   ) => ActionQueueUpdate;
 }
 
-export type ListenerEnv = {};
-
-export type ExecutorEnv = {};
+export interface Listener extends PluginCommonFields{
+  shouldSpy: boolean;
+  shouldRest: boolean;
+  getFilters(): ContractFilter[];
+  consumeEvent(vaa: Buffer, stagingArea: Uint8Array[]): ActionQueueUpdate[];
+}
 
 export type Plugin = Listener & Executor;
 export interface PluginFactory {
@@ -74,8 +85,10 @@ export interface PluginFactory {
 
 export abstract class DefaultPlugin implements Plugin {
   defaultConfigs: Map<EnvTypes | string, any> = new Map([]);
-  environment: any;
+  env: any;
   name: string;
+  shouldSpy: boolean;
+  shouldRest: boolean;
 
   constructor(config: CommonEnvironment, overrides?: any) {
     const env = {
@@ -86,7 +99,7 @@ export abstract class DefaultPlugin implements Plugin {
     if (!env) {
       throw new Error("Plugin config must be defined");
     }
-    this.environment = env;
+    this.env = env;
   }
 
   abstract defineMetrics<T extends string>(): Metric<T>[];
@@ -117,13 +130,6 @@ export abstract class DefaultPlugin implements Plugin {
         queuedActions: WorkerAction
       ) => ActionQueueUpdate)
     | undefined;
-}
-
-export interface Listener {
-  shouldSpy: boolean;
-  shouldRest: boolean;
-  getFilters(): ContractFilter[];
-  consumeEvent(vaa: Buffer, stagingArea: Uint8Array[]): ActionQueueUpdate[];
 }
 
 export type ActionQueueUpdate = {
