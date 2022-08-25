@@ -6,7 +6,7 @@ import {
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import { Mutex } from "async-mutex";
-import { createClient, RedisClientType } from "redis";
+import { createClient } from "redis";
 import { getCommonEnvironment } from "../configureEnv";
 import { ParsedTransferPayload, ParsedVaa } from "../listener/validation";
 import { chainIDStrings } from "../utils/wormhole";
@@ -291,7 +291,7 @@ export function createSourceToTargetMap(
 
 export async function incrementSourceToTargetMap(
   key: string,
-  redisClient: RedisClientType<any>,
+  redisClient: RedisClientType,
   parse_vaa: Function,
   sourceToTargetMap: SourceToTargetMap
 ): Promise<void> {
@@ -425,45 +425,83 @@ export async function checkQueue(key: string): Promise<string | null> {
 
 //V2 starts about here
 
-/*
-
-REDIS FUNCTIONS
-
-createConnection
-getConnection
-createTable
-readFullTable
-insertItemToTable
-removeItemFromTable
-modifyItem
-getBackupQueue
-enqueueBackup
-popBackupQueue
-
-STORAGE
-getStorageHandle
-ensurePluginTables
-getNextAction
-getStagingArea
-applyActionUpdate
-applyStagingAreaUpdate
-
-
-
-*/
-
 // TODO
 interface RedisConnectionConfig {}
 
 interface RedisHelper {
-  createConnection(config: RedisConnectionConfig): RedisHelper;
-  getConnection(): RedisHelper;
+  getClient(): Promise<RedisClientType>;
   createTable(tableName: string);
   readFullTable(tableName: string): Map<string, Object>;
-  insertItemToTable(tableName: string, key: string, );
+  insertItemToTable(tableName: string, key: string);
   removeItemFromTable();
   modifyItem();
-  getBackupQueue();
-  enqueueBackup();
-  popBackupQueue();
+  // getBackupQueue();
+  // enqueueBackup();
+  // popBackupQueue();
 }
+
+type RedisClientType = Awaited<ReturnType<typeof createConnection>>;
+let rClient: RedisClientType | null;
+
+async function createConnection() {
+  try {
+    let client = createClient({
+      socket: {
+        host: commonEnv.redisHost,
+        port: commonEnv.redisPort,
+      },
+    });
+
+    client.on("connect", function (err) {
+      if (err) {
+        logger.error(
+          "connectToRedis: failed to connect to host [" +
+            redisHost +
+            "], port [" +
+            redisPort +
+            "]: %o",
+          err
+        );
+      }
+    });
+
+    await client.connect();
+    rClient = client;
+    return client;
+  } catch (e) {
+    logger.error(
+      "connectToRedis: failed to connect to host [" +
+        redisHost +
+        "], port [" +
+        redisPort +
+        "]: %o",
+      e
+    );
+  }
+
+  return null;
+}
+
+async function getClient(): Promise<RedisClientType> {
+  if (!rClient) {
+    rClient = await createConnection();
+  }
+  return rClient;
+}
+
+async function createTable(tableName: string): Promise<void> {
+}
+
+const redisHelper: RedisHelper = {
+  getClient,
+  createTable;
+  readFullTable;
+  insertItemToTable;
+  removeItemFromTable;
+  modifyItem;
+  // getBackupQueue;
+  // enqueueBackup;
+  // popBackupQueue;
+}
+
+export default redisHelper
