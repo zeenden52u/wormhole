@@ -16,6 +16,8 @@ import {
   subscribeSignedVAA,
 } from "@certusone/wormhole-spydk";
 import { sleep } from "../helpers/utils";
+import { SpyRPCServiceClient } from "@certusone/wormhole-spydk/lib/cjs/proto/spy/v1/spy";
+import { PluginStorage, getPluginStorage } from "../helpers/storage";
 
 const logger = getScopedLogger(["listenerHarness"], getLogger());
 const commonEnv = getCommonEnvironment();
@@ -33,7 +35,7 @@ export async function run(plugins: Plugin[]) {
     );
     plugins.forEach((x) => {
       if (x.shouldSpy) {
-        runPluginSpyListener(x, spyClient);
+        runPluginSpyListener(getPluginStorage(x), spyClient);
       }
     });
   }
@@ -44,16 +46,32 @@ export async function run(plugins: Plugin[]) {
   }
 }
 
-function shouldRest(plugins: Plugin[]) {
+function shouldRest(plugins: Plugin[]): boolean {
   return plugins.some((x) => x.shouldRest);
 }
 
-function shouldSpy(plugins: Plugin[]) {
+function shouldSpy(plugins: Plugin[]): boolean {
   return plugins.some((x) => x.shouldSpy);
 }
 
+// 1. fetches scratch area and list of actions
+// 2. calls plugin.consumeEvent(..)
+// 3. applies ActionUpdate produced by plugin
+async function consumeEventHarness(
+  vaa: Buffer,
+  storage: PluginStorage
+): Promise<void> {
+  const stagingArea = await storage.getStagingArea();
+  const update = await storage.plugin.consumeEvent(vaa, stagingArea);
+  await storage.applyActionUpdate(update);
+}
+
 //used for both rest & spy relayer for now
-async function runPluginSpyListener(plugin: Plugin, client: any) {
+async function runPluginSpyListener(
+  pluginStorage: PluginStorage,
+  client: SpyRPCServiceClient
+) {
+  const plugin = pluginStorage.plugin;
   while (true) {
     let stream: any;
     try {
@@ -66,7 +84,9 @@ async function runPluginSpyListener(plugin: Plugin, client: any) {
       });
 
       //TODO add staging area for event consume
-      stream.on("data", (vaa: Buffer) => plugin.consumeEvent(vaa, null));
+      stream.on("data", (vaa: Buffer) =>
+        consumeEventHarness(vaa, pluginStorage)
+      );
 
       let connected = true;
       stream.on("error", (err: any) => {
