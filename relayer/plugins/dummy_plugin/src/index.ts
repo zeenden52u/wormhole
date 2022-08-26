@@ -1,64 +1,46 @@
 import {
   ActionQueueUpdate,
-  CommonEnvironment,
+  CommonPluginEnv,
   ContractFilter,
-  CosmToolbox,
-  EVMToolbox,
+  CosmWallet,
+  EVMWallet,
   Plugin,
   PluginFactory,
-  SolanaToolbox,
+  SolanaWallet,
   WorkerAction,
 } from "plugin_interface";
 
-export function create(config: CommonEnvironment, overrides?: any): Plugin {
+export function create(config: CommonPluginEnv, overrides?: any): Plugin {
   console.log("Creating da plugin...");
   return new DummyPlugin(config, overrides);
 }
 
+/*
+ */
+
 class DummyPlugin implements Plugin {
-  constructor(config: CommonEnvironment, overrides: Object) {
-    console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
-    console.log(`Overrides: ${JSON.stringify(overrides, undefined, 2)}`);
-    this.env = {shouldSpy: true, shouldRest: true, ...overrides}
-    this.shouldRest = this.env.shouldRest
-    this.shouldSpy = this.env.shouldSpy
-    this.name = "DummyPlugin"
-  }
   shouldSpy: boolean;
   shouldRest: boolean;
   name: string;
   env: any;
 
+  constructor(config: CommonPluginEnv, overrides: Object) {
+    console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
+    console.log(`Overrides: ${JSON.stringify(overrides, undefined, 2)}`);
+    this.env = { shouldSpy: true, shouldRest: true, ...overrides };
+    this.shouldRest = this.env.shouldRest;
+    this.shouldSpy = this.env.shouldSpy;
+    this.name = "DummyPlugin";
+  }
   getFilters(): ContractFilter[] {
     return [{ chainId: 1, emitterAddress: "gotcha!!" }];
   }
   consumeEvent(
     vaa: Uint8Array,
-    stagingArea: Uint8Array[]
-  ): ActionQueueUpdate[] {
-    return [];
+    stagingArea: Object
+  ): Promise<ActionQueueUpdate> {
+    throw new Error("Method not implemented.");
   }
-  relayEvmAction?:
-    | ((
-        walletToolbox: EVMToolbox,
-        action: WorkerAction,
-        queuedActions: WorkerAction
-      ) => ActionQueueUpdate)
-    | undefined;
-  relaySolanaAction?:
-    | ((
-        walletToolbox: SolanaToolbox,
-        action: WorkerAction,
-        queuedActions: WorkerAction
-      ) => ActionQueueUpdate)
-    | undefined;
-  relayCosmAction?:
-    | ((
-        walletToolbox: CosmToolbox,
-        action: WorkerAction,
-        queuedActions: WorkerAction
-      ) => ActionQueueUpdate)
-    | undefined;
 }
 
 export default { create };

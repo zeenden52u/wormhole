@@ -8,9 +8,13 @@
   "author": "Joe Howarth",
   "license": "ISC",
   "dependencies": {
+    "@certusone/wormhole-sdk": "^0.5.0",
     "prom-client": "^14.1.0"
   },
   "devDependencies": {
     "@types/node": "^18.7.13"
+  },
+  "peerDependencies": {
+    "ethers": "^5.7.0"
   }
 }
