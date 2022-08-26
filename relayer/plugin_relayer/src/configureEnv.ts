@@ -4,75 +4,34 @@ import {
   isTerraChain,
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
-import { CommonEnvironment } from "plugin_interface";
+import { EnvTypes } from "plugin_interface";
 import { getLogger } from "./helpers/logHelper";
 
-export type SupportedToken = {
-  chainId: ChainId;
-  address: string;
+export type CommonEnv = {
+  logLevel: string;
+  promPort: number;
+  readinessPort?: number;
+  logDir?: string;
+  redisHost: string;
+  redisPort: number;
+  plugins: [
+    {
+      uri: string;
+      overrides: { [key: string]: any };
+    }
+  ];
+  envType: EnvTypes | string;
 };
 
-
-let loggingEnv: CommonEnvironment | undefined = undefined;
-
-export const getCommonEnvironment: () => CommonEnvironment = () => {
-  if (loggingEnv) {
-    return loggingEnv;
-  } else {
-    const env = createCommonEnvironment();
-    loggingEnv = env;
-    return loggingEnv;
-  }
+export type ListenerEnv = {
+  spyServiceHost: string;
+  spyServiceFilters: { chainId: ChainId; emitterAddress: string }[];
+  restPort: number;
+  numSpyWorkers: number;
+  supportedTokens: { chainId: ChainId; address: string }[];
 };
 
-function createCommonEnvironment(): CommonEnvironment {
-  let logLevel;
-  let promPort;
-  let readinessPort;
-  let logDir;
-  let redisHost;
-  let redisPort;
-
-  if (!process.env.LOG_LEVEL) {
-    throw new Error("Missing required environment variable: LOG_LEVEL");
-  } else {
-    logLevel = process.env.LOG_LEVEL;
-  }
-
-  if (!process.env.LOG_DIR) {
-    //Not mandatory
-  } else {
-    logDir = process.env.LOG_DIR;
-  }
-
-  if (!process.env.PROM_PORT) {
-    throw new Error("Missing required environment variable: PROM_PORT");
-  } else {
-    promPort = parseInt(process.env.PROM_PORT);
-  }
-
-  if (!process.env.READINESS_PORT) {
-    //do nothing
-  } else {
-    readinessPort = parseInt(process.env.READINESS_PORT);
-  }
-
-  if (!process.env.REDIS_HOST) {
-    throw new Error("Missing required environment variable: REDIS_HOST");
-  } else {
-    redisHost = process.env.REDIS_HOST;
-  }
-
-  if (!process.env.REDIS_PORT) {
-    throw new Error("Missing required environment variable: REDIS_PORT");
-  } else {
-    redisPort = parseInt(process.env.REDIS_PORT);
-  }
-
-  return { logLevel, promPort, readinessPort, logDir, redisHost, redisPort };
-}
-
-export type RelayerEnvironment = {
+export type ExecutorEnv = {
   supportedChains: ChainConfigInfo[];
   redisHost: string;
   redisPort: number;
@@ -98,17 +57,60 @@ export type ChainConfigInfo = {
   isTerraClassic?: boolean;
 };
 
-export type ListenerEnvironment = {
-  spyServiceHost: string;
-  spyServiceFilters: { chainId: ChainId; emitterAddress: string }[];
-  restPort: number;
-  numSpyWorkers: number;
-  supportedTokens: { chainId: ChainId; address: string }[];
+export type SupportedToken = {
+  chainId: ChainId;
+  address: string;
 };
 
-let listenerEnv: ListenerEnvironment | undefined = undefined;
+let loggingEnv: CommonEnv | undefined = undefined;
 
-export const getListenerEnvironment: () => ListenerEnvironment = () => {
+export const getCommonEnvironment: () => CommonEnv = () => {
+  if (loggingEnv) {
+    return loggingEnv;
+  } else {
+    const env = createCommonEnvironment();
+    loggingEnv = env;
+    return loggingEnv;
+  }
+};
+
+const errStr = (envVar) => `Missing required environment variable: ${envVar}`;
+function parseOptionalEnvVar<T>(
+  envVar: string,
+  parser: (x: string) => T
+): T | undefined {
+  const value = process.env[envVar];
+  if (value) {
+    return parser(value);
+  }
+  return undefined;
+}
+function parseEnvVar(envVar: string): string {
+  const value = process.env[envVar];
+  if (!value) {
+    throw new Error(errStr(envVar));
+  } else {
+    return value;
+  }
+}
+
+function createCommonEnvironment(): CommonEnv {
+  return {
+    logLevel: parseEnvVar("LOG_LEVEL"),
+    promPort: parseInt(parseEnvVar("PROM_PORT")),
+    logDir: parseOptionalEnvVar("LOG_DIR", x => x),
+    readinessPort: parseOptionalEnvVar("READINESS_PORT", parseInt),
+    redisHost: parseEnvVar("REDIS_HOST"),
+    redisPort: parseInt(parseEnvVar("REDIS_PORT")),
+    plugins: JSON.parse(parseEnvVar("PLUGINS")),
+    envType: parseEnvVar("ENV_TYPE") as EnvTypes
+  };
+}
+
+
+let listenerEnv: ListenerEnv | undefined = undefined;
+
+export const getListenerEnvironment: () => ListenerEnv = () => {
   if (listenerEnv) {
     return listenerEnv;
   } else {
@@ -118,7 +120,7 @@ export const getListenerEnvironment: () => ListenerEnvironment = () => {
   }
 };
 
-const createListenerEnvironment: () => ListenerEnvironment = () => {
+const createListenerEnvironment: () => ListenerEnv = () => {
   let spyServiceHost: string;
   let spyServiceFilters: { chainId: ChainId; emitterAddress: string }[] = [];
   let restPort: number;
@@ -207,19 +209,19 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   };
 };
 
-let relayerEnv: RelayerEnvironment | undefined = undefined;
+let executorEnv: ExecutorEnv | undefined = undefined;
 
-export const getRelayerEnvironment: () => RelayerEnvironment = () => {
-  if (relayerEnv) {
-    return relayerEnv;
+export const getExecutorEnvironment: () => ExecutorEnv = () => {
+  if (executorEnv) {
+    return executorEnv;
   } else {
-    const env = createRelayerEnvironment();
-    relayerEnv = env;
-    return relayerEnv;
+    const env = createExecutorEnvironment();
+    executorEnv = env;
+    return executorEnv;
   }
 };
 
-const createRelayerEnvironment: () => RelayerEnvironment = () => {
+const createExecutorEnvironment: () => ExecutorEnv = () => {
   let supportedChains: ChainConfigInfo[] = [];
   let redisHost: string;
   let redisPort: number;
@@ -356,15 +358,6 @@ function createSolanaChainConfig(
   config: any,
   privateKeys: any[]
 ): ChainConfigInfo {
-  let chainId: ChainId;
-  let chainName: string;
-  let nativeCurrencySymbol: string;
-  let nodeUrl: string;
-  let tokenBridgeAddress: string;
-  let solanaPrivateKey: Uint8Array[] = [];
-  let bridgeAddress: string;
-  let wrappedAsset: string | null;
-
   if (!config.chainId) {
     throw new Error("Missing required field in chain config: chainId");
   }
@@ -396,18 +389,9 @@ function createSolanaChainConfig(
     throw new Error("Missing required field in chain config: wrappedAsset");
   }
 
-  chainId = config.chainId;
-  chainName = config.chainName;
-  nativeCurrencySymbol = config.nativeCurrencySymbol;
-  nodeUrl = config.nodeUrl;
-  tokenBridgeAddress = config.tokenBridgeAddress;
-  bridgeAddress = config.bridgeAddress;
-  wrappedAsset = config.wrappedAsset;
-
-  privateKeys.forEach((item: any) => {
+  const solanaPrivateKey = privateKeys.map((item: any) => {
     try {
-      const uint = Uint8Array.from(item);
-      solanaPrivateKey.push(uint);
+      return Uint8Array.from(item);
     } catch (e) {
       throw new Error(
         "Failed to coerce Solana private keys into a uint array. ENV JSON is possibly incorrect."
@@ -416,14 +400,14 @@ function createSolanaChainConfig(
   });
 
   return {
-    chainId,
-    chainName,
-    nativeCurrencySymbol,
-    nodeUrl,
-    tokenBridgeAddress,
-    bridgeAddress,
     solanaPrivateKey,
-    wrappedAsset,
+    chainId: config.chainId,
+    chainName: config.chainName,
+    nativeCurrencySymbol: config.nativeCurrencySymbol,
+    nodeUrl: config.nodeUrl,
+    tokenBridgeAddress: config.tokenBridgeAddress,
+    bridgeAddress: config.bridgeAddress,
+    wrappedAsset: config.wrappedAsset,
   };
 }
 
@@ -431,16 +415,7 @@ function createTerraChainConfig(
   config: any,
   privateKeys: any[]
 ): ChainConfigInfo {
-  let chainId: ChainId;
-  let chainName: string;
-  let nativeCurrencySymbol: string;
-  let nodeUrl: string;
-  let tokenBridgeAddress: string;
   let walletPrivateKey: string[];
-  let terraName: string;
-  let terraChainId: string;
-  let terraCoin: string;
-  let terraGasPriceUrl: string;
   let isTerraClassic = false;
 
   if (!config.chainId) {
@@ -478,30 +453,20 @@ function createTerraChainConfig(
     throw new Error("Missing required field in chain config: terraGasPriceUrl");
   }
 
-  chainId = config.chainId;
-  chainName = config.chainName;
-  nativeCurrencySymbol = config.nativeCurrencySymbol;
-  nodeUrl = config.nodeUrl;
-  tokenBridgeAddress = config.tokenBridgeAddress;
   walletPrivateKey = privateKeys;
-  terraName = config.terraName;
-  terraChainId = config.terraChainId;
-  terraCoin = config.terraCoin;
-  terraGasPriceUrl = config.terraGasPriceUrl;
-  isTerraClassic = config.isTerraClassic || false;
 
   return {
-    chainId,
-    chainName,
-    nativeCurrencySymbol,
-    nodeUrl,
-    tokenBridgeAddress,
     walletPrivateKey,
-    terraName,
-    terraChainId,
-    terraCoin,
-    terraGasPriceUrl,
-    isTerraClassic,
+    isTerraClassic: config.isTerraClassic || false,
+    chainId: config.chainId,
+    chainName: config.chainName,
+    nativeCurrencySymbol: config.nativeCurrencySymbol,
+    nodeUrl: config.nodeUrl,
+    tokenBridgeAddress: config.tokenBridgeAddress,
+    terraName: config.terraName,
+    terraChainId: config.terraChainId,
+    terraCoin: config.terraCoin,
+    terraGasPriceUrl: config.terraGasPriceUrl,
   };
 }
 
@@ -509,14 +474,6 @@ function createEvmChainConfig(
   config: any,
   privateKeys: any[]
 ): ChainConfigInfo {
-  let chainId: ChainId;
-  let chainName: string;
-  let nativeCurrencySymbol: string;
-  let nodeUrl: string;
-  let tokenBridgeAddress: string;
-  let walletPrivateKey: string[];
-  let wrappedAsset: string;
-
   if (!config.chainId) {
     throw new Error("Missing required field in chain config: chainId");
   }
@@ -545,21 +502,14 @@ function createEvmChainConfig(
   if (!config.wrappedAsset) {
     throw new Error("Missing required field in chain config: wrappedAsset");
   }
-  chainId = config.chainId;
-  chainName = config.chainName;
-  nativeCurrencySymbol = config.nativeCurrencySymbol;
-  nodeUrl = config.nodeUrl;
-  tokenBridgeAddress = config.tokenBridgeAddress;
-  walletPrivateKey = privateKeys;
-  wrappedAsset = config.wrappedAsset;
 
   return {
-    chainId,
-    chainName,
-    nativeCurrencySymbol,
-    nodeUrl,
-    tokenBridgeAddress,
-    walletPrivateKey,
-    wrappedAsset,
+    walletPrivateKey: privateKeys,
+    chainId: config.chainId,
+    chainName: config.chainName,
+    nativeCurrencySymbol: config.nativeCurrencySymbol,
+    nodeUrl: config.nodeUrl,
+    tokenBridgeAddress: config.tokenBridgeAddress,
+    wrappedAsset: config.wrappedAsset,
   };
 }
