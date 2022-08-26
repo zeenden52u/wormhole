@@ -428,9 +428,8 @@ export async function checkQueue(key: string): Promise<string | null> {
 // TODO
 interface RedisConnectionConfig {}
 
-interface RedisHelper {
+export interface RedisHelper {
   getClient(): Promise<RedisClientType>;
-  createTable(tableName: string);
   readFullTable(tableName: string): Map<string, Object>;
   insertItemToTable(tableName: string, key: string);
   removeItemFromTable();
@@ -438,6 +437,8 @@ interface RedisHelper {
   // getBackupQueue();
   // enqueueBackup();
   // popBackupQueue();
+
+  getPrefix(prefix: string): Promise<{ string }[]>;
 }
 
 type RedisClientType = Awaited<ReturnType<typeof createConnection>>;
@@ -467,7 +468,7 @@ async function createConnection() {
 
     await client.connect();
     rClient = client;
-    return client;
+    return nnull(client);
   } catch (e) {
     logger.error(
       "connectToRedis: failed to connect to host [" +
@@ -477,31 +478,41 @@ async function createConnection() {
         "]: %o",
       e
     );
+    throw new Error("Could not connect to Redis");
   }
-
-  return null;
 }
 
 async function getClient(): Promise<RedisClientType> {
   if (!rClient) {
     rClient = await createConnection();
   }
-  return rClient;
+  return nnull(rClient);
 }
 
-async function createTable(tableName: string): Promise<void> {
+async function getPrefix(prefix: string): Promise<string[]> {
+  const client = await getClient();
+  return await client.keys(prefix + "*");
+}
+
+async function insertItemToTable(key: string, value: string) {
+  const client = await getClient()
+  await client.set(key, value)
+  // todo: backup queue
 }
 
 const redisHelper: RedisHelper = {
   getClient,
-  createTable;
-  readFullTable;
-  insertItemToTable;
-  removeItemFromTable;
-  modifyItem;
+  insertItemToTable,
+  removeItemFromTable,
+  modifyItem,
+  getPrefix,
   // getBackupQueue;
   // enqueueBackup;
   // popBackupQueue;
+};
+
+function nnull<T>(x: T | null): T {
+  return x as T;
 }
 
-export default redisHelper
+export default redisHelper;

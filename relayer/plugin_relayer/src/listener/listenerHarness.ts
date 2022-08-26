@@ -17,25 +17,22 @@ import {
 } from "@certusone/wormhole-spydk";
 import { sleep } from "../helpers/utils";
 import { SpyRPCServiceClient } from "@certusone/wormhole-spydk/lib/cjs/proto/spy/v1/spy";
-import { PluginStorage, getPluginStorage } from "../helpers/storage";
+import { PluginStorage, Storage } from "../helpers/storage";
 
 const logger = getScopedLogger(["listenerHarness"], getLogger());
 const commonEnv = getCommonEnvironment();
 
-export async function run(plugins: Plugin[]) {
+export async function run(plugins: Plugin[], storage: Storage) {
   const listnerEnv = getListenerEnvironment();
-
-  //Ensure redis is in an acceptable state
-  //TODO in redis helpers
 
   //if spy is enabled, instantiate spy with filters
   if (shouldSpy(plugins)) {
     const spyClient = createSpyRPCServiceClient(
       listnerEnv.spyServiceHost || ""
     );
-    plugins.forEach((x) => {
-      if (x.shouldSpy) {
-        runPluginSpyListener(getPluginStorage(x), spyClient);
+    plugins.forEach((plugin) => {
+      if (plugin.shouldSpy) {
+        runPluginSpyListener(storage.getPluginStorage(plugin), spyClient);
       }
     });
   }
@@ -61,9 +58,18 @@ async function consumeEventHarness(
   vaa: Buffer,
   storage: PluginStorage
 ): Promise<void> {
-  const stagingArea = await storage.getStagingArea();
-  const update = await storage.plugin.consumeEvent(vaa, stagingArea);
-  await storage.applyActionUpdate(update);
+  try {
+    const stagingArea = await storage.getStagingArea();
+    const { actions, nextStagingArea } = await storage.plugin.consumeEvent(
+      vaa,
+      stagingArea
+    );
+    await storage.addActions(actions);
+    await storage.saveStagingArea(nextStagingArea);
+  } catch (e) {
+    logger.error(e);
+    // metric onError
+  }
 }
 
 //used for both rest & spy relayer for now

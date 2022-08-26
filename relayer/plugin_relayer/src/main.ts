@@ -16,9 +16,12 @@ require("./helpers/loadConfig");
 
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { getCommonEnvironment } from "./configureEnv";
+import * as executorHarness from "./executor/executorHarness";
 import { getLogger } from "./helpers/logHelper";
 import { PromHelper, PromMode } from "./helpers/promHelpers";
-import * as redisHelper from "./helpers/redisHelper";
+// import * as redisHelper from "./helpers/redisHelper";
+import { createStorage, RedisStorage } from "./helpers/storage";
+import * as listenerHarness from "./listener/listenerHarness";
 import { loadPlugins } from "./loadPlugins";
 
 setDefaultWasm("node");
@@ -29,6 +32,7 @@ const logger = getLogger();
 
 async function main() {
   const plugins = await loadPlugins(commonEnv);
+  const storage = await createStorage(commonEnv);
   if (process.env.MODE === "listener") {
     // init listener harness
     const promHelper = new PromHelper(
@@ -36,8 +40,8 @@ async function main() {
       commonEnv.promPort,
       PromMode.Listen
     );
-    //TODO start listener harness
-    redisHelper.init(promHelper);
+
+    await listenerHarness.run(plugins, storage);
   } else if (process.env.MODE === "executor") {
     // init executor harness
     const promHelper = new PromHelper(
@@ -45,14 +49,28 @@ async function main() {
       commonEnv.promPort,
       PromMode.Execute
     );
-    //TODO start executor harness
-    redisHelper.init(promHelper);
+
+    executorHarness.run(plugins, storage);
   } else {
     throw new Error(
       "Expected MODE env var to be listener or executor, instead got: " +
         process.env.MODE
     );
   }
+}
+
+if (commonEnv.readinessPort) {
+  const Net = require("net");
+  const readinessServer = new Net.Server();
+  readinessServer.listen(commonEnv.readinessPort, function () {
+    logger.info(
+      "listening for readiness requests on port " + commonEnv.readinessPort
+    );
+  });
+
+  readinessServer.on("connection", function (socket: any) {
+    //logger.debug("readiness connection");
+  });
 }
 
 main().catch((e) => {

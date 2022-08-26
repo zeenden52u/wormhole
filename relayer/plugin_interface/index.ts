@@ -33,7 +33,6 @@ export type ActionId = "UUID"; // todo: import real type
 
 export type ActionQueueUpdate = {
   enqueueActions: WorkerAction[];
-  removeActionIds: string[];
 };
 
 // todo: import from sdk
@@ -94,7 +93,7 @@ export interface Listener extends PluginCommonFields {
   consumeEvent(
     vaa: Uint8Array,
     stagingArea: StagingArea
-  ): Promise<ActionQueueUpdate>;
+  ): Promise<{actions: WorkerAction[], nextStagingArea: StagingArea }>;
 }
 
 export type Plugin = Listener & Executor;
