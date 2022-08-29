@@ -486,18 +486,47 @@ async function getClient(): Promise<RedisClientType> {
   if (!rClient) {
     rClient = await createConnection();
   }
+  if (failed)
   return nnull(rClient);
 }
 
-async function getPrefix(prefix: string): Promise<string[]> {
+async function getPrefix(prefix: string): Promise<AsyncIterable<string>> {
   const client = await getClient();
-  return await client.keys(prefix + "*");
+  return client.scanIterator({ MATCH: prefix + "*" });
 }
 
-async function insertItemToTable(key: string, value: string) {
-  const client = await getClient()
-  await client.set(key, value)
-  // todo: backup queue
+async function insertItemToHashMap(
+  mapKey: string,
+  fieldKey: string,
+  value: string
+): Promise<boolean> {
+  try {
+    logger.debug(
+      `Inserting into redis hash set: ${mapKey}, key: ${fieldKey}, value: ${value}`
+    );
+    const client = await getClient();
+    client.hSet(mapKey, fieldKey, value);
+    logger.debug(`Done inserting key: ${fieldKey} into ${mapKey}`);
+    return true;
+  } catch (e) {
+    logger.error(
+      `Failed inserting into redis hash set: ${mapKey}, key: ${fieldKey}, value: ${value}`
+    );
+    return false;
+  }
+}
+
+async function insertItem(key: string, value: string): Promise<boolean> {
+  try {
+    logger.debug(`Inserting into redis key: ${key}, value: ${value}`);
+    const client = await getClient();
+    await client.set(key, value);
+    logger.debug(`Done inserting key: ${key}`);
+    return true;
+  } catch (e) {
+    logger.error(`Failed to insert item ${key} : ${value}`);
+    return false;
+  }
 }
 
 const redisHelper: RedisHelper = {
