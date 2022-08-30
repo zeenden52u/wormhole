@@ -3,7 +3,6 @@ module wormhole::state {
     use 0x1::event::{Self, EventHandle};
     use 0x1::signer::{address_of};
     use 0x1::vector::{Self};
-    use 0x1::account::{Self};
     use wormhole::structs::{GuardianSet};
     use wormhole::u16::{Self, U16};
     use wormhole::u32::{Self, U32};
@@ -112,8 +111,8 @@ module wormhole::state {
     }
 
     public(friend) fun init_message_handles(admin: &signer) {
-        move_to(admin, create_wormhole_message_handle(account::new_event_handle<WormholeMessage>(admin)));
-        move_to(admin, create_guardian_set_changed_handle(account::new_event_handle<GuardianSetChanged>(admin)));
+        move_to(admin, create_wormhole_message_handle(event::new_event_handle<WormholeMessage>(admin)));
+        move_to(admin, create_guardian_set_changed_handle(event::new_event_handle<GuardianSetChanged>(admin)));
     }
 
     fun use_sequence(emitter: address): u64 acquires WormholeState {
