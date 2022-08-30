@@ -155,23 +155,25 @@ export async function removeItem(key: string): Promise<void> {
 }
 
 export interface RedisHelper {
-  getClient(): Promise<RedisClientType>;
+  ensureClient(): Promise<void>;
   insertItem(key: string, value: string): Promise<void>;
-  getPrefix(
-    prefix: string
-  ): Promise<AsyncIterable<{ key: string; value: string }>>;
+  getPrefix(prefix: string): Promise<{ key: string; value: string }[]>;
   getItem(key: string): Promise<string>;
   removeItem(key: string): Promise<void>;
   compareAndSwap(
     prefix: string,
     previousValue: string,
     newValue: string
-  ): Promise<void>;
+  ): Promise<boolean>;
 }
 
 export async function getItem(key: string): Promise<string> {
   const client = await getClient();
   return await client.get(key);
+}
+
+export async function ensureClient(): Promise<void> {
+  await getClient();
 }
 
 //This function can modify an existing record.
@@ -201,3 +203,12 @@ export async function compareAndSwap(
 function nnull<T>(x: T | null): T {
   return x as T;
 }
+
+const _1: RedisHelper = {
+  ensureClient,
+  insertItem,
+  getPrefix,
+  getItem,
+  compareAndSwap,
+  removeItem,
+};

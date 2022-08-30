@@ -1,9 +1,12 @@
-import { getCommonEnvironment, getExecutorEnvironment } from "../configureEnv";
+import {
+  getCommonEnvironment,
+  getExecutorEnvironment,
+  ExecutorEnv,
+} from "../configureEnv";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import {
   ActionQueueUpdate,
   EVMWallet,
-  ExecutorEnv,
   Plugin,
   Providers,
   SolanaWallet,
@@ -26,7 +29,7 @@ let executorEnv: ExecutorEnv | undefined;
  * 1. Grab logger & commonEnv
  * 2. Instantiate executorEnv
  * 3. Demote in-progress actions and/or clear storage based off config
- * 5. For each wallet, spawn worker 
+ * 5. For each wallet, spawn worker
  */
 export async function run(plugins: Plugin[], storage: Storage) {
   executorEnv = getExecutorEnvironment();
@@ -85,7 +88,7 @@ async function spawnWalletWorker(
         providers,
         logger
       );
-      pluginStorage.applyActionUpdate(update, action.id);
+      pluginStorage.applyActionUpdate(update.enqueueActions, action);
       logger.info(`Action ${action.id} relayed`);
       await sleep(WORKER_INTERVAL_MS);
     } catch (e) {

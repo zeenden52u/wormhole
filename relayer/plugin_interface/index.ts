@@ -27,6 +27,7 @@ export interface WorkerAction {
   data: Object;
   description?: string;
   depedencies?: ActionId[];
+  delayTimestamp?: Date;
 }
 
 export type ActionId = "UUID"; // todo: import real type
@@ -93,7 +94,7 @@ export interface Listener extends PluginCommonFields {
   consumeEvent(
     vaa: Uint8Array,
     stagingArea: StagingArea
-  ): Promise<{actions: WorkerAction[], nextStagingArea: StagingArea }>;
+  ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }>;
 }
 
 export type Plugin = Listener & Executor;

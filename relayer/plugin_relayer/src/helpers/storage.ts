@@ -7,15 +7,34 @@ import {
   WorkerAction,
 } from "plugin_interface";
 import { CommonEnv, ExecutorEnv } from "../configureEnv";
-import RedisHelper from "./redisHelper";
+import * as RedisHelper from "./redisHelper";
 import { RedisHelper as IRedisHelper } from "./redisHelper";
+
+function sanitize(dirtyString: string): string {
+  return dirtyString.replace("[^a-zA-z_0-9]*", "");
+}
+
+function stagingAreaKey(plugin: Plugin): string {
+  return `staging-area/${sanitize(plugin.name)}`;
+}
+
+function actionPrefix(plugin: Plugin, chainId: number): string {
+  return `actions/${sanitize(plugin.name)}/${chainId}/`;
+}
+
+function actionKey(
+  plugin: Plugin,
+  action: { chainId: number; id: ActionId }
+): string {
+  return `${actionPrefix(plugin, action.chainId)}${action.id}`;
+}
 
 export interface PluginStorageFactory {
   getPluginStorage(plugin: Plugin): PluginStorage;
 }
 
 export async function createStorage(commonEnv: CommonEnv): Promise<Storage> {
-  await RedisHelper.getClient();
+  await RedisHelper.ensureClient();
   return new RedisStorage(RedisHelper);
 }
 
@@ -37,13 +56,12 @@ export interface Storage extends PluginStorageFactory {
 
 export interface PluginStorage {
   readonly plugin: Plugin;
-  getStagingArea(this: PluginStorage): Promise<StagingArea>;
-  saveStagingArea(this: PluginStorage, update: StagingArea): Promise<void>;
-  addActions(this: PluginStorage, actionsToAdd: WorkerAction[]): Promise<void>;
+  getStagingArea(): Promise<StagingArea>;
+  saveStagingArea(update: StagingArea): Promise<void>;
+  addActions(actionsToAdd: WorkerAction[]): Promise<void>;
   applyActionUpdate(
-    this: PluginStorage,
-    update: ActionQueueUpdate,
-    id: ActionId
+    enqueuedActions: WorkerAction[],
+    consumedAction: WorkerAction
   ): Promise<void>;
 }
 
@@ -59,14 +77,14 @@ export async function getNextAction(
 }
 
 export function getPluginStorage(plugin: Plugin): PluginStorage {
-  return new RedisPluginStorage(plugin);
+  return new RedisPluginStorage(RedisHelper, plugin);
 }
 
 // Idea is we could have multiple implementations backed by different types of storage
 // i.e. RedisStorage, PostgresStorage, MemoryStorage etc.
 
 export class RedisStorage implements Storage {
-  constructor(readonly redis: IRedisHelper) {}
+  constructor(private readonly redis: IRedisHelper) {}
 
   getNextAction(
     chainId: ChainId,
@@ -89,30 +107,80 @@ export class RedisStorage implements Storage {
   }
 }
 
-class RedisPluginStorage implements PluginStorage {
-  constructor(readonly plugin: Plugin) {}
+interface StorageAction {
+  inProgress: boolean;
+  action: WorkerAction;
+}
 
-  getNextAction(
+class RedisPluginStorage implements PluginStorage {
+  constructor(readonly redis: IRedisHelper, readonly plugin: Plugin) {
+    this.redis = redis;
+  }
+
+  async getNextAction(
     this: RedisPluginStorage,
     chainId: ChainId
-  ): Promise<WorkerAction> {
-    throw new Error("Method not implemented.");
+  ): Promise<WorkerAction | null> {
+    const actions = await this.redis.getPrefix(
+      actionPrefix(this.plugin, chainId)
+    );
+    for (let { key, value } of actions) {
+      const storageAction = JSON.parse(value) as StorageAction;
+      if (storageAction.inProgress) {
+        continue;
+      }
+      if (
+        storageAction.action.delayTimestamp &&
+        new Date().getTime() < storageAction.action.delayTimestamp.getTime()
+      ) {
+        continue;
+      }
+      const setSuccessfully = await this.redis.compareAndSwap(
+        key,
+        value,
+        JSON.stringify({ action: storageAction.action, inProgress: true })
+      );
+      if (setSuccessfully) {
+        return storageAction.action;
+      }
+    }
+    return null;
   }
-  getStagingArea(this: RedisPluginStorage): Promise<Object> {
-    throw new Error("Method not implemented.");
+
+  async getStagingArea(this: RedisPluginStorage): Promise<Object> {
+    const key = stagingAreaKey(this.plugin);
+    const raw = await this.redis.getItem(key);
+    return JSON.parse(raw);
   }
-  addActions(this: PluginStorage, actionsToAdd: WorkerAction[]): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-  applyActionUpdate(
+
+  async addActions(
     this: RedisPluginStorage,
-    update: ActionQueueUpdate,
-    id: ActionId
+    actionsToAdd: WorkerAction[]
   ): Promise<void> {
-    throw new Error("Method not implemented.");
+    for (const action of actionsToAdd) {
+      const key = actionKey(this.plugin, action);
+      const storageAction: StorageAction = { action, inProgress: false };
+      await this.redis.insertItem(key, JSON.stringify(storageAction));
+    }
   }
-  saveStagingArea(this: RedisPluginStorage, update: Object): Promise<void> {
-    throw new Error("Method not implemented.");
+
+  async applyActionUpdate(
+    this: RedisPluginStorage,
+    enqueuedActions: WorkerAction[],
+    consumedAction: WorkerAction
+  ): Promise<void> {
+    await this.redis.removeItem(actionKey(this.plugin, consumedAction));
+    await this.addActions(enqueuedActions);
+  }
+
+  async saveStagingArea(
+    this: RedisPluginStorage,
+    newStagingArea: Object
+  ): Promise<void> {
+    await this.redis.insertItem(
+      stagingAreaKey(this.plugin),
+      JSON.stringify(newStagingArea)
+    );
   }
 }
 
