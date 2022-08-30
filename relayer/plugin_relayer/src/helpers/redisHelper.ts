@@ -68,7 +68,7 @@ async function getClient(): Promise<RedisClientType> {
   return nnull(rClient);
 }
 
-async function getPrefix(
+export async function getPrefix(
   prefix: string
 ): Promise<{ key: string; value: string }[]> {
   const client = await getClient();
@@ -118,7 +118,7 @@ async function enqueueOp<Arg extends any>(
 // do not need to wait for a new item to enter the backlog before they can execute again
 setInterval(executeBacklog, 1000 * 60);
 
-async function executeBacklog(): Promise<void> {
+export async function executeBacklog(): Promise<void> {
   await mutex.runExclusive(async () => {
     for (let i = 0; i < backlog.length; ++i) {
       try {
@@ -133,7 +133,7 @@ async function executeBacklog(): Promise<void> {
   });
 }
 
-async function insertItem(key: string, value: string): Promise<void> {
+export async function insertItem(key: string, value: string): Promise<void> {
   //Insert item into end of backlog
   const wrappedOp = async () => {
     logger.debug(`Inserting into redis key: ${key}, value: ${value}`);
@@ -144,7 +144,7 @@ async function insertItem(key: string, value: string): Promise<void> {
   await enqueueOp(wrappedOp);
 }
 
-async function removeItem(key: string): Promise<void> {
+export async function removeItem(key: string): Promise<void> {
   const wrappedOp = async () => {
     logger.debug(`removing redis key: ${key}`);
     const client = await getClient();
@@ -169,14 +169,14 @@ export interface RedisHelper {
   ): Promise<void>;
 }
 
-async function getItem(key: string): Promise<string> {
+export async function getItem(key: string): Promise<string> {
   const client = await getClient();
   return await client.get(key);
 }
 
 //This function can modify an existing record.
 //It will first make sure that the existing record has not been modified by a different process.
-async function compareAndSwap(
+export async function compareAndSwap(
   prefix: string,
   previousValue: string,
   newValue: string
@@ -198,16 +198,6 @@ async function compareAndSwap(
   });
 }
 
-const redisHelper = {
-  getClient,
-  insertItem,
-  getPrefix,
-  removeItem,
-  compareAndSwap,
-};
-
 function nnull<T>(x: T | null): T {
   return x as T;
 }
-
-export default redisHelper;
