@@ -13,23 +13,7 @@ module 0x251011524cd0f76881f16e7c2d822f0c1c9510bfd2430ba24e1b3d52796df204::Deplo
     }
 
     public fun to_hex(b: vector<u8>): vector<u8>{
-        let ascii = vector::empty<u8>();
-        vector::push_back(&mut ascii, 0x30); // 0
-        vector::push_back(&mut ascii, 0x31); // 1
-        vector::push_back(&mut ascii, 0x32); // 2
-        vector::push_back(&mut ascii, 0x33); // 3
-        vector::push_back(&mut ascii, 0x34); // 4
-        vector::push_back(&mut ascii, 0x35); // 5
-        vector::push_back(&mut ascii, 0x36); // 6
-        vector::push_back(&mut ascii, 0x37); // 7
-        vector::push_back(&mut ascii, 0x38); // 8
-        vector::push_back(&mut ascii, 0x39); // 9
-        vector::push_back(&mut ascii, 0x61); // a
-        vector::push_back(&mut ascii, 0x62); // b
-        vector::push_back(&mut ascii, 0x63); // c
-        vector::push_back(&mut ascii, 0x64); // d
-        vector::push_back(&mut ascii, 0x65); // e
-        vector::push_back(&mut ascii, 0x66); // f
+        let ascii = b"0123456789abcdef";
         let res = vector::empty<u8>();
         let n = vector::length(&b);
         let i = 0;
