@@ -74,7 +74,7 @@ async function getTransaction(hash: string) {
     // console.log("wormhole message publish events: ", events)
 
     //get specific transaction
-    let tx = await getTransaction("0x48207de1841bcfbc4cf226c5dc04597a64261448c1a70504f13d62c2dde5f32b");
+    let tx = await getTransaction("0x5ad12cefde667ed6720fc3550e26aacc4f20294722b8949274029c57b886d521");
     console.log("my tx is:", tx)
 
     // //@ts-ignore
