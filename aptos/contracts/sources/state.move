@@ -112,7 +112,6 @@ module wormhole::state {
     }
 
     // break point
-
     public fun init_message_handles(admin: &signer) {
         move_to(admin, create_wormhole_message_handle(account::new_event_handle<WormholeMessage>(admin)));
         move_to(admin, create_guardian_set_changed_handle(account::new_event_handle<GuardianSetChanged>(admin)));
