@@ -184,6 +184,6 @@ class RedisPluginStorage implements PluginStorage {
   }
 }
 
-const exports: PluginStorageFactory = { getPluginStorage };
+const toExport: PluginStorageFactory = { getPluginStorage };
 
-export default exports;
+export default toExport;

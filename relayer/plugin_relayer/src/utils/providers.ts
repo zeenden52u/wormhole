@@ -1,5 +1,5 @@
-import { ChainConfigInfo, Providers } from "plugin_interface";
+import { Providers } from "plugin_interface";
 
-export function providersFromChainConfig(chainConfigInfo: ChainConfigInfo[]): Providers {
-  throw new Error("Unimplemented")
+export function providersFromChainConfig(): Providers {
+  throw new Error("Unimplemented");
 }

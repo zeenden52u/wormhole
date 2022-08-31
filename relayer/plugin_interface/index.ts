@@ -36,7 +36,6 @@ export type ActionQueueUpdate = {
   enqueueActions: WorkerAction[];
 };
 
-// todo: import from sdk
 export type StagingArea = Object;
 /*
  * Wallets and Providers

@@ -192,6 +192,7 @@ export async function compareAndSwap(
         return false;
       }
       await client.set(prefix, newValue);
+      return true;
     } catch (e) {
       logger.error("Failed compare and swap");
       logger.error(e);
