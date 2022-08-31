@@ -1,5 +1,5 @@
 import { AptosAccount, TxnBuilderTypes, BCS, HexString, MaybeHexString, AptosClient, FaucetClient, AptosAccountObject } from "aptos";
-import {aptosAccountObject} from "./constants";
+import {aptosAccountObject1, aptosAccountObject2} from "./constants";
 import sha3 from 'js-sha3';
 export const NODE_URL = "http://0.0.0.0:8080/v1";
 export const FAUCET_URL = "http://localhost:8081";
@@ -47,10 +47,11 @@ async function deployCoinOnChain(contractAddress: HexString, accountFrom: AptosA
   }
 
 async function main(){
-    let accountFrom = AptosAccount.fromAptosAccountObject(aptosAccountObject);
-    let accountAddress = accountFrom.address();//new HexString("277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b");
+    let deployed = AptosAccount.fromAptosAccountObject(aptosAccountObject1);
+    let accountFrom = AptosAccount.fromAptosAccountObject(aptosAccountObject2);
+    //let accountAddress = accountFrom.address();//new HexString("277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b");
     //const wormholeAddress = new HexString(sha3.sha3_256(Buffer.concat([accountFrom.address().toBuffer(), Buffer.from('wormhole', 'ascii')])));
-    let hash = await deployCoinOnChain(accountAddress, accountFrom);
+    let hash = await deployCoinOnChain(deployed.address(), accountFrom);
     console.log("tx hash: ", hash);
 }
 
