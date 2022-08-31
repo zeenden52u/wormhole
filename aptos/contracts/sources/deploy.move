@@ -1,4 +1,4 @@
-module 0x251011524cd0f76881f16e7c2d822f0c1c9510bfd2430ba24e1b3d52796df204::Deploy{
+module wormhole::Deploy{
     use 0x1::signer::{Self};
     use 0x1::vector::{Self};
     use 0x1::code::{publish_package_txn};
@@ -67,7 +67,7 @@ module 0x251011524cd0f76881f16e7c2d822f0c1c9510bfd2430ba24e1b3d52796df204::Deplo
 module wormhole::ascii_test {
     use 0x1::vector::{Self};
     use 0x1::string::{utf8};
-    use 0x251011524cd0f76881f16e7c2d822f0c1c9510bfd2430ba24e1b3d52796df204::Deploy::to_hex;
+    use wormhole::Deploy::to_hex;
     #[test]
     fun test_one(){
         let v = vector::empty<u8>();
