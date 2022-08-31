@@ -1,7 +1,7 @@
 import { AptosAccount, TxnBuilderTypes, BCS, HexString, MaybeHexString, AptosClient, FaucetClient, AptosAccountObject} from "aptos";
 import {aptosAccountObject} from "./constants";
 
-export const NODE_URL = "http://localhost:8080/v1";
+export const NODE_URL = "http://0.0.0.0:8080/v1";
 export const FAUCET_URL = "http://localhost:8081";
 
 const {
@@ -62,8 +62,8 @@ async function getTransaction(hash: string) {
     let accountAddress = accountFrom.address();
 
     //resources
-    let resources = await getResources(accountAddress);
-    console.log("resources: ", resources);
+    //let resources = await getResources(accountAddress);
+    //console.log("resources: ", resources);
 
     //events
     //let handle = new TypeTagStruct(StructTag.fromString(`${accountAddress.toString()}::State::WormholeMessageHandle`));
@@ -73,9 +73,9 @@ async function getTransaction(hash: string) {
     // let events = await client.getEventsByEventHandle(accountAddress, handle, fieldName);
     // console.log("wormhole message publish events: ", events)
 
-    // //get specific transaction
-    // let tx = await getTransaction("0x8bed5c44239cc096f03bd49a6534272ceb9c04c2d595474594f77a3ed4c5beac");
-    // console.log("my tx is:", tx)
+    //get specific transaction
+    let tx = await getTransaction("0x48207de1841bcfbc4cf226c5dc04597a64261448c1a70504f13d62c2dde5f32b");
+    console.log("my tx is:", tx)
 
     // //@ts-ignore
     // //console.log("my tx changes: ", tx.changes[0].data, tx.changes[1].data)

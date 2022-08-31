@@ -1,15 +1,18 @@
 import { AptosAccount, TxnBuilderTypes, BCS, HexString, MaybeHexString, AptosClient, FaucetClient, AptosAccountObject } from "aptos";
 import {aptosAccountObject} from "./constants";
 import sha3 from 'js-sha3';
-export const NODE_URL = "http://0.0.0.0:8080";
+export const NODE_URL = "http://0.0.0.0:8080/v1";
 export const FAUCET_URL = "http://localhost:8081";
+
+// Note: this script does not use deployer/resource accounts.
+// It is only for testing on-chain Coin creation
 
 const client = new AptosClient(NODE_URL);
 
 async function deployCoinOnChain(contractAddress: HexString, accountFrom: AptosAccount): Promise<string> {
     const scriptFunctionPayload = new TxnBuilderTypes.TransactionPayloadEntryFunction(
       TxnBuilderTypes.EntryFunction.natural(
-        `${contractAddress.toString()}::deploy`,
+        `${contractAddress.toString()}::Deploy`,
         "deployCoin",
         [],
         []
@@ -23,19 +26,20 @@ async function deployCoinOnChain(contractAddress: HexString, accountFrom: AptosA
       TxnBuilderTypes.AccountAddress.fromHex(accountFrom.address()),
       BigInt(sequenceNumber),
       scriptFunctionPayload,
-      BigInt(1000), //max gas to be used
+      BigInt(5000), //max gas to be used
       BigInt(1), //price per unit gas
       BigInt(Math.floor(Date.now() / 1000) + 10),
       new TxnBuilderTypes.ChainId(chainId),
     );
 
-    const sim = await client.simulateTransaction(accountFrom, rawTxn);
-    sim.forEach((tx) => {
-      if (!tx.success) {
-        console.error(JSON.stringify(tx, null, 2));
-        throw new Error(`Transaction failed: ${tx.vm_status}`);
-      }
-    });
+    // const sim = await client.simulateTransaction(accountFrom, rawTxn);
+    // sim.forEach((tx) => {
+    //   if (!tx.success) {
+    //     console.error(JSON.stringify(tx, null, 2));
+    //     throw new Error(`Transaction failed: ${tx.vm_status}`);
+    //   }
+    // });
+
     const bcsTxn = AptosClient.generateBCSTransaction(accountFrom, rawTxn);
     const transactionRes = await client.submitSignedBCSTransaction(bcsTxn);
 
@@ -44,8 +48,9 @@ async function deployCoinOnChain(contractAddress: HexString, accountFrom: AptosA
 
 async function main(){
     let accountFrom = AptosAccount.fromAptosAccountObject(aptosAccountObject);
-    const wormholeAddress = new HexString(sha3.sha3_256(Buffer.concat([accountFrom.address().toBuffer(), Buffer.from('wormhole', 'ascii')])));
-    let hash = await deployCoinOnChain(wormholeAddress, accountFrom);
+    let accountAddress = accountFrom.address();//new HexString("277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b");
+    //const wormholeAddress = new HexString(sha3.sha3_256(Buffer.concat([accountFrom.address().toBuffer(), Buffer.from('wormhole', 'ascii')])));
+    let hash = await deployCoinOnChain(accountAddress, accountFrom);
     console.log("tx hash: ", hash);
 }
 

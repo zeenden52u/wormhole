@@ -17,7 +17,7 @@ module wormhole::vaa {
         get_guardians,
         unpack_signature,
     };
-    //use wormhole::state::{get_current_guardian_set};
+    use wormhole::state::{get_current_guardian_set};
 
     const E_NO_QUORUM: u64 = 0x0;
     const E_TOO_MANY_SIGNATURES: u64 = 0x1;
@@ -184,7 +184,7 @@ module wormhole::vaa {
     public entry fun parse_and_verify(bytes: vector<u8>): VAA {
         let vaa = parse(bytes);
         //TODO: verify vaa
-        //verify(&vaa, get_current_guardian_set());
+        verify(&vaa, get_current_guardian_set());
         vaa
     }
 
