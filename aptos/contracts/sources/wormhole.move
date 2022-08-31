@@ -1,6 +1,7 @@
 module wormhole::wormhole {
     use 0x1::vector::{Self};
-    use aptos_framework::account;
+    use 0x1::account;
+    use 0x1::code;
     use wormhole::structs::{create_guardian_set};
     use wormhole::state::{
         init_message_handles,
@@ -13,7 +14,6 @@ module wormhole::wormhole {
     use wormhole::u16;
     use wormhole::u32;
     use deployer::deployer;
-    use aptos_framework::code;
 
     // protect me at all cost
     // never expose the inner capability publicly

@@ -5,6 +5,8 @@ module wormhole::structs {
     friend wormhole::state;
     friend wormhole::vaa;
     friend wormhole::wormhole;
+    friend wormhole::governance;
+
     use wormhole::guardian_pubkey::{Self};
 
     struct Signature has key, store, copy, drop {
