@@ -7,13 +7,13 @@
 //      struct T has key {}
 // }
 //
-// where deployer is variable.
+// where deployer is a fixed address, but which will be spliced out on-chain.
 //
 // We create a Move package [INSERT_LINK_HERE], compile it using "aptos move compile --save-metadata", obtain the
 // package_metadata.bcs and coin.mv files, then upload them on-chain in byte format (see the deployCoin function below).
 //
 // We replace the deployer address embedded in the source code with the new deployer address and call publish_package_txn
-// to publish the code.
+// to publish the code at the new deployer's account.
 //
 //
 // TODO: find out if we need to update the source_digest in the package metadata as well
