@@ -12,7 +12,7 @@ const client = new AptosClient(NODE_URL);
 async function deployCoinOnChain(contractAddress: HexString, accountFrom: AptosAccount): Promise<string> {
     const scriptFunctionPayload = new TxnBuilderTypes.TransactionPayloadEntryFunction(
       TxnBuilderTypes.EntryFunction.natural(
-        `${contractAddress.toString()}::Deploy`,
+        `${contractAddress.toString()}::deploy_coin`,
         "deployCoin",
         [],
         []

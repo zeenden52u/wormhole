@@ -62,8 +62,8 @@ async function getTransaction(hash: string) {
     let accountAddress = accountFrom.address();
 
     //resources
-    //let resources = await getResources(accountAddress);
-    //console.log("resources: ", resources);
+    let resources = await getResources(accountAddress);
+    console.log("resources: ", resources);
 
     //events
     //let handle = new TypeTagStruct(StructTag.fromString(`${accountAddress.toString()}::State::WormholeMessageHandle`));
@@ -74,7 +74,7 @@ async function getTransaction(hash: string) {
     // console.log("wormhole message publish events: ", events)
 
     //get specific transaction
-    let tx = await getTransaction("0x9784ec5658fef06dabbc8b6e8a39ac4378709e5d0cfcb233eef68d07717cb5f2");
+    let tx = await getTransaction("0x1aa2850f841ff3df92dc7e01b245120e78fe93a73283acc8a6a3879ebfe6db0b");
     console.log("my tx is:", tx)
 
     // //@ts-ignore

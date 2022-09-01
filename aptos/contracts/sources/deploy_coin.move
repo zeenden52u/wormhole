@@ -1,8 +1,7 @@
-module wormhole::Deploy{
+module wormhole::deploy_coin{
     use 0x1::signer::{Self};
     use 0x1::vector::{Self};
     use 0x1::code::{publish_package_txn};
-    use 0x1::string::{Self, String, utf8};
     use 0x1::bcs::{Self};
     //use 0x1::byte_conversions::{Self};
     //use 0x1::hash::{Self};
@@ -36,22 +35,9 @@ module wormhole::Deploy{
         let addr = signer::address_of(wormhole);
 
         let addr_bytes = bcs::to_bytes(&addr);
-        //let code_string: String = utf8(b"module 0x");
-        //assert!(1==0, 98);
-        //string::append(&mut code_string, utf8(to_hex(bytes)));
-        //string::append(&mut code_string, utf8(b"::coin { struct T has key {} }"));
-        //let code: vector<u8> = bcs::to_bytes<vector<u8>>(string::bytes(&code_string));
-        //let code_serialized:vector<u8> = bcs::to_bytes<u64>(&vector::length<u8>(&code));0x277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b
-        //vector::append(&mut code_serialized, code);
-        //let code = bcs::to_bytes<String>(&code_string);
-        //let code = *string::bytes(&code_string);
-
-        //NOTE: this works...
-        //let code: vector<u8> = x"a11ceb0b05000000050100020202040706130819200a390500000001080004636f696e01540b64756d6d795f6669656c64277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b000201020100";
-        //replace address in source code - bytes 49 to 49+32:
         let code = x"a11ceb0b05000000050100020202040706130819200a390500000001080004636f696e01540b64756d6d795f6669656c64";
         let middle= addr_bytes;
-        //assert!(addr_bytes==x"277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b", 12323);
+
         vector::append(&mut code, middle);
         vector::append(&mut code, x"000201020100");
 
@@ -81,42 +67,41 @@ module wormhole::Deploy{
         // };
         let code_array = vector::empty<vector<u8>>();
         vector::push_back(&mut code_array, code);
-        //assert!(1==0, 101);
         publish_package_txn(wormhole, metadata_serialized, code_array);
     }
 }
 
-#[test_only]
-module wormhole::ascii_test {
-    use 0x1::vector::{Self};
-    use 0x1::string::{utf8};
-    //use 0x1::signer::{Self};
-    use wormhole::Deploy::{to_hex};
-    #[test]
-    fun test_one(){
-        let v = vector::empty<u8>();
-        vector::push_back(&mut v, 0x12);
-        vector::push_back(&mut v, 0x34);
-        let b = to_hex(v);
-        let s = utf8(b);
-        assert!(s==utf8(b"1234"), 0);
-    }
+//#[test_only]
+//module wormhole::ascii_test {
+//     use 0x1::vector::{Self};
+//     use 0x1::string::{utf8};
+       //use 0x1::signer::{Self};
+       //use wormhole::deploy_coin::{Self};
+//     #[test]
+//     fun test_one(){
+//         let v = vector::empty<u8>();
+//         vector::push_back(&mut v, 0x12);
+//         vector::push_back(&mut v, 0x34);
+//         let b = to_hex(v);
+//         let s = utf8(b);
+//         assert!(s==utf8(b"1234"), 0);
+//     }
 
-    #[test]
-    fun test_two(){
-        let v = vector::empty<u8>();
-        vector::push_back(&mut v, 0x12);
-        vector::push_back(&mut v, 0x34);
-        vector::push_back(&mut v, 0xaa);
-        let b = to_hex(v);
-        let s = utf8(b);
-        assert!(s==utf8(b"1234aa"), 0)
-    }
+//     #[test]
+//     fun test_two(){
+//         let v = vector::empty<u8>();
+//         vector::push_back(&mut v, 0x12);
+//         vector::push_back(&mut v, 0x34);
+//         vector::push_back(&mut v, 0xaa);
+//         let b = to_hex(v);
+//         let s = utf8(b);
+//         assert!(s==utf8(b"1234aa"), 0)
+//     }
 
     // #[test(wormhole= @0x434)]
     // fun test_deploy(wormhole: signer){
     //     let addr = signer::address_of(&wormhole);
     //     0x1::account::create_account_for_test(addr);
-    //     deployCoin(&wormhole)
+    //     deploy_coin::deployCoin(&wormhole)
     // }
-}
+//}
