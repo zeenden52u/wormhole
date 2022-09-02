@@ -1,4 +1,4 @@
-module tokenbridge::BridgeStructs {
+module token_bridge::BridgeStructs {
     use 0x1::vector::{Self};
     use wormhole::serialize::{serialize_u8, serialize_u16, serialize_u256, serialize_vector};
     use wormhole::deserialize::{deserialize_u8, deserialize_u16, deserialize_u256, deserialize_vector};
