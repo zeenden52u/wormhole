@@ -12,7 +12,7 @@ module wormhole::u16 {
         assert!(u.number <= MAX_U16, E_OVERFLOW)
     }
 
-    public fun from_u64(number: u64): U16 { //0x277fa055b6a73c42c0662d5236c65c864ccbf2d4abd21f174a30c8b786eab84b 33 bytes
+    public fun from_u64(number: u64): U16 {
         let u = U16 { number };
         check_overflow(&u);
         u
