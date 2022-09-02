@@ -1,4 +1,4 @@
-module tokenbridge::BridgeState {
+module token_bridge::BridgeState {
 
     use 0x1::table::{Self, Table};
     use 0x1::type_info::{TypeInfo};
@@ -67,65 +67,65 @@ module tokenbridge::BridgeState {
     // getters
 
     public entry fun governanceActionIsConsumed(hash: vector<u8>): bool acquires State{
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         return *table::borrow(&state.consumedGovernanceActions, hash)
     }
 
     // TODO: isInitialized?
 
     public entry fun isTransferCompleted(hash: vector<u8>): bool acquires State{
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         return *table::borrow(&state.completedTransfers, hash)
     }
 
     public entry fun wormhole(): address acquires State{
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         return state.wormhole
     }
 
     public entry fun chainId(): U16 acquires State{ //should return u16
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         return state.provider.chainId
     }
 
     public entry fun governanceChainId(): U16 acquires State{ //should return u16
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         return state.provider.governanceChainId
     }
 
     public entry fun governanceContract(): vector<u8> acquires State{ //should return u16
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         return state.provider.governanceContract
     }
 
     public entry fun wrappedAsset(tokenChainId: U16, tokenAddress: vector<u8>): vector<u8> acquires State{
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         let inner = table::borrow(&state.wrappedAssets, tokenChainId);
         *table::borrow(inner, tokenAddress)
     }
 
     public entry fun nativeAsset(tokenAddress: vector<u8>): TypeInfo acquires State{
-        let native_assets = &borrow_global<State>(@tokenbridge).nativeAssets;
+        let native_assets = &borrow_global<State>(@token_bridge).nativeAssets;
         *table::borrow(native_assets, tokenAddress)
     }
 
     public entry fun bridgeContracts(chainId: U16): vector<u8> acquires State{
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         *table::borrow(&state.bridgeImplementations, chainId)
     }
 
     public entry fun outstandingBridged(token: vector<u8>): U256 acquires State{
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         *table::borrow(&state.outstandingBridged, token)
     }
 
     public entry fun isWrappedAsset(token: vector<u8>): bool acquires State {
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
          *table::borrow(&state.isWrappedAsset, token)
     }
 
     public entry fun finality(): u8 acquires State {
-        let state = borrow_global<State>(@tokenbridge);
+        let state = borrow_global<State>(@token_bridge);
         state.provider.finality
     }
 
@@ -136,7 +136,7 @@ module tokenbridge::BridgeState {
     // }
 
     public entry fun setGovernanceActionConsumed(hash: vector<u8>) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         if (table::contains(&state.consumedGovernanceActions, hash)){
             table::remove(&mut state.consumedGovernanceActions, hash);
         };
@@ -144,7 +144,7 @@ module tokenbridge::BridgeState {
     }
 
     public entry fun setTransferCompleted(hash: vector<u8>) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         if (table::contains(&state.completedTransfers, hash)){
             table::remove(&mut state.completedTransfers, hash);
         };
@@ -152,25 +152,25 @@ module tokenbridge::BridgeState {
     }
 
     public entry fun setChainId(chainId: U16) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         let provider = &mut state.provider;
         provider.chainId = chainId;
     }
 
     public entry fun setGovernanceChainId(governanceChainId: U16) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         let provider = &mut state.provider;
         provider.governanceChainId = governanceChainId;
     }
 
     public entry fun setGovernanceContract(governanceContract: vector<u8>) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         let provider = &mut state.provider;
         provider.governanceContract=governanceContract;
     }
 
     public entry fun setBridgeImplementation(chainId: U16, bridgeContract: vector<u8>) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         if (table::contains(&state.bridgeImplementations, chainId)){
             table::remove(&mut state.bridgeImplementations, chainId);
         };
@@ -178,12 +178,12 @@ module tokenbridge::BridgeState {
     }
 
     public entry fun setWormhole(wh: address) acquires State{
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         state.wormhole = wh;
     }
 
     public entry fun setWrappedAsset(tokenChainId: U16, tokenAddress: vector<u8>, wrapper: vector<u8>) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         let inner_map = table::borrow_mut(&mut state.wrappedAssets, tokenChainId);
         if (table::contains(inner_map, tokenAddress)){
             table::remove(inner_map, tokenAddress);
@@ -197,7 +197,7 @@ module tokenbridge::BridgeState {
     }
 
     public entry fun setNativeAsset(tokenAddress: vector<u8>, type_info: TypeInfo) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         let native_assets = &mut state.nativeAssets;
         if (table::contains(native_assets, tokenAddress)){
             //TODO: throw error, because we should only be able to set native asset type info once?
@@ -212,7 +212,7 @@ module tokenbridge::BridgeState {
     }
 
     public entry fun setOutstandingBridged(token: vector<u8>, outstanding: U256) acquires State {
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         let outstandingBridged = &mut state.outstandingBridged;
         if (table::contains(outstandingBridged, token)){
             table::remove(outstandingBridged, token);
@@ -221,7 +221,7 @@ module tokenbridge::BridgeState {
     }
 
     public entry fun setFinality(finality: u8) acquires State{
-        let state = borrow_global_mut<State>(@tokenbridge);
+        let state = borrow_global_mut<State>(@token_bridge);
         state.provider.finality = finality;
     }
 }
