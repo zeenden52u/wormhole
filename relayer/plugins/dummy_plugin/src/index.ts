@@ -7,6 +7,7 @@ import {
   Plugin,
   PluginFactory,
   SolanaWallet,
+  StagingArea,
   WorkerAction,
 } from "plugin_interface";
 
@@ -35,11 +36,17 @@ class DummyPlugin implements Plugin {
   getFilters(): ContractFilter[] {
     return [{ chainId: 1, emitterAddress: "gotcha!!" }];
   }
-  consumeEvent(
+  async consumeEvent(
     vaa: Uint8Array,
-    stagingArea: Object
-  ): Promise<ActionQueueUpdate> {
-    throw new Error("Method not implemented.");
+    stagingArea: { counter?: number }
+  ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }> {
+    console.log(`DummyPlugin consumed an event. Staging area: ${stagingArea}`);
+    return {
+      actions: [],
+      nextStagingArea: {
+        counter: stagingArea?.counter ? stagingArea.counter + 1 : 0,
+      },
+    };
   }
 }
 

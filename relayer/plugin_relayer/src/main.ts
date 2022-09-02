@@ -34,6 +34,7 @@ async function main() {
   const plugins = await loadPlugins(commonEnv);
   const storage = await createStorage(commonEnv);
   if (process.env.MODE === "listener") {
+    logger.info("Running in listener mode")
     // init listener harness
     const promHelper = new PromHelper(
       "plugin_relayer",
@@ -43,6 +44,7 @@ async function main() {
 
     await listenerHarness.run(plugins, storage);
   } else if (process.env.MODE === "executor") {
+    logger.info("Running in executor mode")
     // init executor harness
     const promHelper = new PromHelper(
       "plugin_relayer",

@@ -5,8 +5,8 @@
   "scripts": {
     "build": "tsc",
     "spy_relay": "node lib/main.js",
-    "localhost_listener": "npm run build && SPY_RELAY_CONFIG=./config/localhost/.env.sample MODE=listener node lib/main.js",
-    "localhost_executor": "npm run build && SPY_RELAY_CONFIG=./config/localhost/.env.sample MODE=executor node lib/main.js",
+    "localhost_listener": "SPY_RELAY_CONFIG=./config/localhost/.env.sample MODE=listener ts-node src/main.ts",
+    "localhost_executor": "SPY_RELAY_CONFIG=./config/localhost/.env.sample MODE=executor ts-node src/main.ts",
     "tilt_listener": "SPY_RELAY_CONFIG=.env.tilt.listener node lib/main.js --listen_only",
     "tilt_relayer": "SPY_RELAY_CONFIG=.env.tilt.relayer node lib/main.js --relay_only",
     "tilt_wallet_monitor": "SPY_RELAY_CONFIG=.env.tilt.wallet-monitor node lib/main.js --wallet_monitor_only",
@@ -33,7 +33,6 @@
   },
   "dependencies": {
     "@celo-tools/celo-ethers-wrapper": "^0.1.0",
-    "ethers": "^5.7.0",
     "@certusone/wormhole-sdk": "^0.5.0",
     "@certusone/wormhole-spydk": "^0.0.1",
     "@solana/spl-token": "^0.1.8",
@@ -44,9 +43,10 @@
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",
-    "dummy_plugin": "file:../plugins/dummy_plugin",
+    "ethers": "^5.7.0",
     "express": "^4.17.1",
     "plugin_interface": "file:../plugin_interface",
+    "dummy_plugin": "file:../plugins/dummy_plugin/lib",
     "prom-client": "^14.0.1",
     "redis": "^4.0.1",
     "winston": "^3.3.3"

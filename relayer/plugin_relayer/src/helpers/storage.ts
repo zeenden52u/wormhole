@@ -1,4 +1,5 @@
 import { ChainId } from "@certusone/wormhole-sdk";
+import { logger } from "ethers";
 import {
   ActionId,
   ActionQueueUpdate,
@@ -46,7 +47,7 @@ export interface Storage extends PluginStorageFactory {
     action: WorkerAction;
     queuedActions: WorkerAction[];
     pluginStorage: PluginStorage;
-  }>;
+  } | null>;
 
   handleStorageStartupConfig(
     plugins: Plugin[],
@@ -56,6 +57,13 @@ export interface Storage extends PluginStorageFactory {
 
 export interface PluginStorage {
   readonly plugin: Plugin;
+  getNextAction(
+    this: RedisPluginStorage,
+    chainId: ChainId
+  ): Promise<{
+    action: WorkerAction;
+    queuedActions: WorkerAction[];
+  } | null>;
   getStagingArea(): Promise<StagingArea>;
   saveStagingArea(update: StagingArea): Promise<void>;
   addActions(actionsToAdd: WorkerAction[]): Promise<void>;
@@ -63,17 +71,6 @@ export interface PluginStorage {
     enqueuedActions: WorkerAction[],
     consumedAction: WorkerAction
   ): Promise<void>;
-}
-
-export async function getNextAction(
-  chainId: ChainId,
-  plugins: Plugin[]
-): Promise<{
-  action: WorkerAction;
-  pluginActions: WorkerAction[];
-  plugin: PluginStorage;
-}> {
-  throw new Error("Unimplemented");
 }
 
 export function getPluginStorage(plugin: Plugin): PluginStorage {
@@ -86,24 +83,32 @@ export function getPluginStorage(plugin: Plugin): PluginStorage {
 export class RedisStorage implements Storage {
   constructor(private readonly redis: IRedisHelper) {}
 
-  getNextAction(
+  async getNextAction(
     chainId: ChainId,
     plugins: Plugin[]
   ): Promise<{
     action: WorkerAction;
     queuedActions: WorkerAction[];
     pluginStorage: PluginStorage;
-  }> {
-    throw new Error("Method not implemented.");
+  } | null> {
+    // todo: ensure one plugin doesn't hog worker
+    for (const plugin of plugins) {
+      const pluginStorage = this.getPluginStorage(plugin);
+      const maybeAction = await pluginStorage.getNextAction(chainId);
+      if (maybeAction) {
+        return { ...maybeAction, pluginStorage };
+      }
+    }
+    return null;
   }
-  handleStorageStartupConfig(
+  async handleStorageStartupConfig(
     plugins: Plugin[],
     config: ExecutorEnv
   ): Promise<void> {
-    throw new Error("Method not implemented.");
+    logger.warn("Not implemented");
   }
-  getPluginStorage(plugin: Plugin): PluginStorage {
-    throw new Error("Method not implemented.");
+  getPluginStorage(plugin: Plugin): RedisPluginStorage {
+    return new RedisPluginStorage(this.redis, plugin);
   }
 }
 
@@ -120,7 +125,10 @@ class RedisPluginStorage implements PluginStorage {
   async getNextAction(
     this: RedisPluginStorage,
     chainId: ChainId
-  ): Promise<WorkerAction | null> {
+  ): Promise<{
+    action: WorkerAction;
+    queuedActions: WorkerAction[];
+  } | null> {
     const actions = await this.redis.getPrefix(
       actionPrefix(this.plugin, chainId)
     );
@@ -141,7 +149,12 @@ class RedisPluginStorage implements PluginStorage {
         JSON.stringify({ action: storageAction.action, inProgress: true })
       );
       if (setSuccessfully) {
-        return storageAction.action;
+        return {
+          action: storageAction.action,
+          queuedActions: actions.map(
+            ({ value }) => JSON.parse(value).action as WorkerAction
+          ),
+        };
       }
     }
     return null;
@@ -150,6 +163,12 @@ class RedisPluginStorage implements PluginStorage {
   async getStagingArea(this: RedisPluginStorage): Promise<Object> {
     const key = stagingAreaKey(this.plugin);
     const raw = await this.redis.getItem(key);
+    if (!raw) {
+      logger.warn(
+        `Missing staging area for plugin ${this.plugin.name}. Returning empty object`
+      );
+      return {};
+    }
     return JSON.parse(raw);
   }
 

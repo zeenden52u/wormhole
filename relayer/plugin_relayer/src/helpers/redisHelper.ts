@@ -75,8 +75,9 @@ export async function getPrefix(
   const iterator = await client.scanIterator({ MATCH: prefix + "*" });
   const output: { key: string; value: string }[] = [];
   for await (const key of iterator) {
-    output.push({ key, value: await client.get(key) });
+    output.push({ key, value: nnull(await client.get(key)) });
   }
+  logger.debug(`Prefix: ${prefix}, output: ${output}`)
   return output;
 }
 
@@ -158,7 +159,7 @@ export interface RedisHelper {
   ensureClient(): Promise<void>;
   insertItem(key: string, value: string): Promise<void>;
   getPrefix(prefix: string): Promise<{ key: string; value: string }[]>;
-  getItem(key: string): Promise<string>;
+  getItem(key: string): Promise<string | null>;
   removeItem(key: string): Promise<void>;
   compareAndSwap(
     prefix: string,
@@ -167,9 +168,8 @@ export interface RedisHelper {
   ): Promise<boolean>;
 }
 
-export async function getItem(key: string): Promise<string> {
-  const client = await getClient();
-  return await client.get(key);
+export function getItem(key: string): Promise<string | null> {
+  return getClient().then(c => c.get(key));
 }
 
 export async function ensureClient(): Promise<void> {

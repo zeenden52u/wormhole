@@ -3,9 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromHelper = exports.PromMode = void 0;
 const http = require("http");
 const client = require("prom-client");
+// import { WalletBalance } from "../monitor/walletMonitor";
 const wormhole_1 = require("../utils/wormhole");
 const logHelper_1 = require("./logHelper");
-const redisHelper_1 = require("./redisHelper");
+// import { RedisTables } from "./redisHelper";
 // NOTE:  To create a new metric:
 // 1) Create a private counter/gauge with appropriate name and help
 // 2) Create a method to set the metric to a value
@@ -174,54 +175,6 @@ class PromHelper {
     }
     handleListenerMemqueue(size) {
         this.listenerMemqueue.set(size);
-    }
-    setRedisQueue(queue, sourceChainId, targetChainId, size) {
-        this.redisQueue
-            .labels({
-            queue: redisHelper_1.RedisTables[queue].toLowerCase(),
-            source_chain_name: wormhole_1.chainIDStrings[sourceChainId],
-            target_chain_name: wormhole_1.chainIDStrings[targetChainId],
-        })
-            .set(size);
-    }
-    // Wallet metrics
-    handleWalletBalances(balances) {
-        const scopedLogger = (0, logHelper_1.getScopedLogger)(["handleWalletBalances"], logger);
-        // Walk through each wallet
-        // create a gauge for the balance
-        // set the gauge
-        //this.walletMetrics = [];
-        for (const bal of balances) {
-            try {
-                if (bal.currencyName.length === 0) {
-                    bal.currencyName = "UNK";
-                }
-                let formBal;
-                if (!bal.balanceFormatted) {
-                    formBal = 0;
-                }
-                else {
-                    formBal = parseFloat(bal.balanceFormatted);
-                }
-                this.walletBalance
-                    .labels({
-                    currency: bal.currencyName,
-                    chain_name: wormhole_1.chainIDStrings[bal.chainId] || "Unknown",
-                    wallet: bal.walletAddress,
-                    currency_address: bal.currencyAddressNative,
-                    is_native: bal.isNative ? "1" : "0",
-                })
-                    .set(formBal);
-            }
-            catch (e) {
-                if (e.message) {
-                    scopedLogger.error("Caught error: " + e.message);
-                }
-                else {
-                    scopedLogger.error("Caught error: %o", e);
-                }
-            }
-        }
     }
 }
 exports.PromHelper = PromHelper;

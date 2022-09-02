@@ -19,6 +19,7 @@ import { Storage } from "../helpers/storage";
 import * as wh from "@certusone/wormhole-sdk";
 import * as ethers from "ethers";
 import { providersFromChainConfig } from "../utils/providers";
+import { EVMChainId } from "@certusone/wormhole-sdk";
 
 const WORKER_RESTART_MS = 10 * 1000;
 const WORKER_INTERVAL_MS = 500;
@@ -39,13 +40,13 @@ export async function run(plugins: Plugin[], storage: Storage) {
   const providers = providersFromChainConfig(executorEnv.supportedChains);
 
   logger.info("Spawning chain workers...");
-  executorEnv.supportedChains.forEach((chain) => {
+  executorEnv.supportedChains.forEach(chain => {
     let id = 0;
     const privatekeys = maybeConcat<WalletPrivateKey>(
       chain.solanaPrivateKey,
       chain.walletPrivateKey
     );
-    privatekeys.forEach((key) => {
+    privatekeys.forEach(key => {
       spawnWalletWorker(storage, plugins, providers, {
         id: id++,
         targetChainId: chain.chainId,
@@ -72,11 +73,20 @@ async function spawnWalletWorker(
     [`${workerInfo.targetChainName}-${workerInfo.id}-worker`],
     getLogger()
   );
+  logger.info(`Spawned`);
   // todo: add metrics
   while (true) {
     try {
-      const { pluginStorage, action, queuedActions } =
-        await storage.getNextAction(workerInfo.targetChainId, plugins);
+      const maybeAction = await storage.getNextAction(
+        workerInfo.targetChainId,
+        plugins
+      );
+      if (!maybeAction) {
+        logger.debug("No action found, sleeping...")
+        await sleep(WORKER_INTERVAL_MS);
+        continue;
+      }
+      const { pluginStorage, action, queuedActions } = maybeAction;
       logger.info(
         `Relaying action ${action.id} with plugin ${pluginStorage.plugin.name}...`
       );
@@ -107,7 +117,7 @@ async function relayDispatcher(
   providers: Providers,
   logger: ScopedLogger
 ): Promise<ActionQueueUpdate> {
-  const errTempplate = (chainName) =>
+  const errTempplate = (chainName: string) =>
     new Error(
       `${chainName} action scheduled for plugin that does not support ${chainName}`
     );
@@ -115,7 +125,8 @@ async function relayDispatcher(
   if (wh.isEVMChain(workerInfo.targetChainId)) {
     const wallet = createEVMWalletToolBox(
       providers,
-      workerInfo.walletPrivateKey as string
+      workerInfo.walletPrivateKey as string,
+      workerInfo.targetChainId
     );
     if (!plugin.relayEvmAction) {
       throw errTempplate(workerInfo.targetChainName);
@@ -150,11 +161,12 @@ interface WorkerInfo {
 
 function createEVMWalletToolBox(
   providers: Providers,
-  privateKey: string
+  privateKey: string,
+  chainId: EVMChainId
 ): WalletToolBox<EVMWallet> {
   return {
     ...providers,
-    wallet: new ethers.Wallet(privateKey, providers.evm),
+    wallet: new ethers.Wallet(privateKey, providers.evm[chainId]),
   };
 }
 
@@ -172,5 +184,5 @@ function createSolanaWalletToolBox(
 }
 
 function maybeConcat<T>(...arrs: (T[] | undefined)[]): T[] {
-  return arrs.flatMap((arr) => (arr ? arr : []));
+  return arrs.flatMap(arr => (arr ? arr : []));
 }

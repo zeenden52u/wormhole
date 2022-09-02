@@ -1,10 +1,10 @@
 import { ChainId } from "@certusone/wormhole-sdk";
 import http = require("http");
 import client = require("prom-client");
-import { WalletBalance } from "../monitor/walletMonitor";
+// import { WalletBalance } from "../monitor/walletMonitor";
 import { chainIDStrings } from "../utils/wormhole";
 import { getScopedLogger } from "./logHelper";
-import { RedisTables } from "./redisHelper";
+// import { RedisTables } from "./redisHelper";
 
 // NOTE:  To create a new metric:
 // 1) Create a private counter/gauge with appropriate name and help
@@ -182,6 +182,7 @@ export class PromHelper {
   handleListenerMemqueue(size: number) {
     this.listenerMemqueue.set(size);
   }
+  /*
   setRedisQueue(
     queue: RedisTables,
     sourceChainId: ChainId,
@@ -196,8 +197,10 @@ export class PromHelper {
       })
       .set(size);
   }
+  */
 
   // Wallet metrics
+  /*
   handleWalletBalances(balances: WalletBalance[]) {
     const scopedLogger = getScopedLogger(["handleWalletBalances"], logger);
     // Walk through each wallet
@@ -233,4 +236,5 @@ export class PromHelper {
       }
     }
   }
+  */
 }

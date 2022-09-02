@@ -57,7 +57,7 @@ async function getPrefix(prefix) {
     const iterator = await client.scanIterator({ MATCH: prefix + "*" });
     const output = [];
     for await (const key of iterator) {
-        output.push({ key, value: await client.get(key) });
+        output.push({ key, value: nnull(await client.get(key)) });
     }
     return output;
 }
@@ -131,9 +131,8 @@ async function removeItem(key) {
     await enqueueOp(wrappedOp);
 }
 exports.removeItem = removeItem;
-async function getItem(key) {
-    const client = await getClient();
-    return await client.get(key);
+function getItem(key) {
+    return getClient().then(c => c.get(key));
 }
 exports.getItem = getItem;
 async function ensureClient() {
@@ -152,6 +151,7 @@ async function compareAndSwap(prefix, previousValue, newValue) {
                 return false;
             }
             await client.set(prefix, newValue);
+            return true;
         }
         catch (e) {
             logger.error("Failed compare and swap");

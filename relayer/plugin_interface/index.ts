@@ -1,7 +1,7 @@
 import { Metric } from "prom-client";
 import * as ethers from "ethers";
 import * as solana from "@solana/web3.js";
-import { ChainId } from "@certusone/wormhole-sdk";
+import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
 
 /*
  *  Config
@@ -56,7 +56,7 @@ export type SolanaWallet = {
 export type CosmWallet = {};
 
 export interface Providers {
-  evm: ethers.providers.Provider;
+  evm: { [id in EVMChainId]: ethers.providers.Provider };
   solana: solana.Connection;
   // todo: rest of supported chain providers
 }

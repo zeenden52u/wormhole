@@ -74,7 +74,7 @@ export const getCommonEnvironment: () => CommonEnv = () => {
   }
 };
 
-const errStr = (envVar) => `Missing required environment variable: ${envVar}`;
+const errStr = (envVar: string) => `Missing required environment variable: ${envVar}`;
 function parseOptionalEnvVar<T>(
   envVar: string,
   parser: (x: string) => T

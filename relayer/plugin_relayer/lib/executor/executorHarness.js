@@ -24,10 +24,10 @@ async function run(plugins, storage) {
     await storage.handleStorageStartupConfig(plugins, executorEnv);
     const providers = (0, providers_1.providersFromChainConfig)(executorEnv.supportedChains);
     logger.info("Spawning chain workers...");
-    executorEnv.supportedChains.forEach((chain) => {
+    executorEnv.supportedChains.forEach(chain => {
         let id = 0;
         const privatekeys = maybeConcat(chain.solanaPrivateKey, chain.walletPrivateKey);
-        privatekeys.forEach((key) => {
+        privatekeys.forEach(key => {
             spawnWalletWorker(storage, plugins, providers, {
                 id: id++,
                 targetChainId: chain.chainId,
@@ -46,10 +46,17 @@ exports.run = run;
  */
 async function spawnWalletWorker(storage, plugins, providers, workerInfo) {
     const logger = (0, logHelper_1.getScopedLogger)([`${workerInfo.targetChainName}-${workerInfo.id}-worker`], (0, logHelper_1.getLogger)());
+    logger.debug(`Spawned`);
     // todo: add metrics
     while (true) {
         try {
-            const { pluginStorage, action, queuedActions } = await storage.getNextAction(workerInfo.targetChainId, plugins);
+            const maybeAction = await storage.getNextAction(workerInfo.targetChainId, plugins);
+            if (!maybeAction) {
+                logger.debug("No action found, sleeping...");
+                await (0, utils_1.sleep)(WORKER_INTERVAL_MS);
+                continue;
+            }
+            const { pluginStorage, action, queuedActions } = maybeAction;
             logger.info(`Relaying action ${action.id} with plugin ${pluginStorage.plugin.name}...`);
             const update = await relayDispatcher(action, queuedActions, pluginStorage.plugin, workerInfo, providers, logger);
             pluginStorage.applyActionUpdate(update.enqueueActions, action);
@@ -66,7 +73,7 @@ async function spawnWalletWorker(storage, plugins, providers, workerInfo) {
 async function relayDispatcher(action, queuedActions, plugin, workerInfo, providers, logger) {
     const errTempplate = (chainName) => new Error(`${chainName} action scheduled for plugin that does not support ${chainName}`);
     if (wh.isEVMChain(workerInfo.targetChainId)) {
-        const wallet = createEVMWalletToolBox(providers, workerInfo.walletPrivateKey);
+        const wallet = createEVMWalletToolBox(providers, workerInfo.walletPrivateKey, workerInfo.targetChainId);
         if (!plugin.relayEvmAction) {
             throw errTempplate(workerInfo.targetChainName);
         }
@@ -84,10 +91,10 @@ async function relayDispatcher(action, queuedActions, plugin, workerInfo, provid
     }
     throw new Error(`Spawned worker for unknown chainId ${workerInfo.targetChainId} with name ${workerInfo.targetChainName}`);
 }
-function createEVMWalletToolBox(providers, privateKey) {
+function createEVMWalletToolBox(providers, privateKey, chainId) {
     return {
         ...providers,
-        wallet: new ethers.Wallet(privateKey, providers.evm),
+        wallet: new ethers.Wallet(privateKey, providers.evm[chainId]),
     };
 }
 function createSolanaWalletToolBox(providers, privateKey) {
@@ -100,6 +107,6 @@ function createSolanaWalletToolBox(providers, privateKey) {
     };
 }
 function maybeConcat(...arrs) {
-    return arrs.flatMap((arr) => (arr ? arr : []));
+    return arrs.flatMap(arr => (arr ? arr : []));
 }
 //# sourceMappingURL=executorHarness.js.map

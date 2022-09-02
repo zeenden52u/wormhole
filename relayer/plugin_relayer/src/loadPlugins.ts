@@ -1,4 +1,5 @@
-import { PluginFactory, Plugin, CommonEnvironment } from "plugin_interface";
+import { PluginFactory, Plugin } from "plugin_interface";
+import { CommonEnv } from "./configureEnv";
 import { getLogger } from "./helpers/logHelper";
 
 /*
@@ -8,9 +9,7 @@ import { getLogger } from "./helpers/logHelper";
     b. look for plugin overrides in common config
     c. construct plugin 
  */
-export async function loadPlugins(
-  commonEnv: CommonEnvironment
-): Promise<Plugin[]> {
+export async function loadPlugins(commonEnv: CommonEnv): Promise<Plugin[]> {
   const logger = getLogger();
   logger.info("Loading plugins...");
   const plugins = await Promise.all(
@@ -19,13 +18,13 @@ export async function loadPlugins(
     )
   );
   logger.info(`Loaded ${plugins.length} plugins`);
-  return plugins
+  return plugins;
 }
 
 export async function loadPlugin(
   uri: string,
   overrides: { [key: string]: any } | undefined,
-  commonEnv: CommonEnvironment
+  commonEnv: CommonEnv
 ): Promise<Plugin> {
   const module = (await import(uri)) as PluginFactory;
   return module.create(commonEnv, overrides);

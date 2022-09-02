@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RedisStorage = exports.getPluginStorage = exports.getNextAction = exports.createStorage = void 0;
+exports.RedisStorage = exports.getPluginStorage = exports.createStorage = void 0;
+const ethers_1 = require("ethers");
 const RedisHelper = require("./redisHelper");
 function sanitize(dirtyString) {
     return dirtyString.replace("[^a-zA-z_0-9]*", "");
@@ -19,10 +20,6 @@ async function createStorage(commonEnv) {
     return new RedisStorage(RedisHelper);
 }
 exports.createStorage = createStorage;
-async function getNextAction(chainId, plugins) {
-    throw new Error("Unimplemented");
-}
-exports.getNextAction = getNextAction;
 function getPluginStorage(plugin) {
     return new RedisPluginStorage(RedisHelper, plugin);
 }
@@ -34,14 +31,22 @@ class RedisStorage {
     constructor(redis) {
         this.redis = redis;
     }
-    getNextAction(chainId, plugins) {
-        throw new Error("Method not implemented.");
+    async getNextAction(chainId, plugins) {
+        // todo: ensure one plugin doesn't hog worker
+        for (const plugin of plugins) {
+            const pluginStorage = this.getPluginStorage(plugin);
+            const maybeAction = await pluginStorage.getNextAction(chainId);
+            if (maybeAction) {
+                return { ...maybeAction, pluginStorage };
+            }
+        }
+        return null;
     }
-    handleStorageStartupConfig(plugins, config) {
-        throw new Error("Method not implemented.");
+    async handleStorageStartupConfig(plugins, config) {
+        ethers_1.logger.warn("Not implemented");
     }
     getPluginStorage(plugin) {
-        throw new Error("Method not implemented.");
+        return new RedisPluginStorage(this.redis, plugin);
     }
 }
 exports.RedisStorage = RedisStorage;
@@ -66,7 +71,10 @@ class RedisPluginStorage {
             }
             const setSuccessfully = await this.redis.compareAndSwap(key, value, JSON.stringify({ action: storageAction.action, inProgress: true }));
             if (setSuccessfully) {
-                return storageAction.action;
+                return {
+                    action: storageAction.action,
+                    queuedActions: actions.map(({ value }) => JSON.parse(value).action),
+                };
             }
         }
         return null;
@@ -74,6 +82,10 @@ class RedisPluginStorage {
     async getStagingArea() {
         const key = stagingAreaKey(this.plugin);
         const raw = await this.redis.getItem(key);
+        if (!raw) {
+            ethers_1.logger.warn(`Missing staging area for plugin ${this.plugin.name}. Returning empty object`);
+            return {};
+        }
         return JSON.parse(raw);
     }
     async addActions(actionsToAdd) {
@@ -91,6 +103,6 @@ class RedisPluginStorage {
         await this.redis.insertItem(stagingAreaKey(this.plugin), JSON.stringify(newStagingArea));
     }
 }
-const exports = { getPluginStorage };
-exports.default = exports;
+const toExport = { getPluginStorage };
+exports.default = toExport;
 //# sourceMappingURL=storage.js.map

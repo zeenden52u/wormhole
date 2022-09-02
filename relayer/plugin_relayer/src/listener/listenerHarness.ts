@@ -27,11 +27,13 @@ export async function run(plugins: Plugin[], storage: Storage) {
 
   //if spy is enabled, instantiate spy with filters
   if (shouldSpy(plugins)) {
+    logger.info("Initializing spy listener...");
     const spyClient = createSpyRPCServiceClient(
       listnerEnv.spyServiceHost || ""
     );
-    plugins.forEach((plugin) => {
+    plugins.forEach(plugin => {
       if (plugin.shouldSpy) {
+        logger.info(`Initializing spy listener for plugin ${plugin.name}...`);
         runPluginSpyListener(storage.getPluginStorage(plugin), spyClient);
       }
     });
@@ -41,14 +43,15 @@ export async function run(plugins: Plugin[], storage: Storage) {
   if (shouldRest(plugins)) {
     //const restListener = setupRestListener(restFilters);
   }
+  logger.debug("End of listener harness run function")
 }
 
 function shouldRest(plugins: Plugin[]): boolean {
-  return plugins.some((x) => x.shouldRest);
+  return plugins.some(x => x.shouldRest);
 }
 
 function shouldSpy(plugins: Plugin[]): boolean {
-  return plugins.some((x) => x.shouldSpy);
+  return plugins.some(x => x.shouldSpy);
 }
 
 // 1. fetches scratch area and list of actions
@@ -82,7 +85,7 @@ async function runPluginSpyListener(
     let stream: any;
     try {
       stream = await subscribeSignedVAA(client, {
-        filters: plugin.getFilters().map((x) => {
+        filters: plugin.getFilters().map(x => {
           return {
             emitterFilter: x,
           };

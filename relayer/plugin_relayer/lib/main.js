@@ -31,11 +31,13 @@ async function main() {
     const plugins = await (0, loadPlugins_1.loadPlugins)(commonEnv);
     const storage = await (0, storage_1.createStorage)(commonEnv);
     if (process.env.MODE === "listener") {
+        logger.info("Running in listener mode");
         // init listener harness
         const promHelper = new promHelpers_1.PromHelper("plugin_relayer", commonEnv.promPort, promHelpers_1.PromMode.Listen);
         await listenerHarness.run(plugins, storage);
     }
     else if (process.env.MODE === "executor") {
+        logger.info("Running in executor mode");
         // init executor harness
         const promHelper = new promHelpers_1.PromHelper("plugin_relayer", commonEnv.promPort, promHelpers_1.PromMode.Execute);
         executorHarness.run(plugins, storage);
