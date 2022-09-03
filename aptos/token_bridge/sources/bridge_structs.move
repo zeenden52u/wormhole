@@ -99,6 +99,28 @@ module token_bridge::BridgeStructs {
         newContract: vector<u8>,
     }
 
+    public fun create_asset_meta(
+        payloadID: u8,
+        // Address of the token. Left-zero-padded if shorter than 32 bytes
+        tokenAddress: vector<u8>,
+        // Chain ID of the token
+        tokenChain: U16,
+        // Number of decimals of the token (big-endian uint256)
+        decimals: u8,
+        // Symbol of the token (UTF-8)
+        symbol: vector<u8>,
+        // Name of the token (UTF-8)
+        name: vector<u8>,): AssetMeta {
+        AssetMeta{
+            payloadID,
+            tokenAddress,
+            tokenChain,
+            decimals,
+            symbol,
+            name
+        }
+    }
+
     public fun encodeAssetMeta(meta: AssetMeta): vector<u8> {
         let encoded = vector::empty<u8>();
         serialize_u8(&mut encoded, meta.payloadID);
