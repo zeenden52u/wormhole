@@ -9,6 +9,8 @@ MoveStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "a
 AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-stdlib/", rev = "devnet" }
 AptosToken = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token/", rev = "devnet" }
 Wormhole = { local = "../contracts/" }
+Deployer = { local = "../deployer/" }
+
 # U256 = { git = "https://github.com/pontem-network/u256", rev = "main"  }
 
 [addresses]
