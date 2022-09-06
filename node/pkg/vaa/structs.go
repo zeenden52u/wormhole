@@ -452,9 +452,9 @@ func UnmarshalBatch(data []byte) (*BatchVAA, error) {
 			return nil, fmt.Errorf("failed to read Observation index [%d]: %w", i, err)
 		}
 
-		obsvLength, err := reader.ReadByte()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read Observation length [%d]: %w", i, err)
+		obsvLength := uint32(0)
+		if err := binary.Read(reader, binary.BigEndian, &obsvLength); err != nil {
+			return nil, fmt.Errorf("failed to read Observation length: %w", err)
 		}
 
 		obs := make([]byte, int(obsvLength))
