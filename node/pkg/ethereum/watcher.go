@@ -90,6 +90,12 @@ type (
 		// include requests for our chainID.
 		obsvReqC chan *gossipv1.ObservationRequest
 
+		// Channel to send message batches to.
+		batchC chan *common.BatchMessage
+
+		// Incoming message batch requests. Pre-filtered to only include requests for our chainID.
+		batchReqC chan *common.BatchMessageID
+
 		pending   map[pendingKey]*pendingMessage
 		pendingMu sync.Mutex
 
@@ -127,6 +133,8 @@ func NewEthWatcher(
 	setEvents chan *common.GuardianSet,
 	minConfirmations uint64,
 	obsvReqC chan *gossipv1.ObservationRequest,
+	batchC chan *common.BatchMessage,
+	batchReqC chan *common.BatchMessageID,
 	unsafeDevMode bool) *Watcher {
 
 	var ethIntf common.Ethish
@@ -154,6 +162,8 @@ func NewEthWatcher(
 		msgChan:             messageEvents,
 		setChan:             setEvents,
 		obsvReqC:            obsvReqC,
+		batchC:              batchC,
+		batchReqC:           batchReqC,
 		pending:             map[pendingKey]*pendingMessage{},
 		ethIntf:             ethIntf,
 		shouldCheckSafeMode: (chainID == vaa.ChainIDKarura || chainID == vaa.ChainIDAcala) && (!unsafeDevMode)}
@@ -313,6 +323,61 @@ func (e *Watcher) Run(ctx context.Context) error {
 						)
 					}
 				}
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case r := <-e.batchReqC:
+				// This can't happen unless there is a programming error - the caller
+				// is expected to send us only requests for our chainID.
+				if r.EmitterChain != e.chainID {
+					panic("invalid chain ID")
+				}
+
+				tx := r.TransactionID
+				logger.Info("received batch request",
+					zap.String("eth_network", e.networkName),
+					zap.String("tx_hash", tx.Hex()))
+
+				// SECURITY: Load the block number before requesting the transaction to avoid a
+				// race condition where requesting the tx succeeds and is then dropped due to a fork,
+				// but blockNumberU had already advanced beyond the required threshold.
+				//
+				// In the primary watcher flow, this is of no concern since we assume the node
+				// always sends the head before it sends the logs (implicit synchronization
+				// by relying on the same websocket connection).
+				blockNumberU := atomic.LoadUint64(&currentBlockNumber)
+				if blockNumberU == 0 {
+					logger.Error("no block number available, ignoring batch request",
+						zap.String("eth_network", e.networkName))
+					continue
+				}
+
+				timeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+				_, msgs, err := MessageEventsForTransaction(timeout, e.ethIntf, e.contract, e.chainID, tx)
+				cancel()
+
+				if err != nil {
+					logger.Error("failed to process batch request",
+						zap.Error(err), zap.String("eth_network", e.networkName))
+					continue
+				}
+
+				logger.Info("got message batch data",
+					zap.Int("num_messages", len(msgs)),
+					zap.String("eth_network", e.networkName),
+					zap.String("tx_hash", tx.Hex()))
+
+				b := &common.BatchMessage{
+					BatchMessageID: *r,
+					Messages:       msgs,
+				}
+				e.batchC <- b
 			}
 		}
 	}()
@@ -538,6 +603,7 @@ func (e *Watcher) Run(ctx context.Context) error {
 							zap.Stringer("current_blockhash", currentHash),
 							zap.String("eth_network", e.networkName))
 						delete(e.pending, key)
+						//  msgChan is processor.lockC
 						e.msgChan <- pLock.message
 						ethMessagesConfirmed.WithLabelValues(e.networkName).Inc()
 					}
