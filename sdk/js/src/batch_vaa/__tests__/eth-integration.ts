@@ -1,19 +1,20 @@
 import { ethers } from "ethers";
 import { describe, expect, test } from "@jest/globals";
-import { CHAIN_ID_ETH, CHAIN_ID_BSC } from "../..";
+import { CHAIN_ID_ETH, CHAIN_ID_BSC, getSignedBatchVAAWithRetry } from "../..";
 import {
   ETH_NODE_URL,
   BSC_NODE_URL,
   ETH_PRIVATE_KEY,
   MOCK_BATCH_VAA_SENDER_ABI,
   MOCK_BATCH_VAA_SENDER_ADDRESS,
-  MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES
+  MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
+  WORMHOLE_RPC_HOSTS,
 } from "./consts";
 import {
   parseWormholeEventsFromReceipt,
   getSignedBatchVaaFromReceiptOnEth,
   getSignedVaaFromReceiptOnEth,
-  removeObservationFromBatch
+  removeObservationFromBatch,
 } from "./utils";
 
 describe("Batch VAAs", () => {
@@ -24,7 +25,7 @@ describe("Batch VAAs", () => {
     ethers.utils.hexlify(ethers.utils.toUtf8Bytes("SuperCoolCrossChainStuff0")),
     ethers.utils.hexlify(ethers.utils.toUtf8Bytes("SuperCoolCrossChainStuff1")),
     ethers.utils.hexlify(ethers.utils.toUtf8Bytes("SuperCoolCrossChainStuff2")),
-    ethers.utils.hexlify(ethers.utils.toUtf8Bytes("SuperCoolCrossChainStuff3"))
+    ethers.utils.hexlify(ethers.utils.toUtf8Bytes("SuperCoolCrossChainStuff3")),
   ];
   const batchVAAConsistencyLevels: number[] = [15, 10, 2, 15];
 
@@ -38,7 +39,7 @@ describe("Batch VAAs", () => {
   let legacyVAAFromBSC: Uint8Array;
   let encodedPartialBatchVAAForBSC: ethers.BytesLike;
 
-  test("Should Generate a Batch VAA From a Contract on Ethereum", done => {
+  test("Should Generate a Batch VAA From a Contract on Ethereum", (done) => {
     (async () => {
       try {
         // create a signer for ETH
@@ -73,12 +74,9 @@ describe("Batch VAAs", () => {
 
         // REVIEW: this will be replaced with a call to fetch the real batch VAA
         // simulate fetching the batch VAA
-        encodedBatchVAAFromEth = await getSignedBatchVaaFromReceiptOnEth(
-          receipt,
-          CHAIN_ID_ETH,
-          MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
-          0 // guardianSetIndex
-        );
+        console.log("going to fetch BatchVAA for transaction: ", receipt.transactionHash);
+        const batchVaaRes = await getSignedBatchVAAWithRetry(WORMHOLE_RPC_HOSTS, CHAIN_ID_ETH, receipt.transactionHash);
+        console.log("got BatchVAA from guardian: ", batchVaaRes);
 
         // destory the provider and end the test
         provider.destroy();
@@ -90,7 +88,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Verify a Batch VAA From a Contract on BSC", done => {
+  test("Should Verify a Batch VAA From a Contract on BSC", (done) => {
     (async () => {
       try {
         // create a signer for BSC
@@ -131,7 +129,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Generate a Single VAA (a Batch and Legacy VAA) From a Contract on BSC", done => {
+  test("Should Generate a Single VAA (a Batch and Legacy VAA) From a Contract on BSC", (done) => {
     (async () => {
       try {
         // create a signer for BSC
@@ -165,14 +163,9 @@ describe("Batch VAAs", () => {
         expect(messageEvents[0].args.payload).toEqual(singleVAAPayload);
         expect(messageEvents[0].args.consistencyLevel).toEqual(consistencyLevel);
 
-        // REVIEW: this will be replaced with a call to fetch the real batch VAA
-        // simulate fetching the batch VAA
-        encodedBatchVAAFromBsc = await getSignedBatchVaaFromReceiptOnEth(
-          receipt,
-          CHAIN_ID_BSC,
-          MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
-          0 // guardianSetIndex
-        );
+        console.log("going to fetch BSC BatchVAA for transaction: ", receipt.transactionHash);
+        const batchVaaRes = await getSignedBatchVAAWithRetry(WORMHOLE_RPC_HOSTS, CHAIN_ID_BSC, receipt.transactionHash);
+        console.log("got BSC BatchVAA from guardian: ", batchVaaRes);
 
         // fetch the legacy VAA for the observation in the batch
         legacyVAAFromBSC = await getSignedVaaFromReceiptOnEth(receipt, CHAIN_ID_BSC, MOCK_BATCH_VAA_SENDER_ADDRESS);
@@ -187,7 +180,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Verify a Batch VAA (With a Single Observation) From a Contract on Ethereum", done => {
+  test("Should Verify a Batch VAA (With a Single Observation) From a Contract on Ethereum", (done) => {
     (async () => {
       try {
         // create a signer for ETH
@@ -226,7 +219,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Verify a Legacy VAA From a Contract on Ethereum", done => {
+  test("Should Verify a Legacy VAA From a Contract on Ethereum", (done) => {
     (async () => {
       try {
         // create a signer for ETH
@@ -269,7 +262,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Convert a Batch VAA From Ethereum Into Two Partial Batch VAAs", done => {
+  test("Should Convert a Batch VAA From Ethereum Into Two Partial Batch VAAs", (done) => {
     (async () => {
       try {
         // create a signer for ETH
@@ -340,7 +333,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Verify a Partial Batch VAA From a Contract on BSC", done => {
+  test("Should Verify a Partial Batch VAA From a Contract on BSC", (done) => {
     (async () => {
       try {
         // create a signer for BSC
@@ -397,7 +390,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Verify a Partial Batch VAA From a Contract on Ethereum", done => {
+  test("Should Verify a Partial Batch VAA From a Contract on Ethereum", (done) => {
     (async () => {
       try {
         // create a signer for ETH
@@ -455,7 +448,7 @@ describe("Batch VAAs", () => {
     })();
   });
 
-  test("Should Verify a Legacy VAA From a Contract on Ethereum Using parseAndVerifyVAA", done => {
+  test("Should Verify a Legacy VAA From a Contract on Ethereum Using parseAndVerifyVAA", (done) => {
     (async () => {
       try {
         // create a signer for ETH
