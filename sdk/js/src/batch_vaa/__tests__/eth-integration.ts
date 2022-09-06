@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { describe, expect, test } from "@jest/globals";
+import { NodeHttpTransport } from "@improbable-eng/grpc-web-node-http-transport";
 import { CHAIN_ID_ETH, CHAIN_ID_BSC, getSignedBatchVAAWithRetry } from "../..";
 import {
   ETH_NODE_URL,
@@ -72,11 +73,15 @@ describe("Batch VAAs", () => {
           expect(messageEvents[i].args.consistencyLevel).toEqual(batchVAAConsistencyLevels[i]);
         }
 
-        // REVIEW: this will be replaced with a call to fetch the real batch VAA
-        // simulate fetching the batch VAA
-        console.log("going to fetch BatchVAA for transaction: ", receipt.transactionHash);
-        const batchVaaRes = await getSignedBatchVAAWithRetry(WORMHOLE_RPC_HOSTS, CHAIN_ID_ETH, receipt.transactionHash);
-        console.log("got BatchVAA from guardian: ", batchVaaRes);
+        const batchVaaRes = await getSignedBatchVAAWithRetry(
+          WORMHOLE_RPC_HOSTS,
+          CHAIN_ID_ETH,
+          receipt.transactionHash,
+          {
+            transport: NodeHttpTransport(),
+          }
+        );
+        encodedBatchVAAFromEth = batchVaaRes.batchVaaBytes;
 
         // destory the provider and end the test
         provider.destroy();
@@ -163,9 +168,15 @@ describe("Batch VAAs", () => {
         expect(messageEvents[0].args.payload).toEqual(singleVAAPayload);
         expect(messageEvents[0].args.consistencyLevel).toEqual(consistencyLevel);
 
-        console.log("going to fetch BSC BatchVAA for transaction: ", receipt.transactionHash);
-        const batchVaaRes = await getSignedBatchVAAWithRetry(WORMHOLE_RPC_HOSTS, CHAIN_ID_BSC, receipt.transactionHash);
-        console.log("got BSC BatchVAA from guardian: ", batchVaaRes);
+        const batchVaaRes = await getSignedBatchVAAWithRetry(
+          WORMHOLE_RPC_HOSTS,
+          CHAIN_ID_BSC,
+          receipt.transactionHash,
+          {
+            transport: NodeHttpTransport(),
+          }
+        );
+        encodedBatchVAAFromBsc = batchVaaRes.batchVaaBytes;
 
         // fetch the legacy VAA for the observation in the batch
         legacyVAAFromBSC = await getSignedVaaFromReceiptOnEth(receipt, CHAIN_ID_BSC, MOCK_BATCH_VAA_SENDER_ADDRESS);
