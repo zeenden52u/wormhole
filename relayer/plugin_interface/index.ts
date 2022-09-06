@@ -10,11 +10,16 @@ import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
 // todo: Should these really be in this package? Probably shouldn't since plugins shouldn't depend on all these
 
 // subset of common env that plugins should have access to
-export interface CommonPluginEnv {}
+export interface CommonPluginEnv {
+  envType: EnvTypes
+}
 
 export enum EnvTypes {
   MAIN_NET = "MAIN_NET",
   DEV_NET = "DEV_NET",
+  TILT_NET = "TILT_NET",
+  LOCALNET = "LOCAL_NET",
+  OTHER = "OTHER"
 }
 
 /*
@@ -98,6 +103,7 @@ export interface Listener extends PluginCommonFields {
 
 export type Plugin = Listener & Executor;
 export interface PluginFactory {
+  // validate untyped config and exception out if invalid
   create(config: CommonPluginEnv, overrides?: any): Plugin;
 }
 

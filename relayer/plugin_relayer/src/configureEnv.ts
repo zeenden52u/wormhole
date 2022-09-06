@@ -7,62 +7,6 @@ import {
 import { EnvTypes } from "plugin_interface";
 import { getLogger } from "./helpers/logHelper";
 
-export type CommonEnv = {
-  logLevel: string;
-  promPort: number;
-  readinessPort?: number;
-  logDir?: string;
-  redisHost: string;
-  redisPort: number;
-  plugins: [
-    {
-      uri: string;
-      overrides: { [key: string]: any };
-    }
-  ];
-  envType: EnvTypes | string;
-};
-
-export type ListenerEnv = {
-  spyServiceHost: string;
-  spyServiceFilters: { chainId: ChainId; emitterAddress: string }[];
-  restPort: number;
-  numSpyWorkers: number;
-  supportedTokens: { chainId: ChainId; address: string }[];
-};
-
-export type ExecutorEnv = {
-  supportedChains: ChainConfigInfo[];
-  redisHost: string;
-  redisPort: number;
-  clearRedisOnInit: boolean;
-  demoteWorkingOnInit: boolean;
-  supportedTokens: { chainId: ChainId; address: string }[];
-};
-
-export type ChainConfigInfo = {
-  chainId: ChainId;
-  chainName: string;
-  nativeCurrencySymbol: string;
-  nodeUrl: string;
-  tokenBridgeAddress: string;
-  walletPrivateKey?: string[];
-  solanaPrivateKey?: Uint8Array[];
-  bridgeAddress?: string;
-  terraName?: string;
-  terraChainId?: string;
-  terraCoin?: string;
-  terraGasPriceUrl?: string;
-  wrappedAsset?: string | null;
-  isTerraClassic?: boolean;
-};
-
-export type SupportedToken = {
-  chainId: ChainId;
-  address: string;
-};
-
-let loggingEnv: CommonEnv | undefined = undefined;
 
 export const getCommonEnvironment: () => CommonEnv = () => {
   if (loggingEnv) {

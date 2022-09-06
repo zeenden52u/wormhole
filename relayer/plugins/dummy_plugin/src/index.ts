@@ -16,26 +16,27 @@ export function create(config: CommonPluginEnv, overrides?: any): Plugin {
   return new DummyPlugin(config, overrides);
 }
 
-/*
- */
-
 class DummyPlugin implements Plugin {
   shouldSpy: boolean;
   shouldRest: boolean;
   name: string;
   env: any;
+  config: CommonPluginEnv,
 
   constructor(config: CommonPluginEnv, overrides: Object) {
     console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
     console.log(`Overrides: ${JSON.stringify(overrides, undefined, 2)}`);
+    this.config = config
     this.env = { shouldSpy: true, shouldRest: true, ...overrides };
     this.shouldRest = this.env.shouldRest;
     this.shouldSpy = this.env.shouldSpy;
     this.name = "DummyPlugin";
   }
+
   getFilters(): ContractFilter[] {
     return [{ chainId: 1, emitterAddress: "gotcha!!" }];
   }
+
   async consumeEvent(
     vaa: Uint8Array,
     stagingArea: { counter?: number }
