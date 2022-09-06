@@ -132,5 +132,6 @@ func tokenList() []tokenConfigEntry {
 		tokenConfigEntry{chain: 14, addr: "000000000000000000000000d8763cba276a3738e6de85b4b3bf5fded6d6ca73", symbol: "cEUR", coinGeckoId: "celo-euro", decimals: 8, price: 1.009},                   // Addr: 0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73, Notional: 101465
 		tokenConfigEntry{chain: 15, addr: "0000000000000000000000000000000000000000000000000000000000000000", symbol: "NEAR", coinGeckoId: "near", decimals: 8, price: 4.330},                        // *** manually added
 		tokenConfigEntry{chain: 18, addr: "01fa6c6fbc36d8c245b0a852a43eb5d644e8b4c477b27bfab9537c10945939da", symbol: "LUNA", coinGeckoId: "terra-luna-2", decimals: 6, price: 1.99},                 // Addr: uluna, Notional: 1182
+		//Add GLMR
 	}
 }
