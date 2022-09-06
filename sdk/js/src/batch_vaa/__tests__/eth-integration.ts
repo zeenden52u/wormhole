@@ -1,6 +1,6 @@
-import {ethers} from "ethers";
-import {describe, expect, test} from "@jest/globals";
-import {CHAIN_ID_ETH, CHAIN_ID_BSC} from "../..";
+import { ethers } from "ethers";
+import { describe, expect, test } from "@jest/globals";
+import { CHAIN_ID_ETH, CHAIN_ID_BSC, getSignedBatchVAAWithRetry } from "../..";
 import {
   ETH_NODE_URL,
   BSC_NODE_URL,
@@ -8,6 +8,7 @@ import {
   MOCK_BATCH_VAA_SENDER_ABI,
   MOCK_BATCH_VAA_SENDER_ADDRESS,
   MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
+  WORMHOLE_RPC_HOSTS,
 } from "./consts";
 import {
   parseWormholeEventsFromReceipt,
@@ -73,12 +74,9 @@ describe("Batch VAAs", () => {
 
         // REVIEW: this will be replaced with a call to fetch the real batch VAA
         // simulate fetching the batch VAA
-        encodedBatchVAAFromEth = await getSignedBatchVaaFromReceiptOnEth(
-          receipt,
-          CHAIN_ID_ETH,
-          MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
-          0 // guardianSetIndex
-        );
+        console.log('going to fetch BatchVAA for transaction: ', receipt.transactionHash)
+        const batchVaaRes = await getSignedBatchVAAWithRetry(WORMHOLE_RPC_HOSTS, CHAIN_ID_ETH, receipt.transactionHash)
+        console.log("got BatchVAA from guardian: ", batchVaaRes)
 
         // destory the provider and end the test
         provider.destroy();
@@ -165,14 +163,9 @@ describe("Batch VAAs", () => {
         expect(messageEvents[0].args.payload).toEqual(singleVAAPayload);
         expect(messageEvents[0].args.consistencyLevel).toEqual(consistencyLevel);
 
-        // REVIEW: this will be replaced with a call to fetch the real batch VAA
-        // simulate fetching the batch VAA
-        encodedBatchVAAFromBsc = await getSignedBatchVaaFromReceiptOnEth(
-          receipt,
-          CHAIN_ID_BSC,
-          MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
-          0 // guardianSetIndex
-        );
+        console.log('going to fetch BSC BatchVAA for transaction: ', receipt.transactionHash)
+        const batchVaaRes = await getSignedBatchVAAWithRetry(WORMHOLE_RPC_HOSTS, CHAIN_ID_BSC, receipt.transactionHash)
+        console.log("got BSC BatchVAA from guardian: ", batchVaaRes)
 
         // fetch the legacy VAA for the observation in the batch
         legacyVAAFromBSC = await getSignedVaaFromReceiptOnEth(receipt, CHAIN_ID_BSC, MOCK_BATCH_VAA_SENDER_ADDRESS);
