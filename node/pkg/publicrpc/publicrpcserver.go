@@ -98,6 +98,34 @@ func (s *PublicrpcServer) GetSignedVAA(ctx context.Context, req *publicrpcv1.Get
 	}, nil
 }
 
+func (s *PublicrpcServer) GetSignedBatchVAA(ctx context.Context, req *publicrpcv1.GetSignedBatchVAARequest) (*publicrpcv1.GetSignedBatchVAAResponse, error) {
+	if req.BatchId == nil {
+		return nil, status.Error(codes.InvalidArgument, "no batch ID specified")
+	}
+
+	txHash, err := vaa.StringToHash(req.BatchId.TxId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to decode transaction ID hex: %v", err))
+	}
+
+	b, err := s.db.GetSignedBatchVAABytes(db.BatchVAAID{
+		EmitterChain:  vaa.ChainID(req.BatchId.EmitterChain.Number()),
+		TransactionID: txHash,
+	})
+
+	if err != nil {
+		if err == db.ErrVAANotFound {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		s.logger.Error("failed to fetch VAA", zap.Error(err), zap.Any("request", req))
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+
+	return &publicrpcv1.GetSignedBatchVAAResponse{
+		BatchVaaBytes: b,
+	}, nil
+}
+
 func (s *PublicrpcServer) GetCurrentGuardianSet(ctx context.Context, req *publicrpcv1.GetCurrentGuardianSetRequest) (*publicrpcv1.GetCurrentGuardianSetResponse, error) {
 	gs := s.gst.Get()
 	if gs == nil {
