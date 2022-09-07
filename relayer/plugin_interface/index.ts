@@ -11,15 +11,15 @@ import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
 
 // subset of common env that plugins should have access to
 export interface CommonPluginEnv {
-  envType: EnvTypes
+  envType: EnvTypes;
 }
 
 export enum EnvTypes {
-  MAIN_NET = "MAIN_NET",
-  DEV_NET = "DEV_NET",
-  TILT_NET = "TILT_NET",
-  LOCALNET = "LOCAL_NET",
-  OTHER = "OTHER"
+  MAINNET = "MAINNET",
+  DEVNET = "DEVNET",
+  TILT = "TILT",
+  LOCALNET = "LOCALNET",
+  OTHER = "OTHER",
 }
 
 /*
