@@ -27,10 +27,10 @@ import { loadPlugins } from "./loadPlugins";
 setDefaultWasm("node");
 
 // instantiate common environment
-const commonEnv = getCommonEnvironment();
 const logger = getLogger();
 
 async function main() {
+  load
   const plugins = await loadPlugins(commonEnv);
   const storage = await createStorage(commonEnv);
   if (process.env.MODE === "listener") {

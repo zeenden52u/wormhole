@@ -4,6 +4,7 @@ import { getCommonEnvironment } from "../configureEnv";
 //Be careful not to access this before having called init logger, or it will be undefined
 let logger: winston.Logger | undefined;
 
+// todo: fallback to console.log if logger not init'd
 export function getLogger(): winston.Logger {
   if (logger) {
     return logger;
