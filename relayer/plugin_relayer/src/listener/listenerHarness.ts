@@ -7,7 +7,7 @@
 6.  
 */
 
-import { getCommonEnvironment, getListenerEnvironment } from "../configureEnv";
+import { getCommonEnv, getListenerEnv } from "../helpers/validateConfig";
 import { getLogger, getScopedLogger } from "../helpers/logHelper";
 import * as redisHelper from "../helpers/redisHelper";
 import { ContractFilter, Plugin } from "plugin_interface";
@@ -19,21 +19,20 @@ import { sleep } from "../helpers/utils";
 import { SpyRPCServiceClient } from "@certusone/wormhole-spydk/lib/cjs/proto/spy/v1/spy";
 import { PluginStorage, Storage } from "../helpers/storage";
 
-const logger = getScopedLogger(["listenerHarness"], getLogger());
-const commonEnv = getCommonEnvironment();
+const logger = () => getScopedLogger(["listenerHarness"], getLogger());
 
 export async function run(plugins: Plugin[], storage: Storage) {
-  const listnerEnv = getListenerEnvironment();
+  const listnerEnv = getListenerEnv();
 
   //if spy is enabled, instantiate spy with filters
   if (shouldSpy(plugins)) {
-    logger.info("Initializing spy listener...");
+    logger().info("Initializing spy listener...");
     const spyClient = createSpyRPCServiceClient(
       listnerEnv.spyServiceHost || ""
     );
     plugins.forEach(plugin => {
       if (plugin.shouldSpy) {
-        logger.info(`Initializing spy listener for plugin ${plugin.name}...`);
+        logger().info(`Initializing spy listener for plugin ${plugin.name}...`);
         runPluginSpyListener(storage.getPluginStorage(plugin), spyClient);
       }
     });
@@ -43,7 +42,7 @@ export async function run(plugins: Plugin[], storage: Storage) {
   if (shouldRest(plugins)) {
     //const restListener = setupRestListener(restFilters);
   }
-  logger.debug("End of listener harness run function")
+  logger().debug("End of listener harness run function");
 }
 
 function shouldRest(plugins: Plugin[]): boolean {
@@ -70,7 +69,7 @@ async function consumeEventHarness(
     await storage.addActions(actions);
     await storage.saveStagingArea(nextStagingArea);
   } catch (e) {
-    logger.error(e);
+    logger().error(e);
     // metric onError
   }
 }
@@ -99,16 +98,16 @@ async function runPluginSpyListener(
 
       let connected = true;
       stream.on("error", (err: any) => {
-        logger.error("spy service returned an error: %o", err);
+        logger().error("spy service returned an error: %o", err);
         connected = false;
       });
 
       stream.on("close", () => {
-        logger.error("spy service closed the connection!");
+        logger().error("spy service closed the connection!");
         connected = false;
       });
 
-      logger.info(
+      logger().info(
         "connected to spy service, listening for transfer signed VAAs"
       );
 
@@ -116,11 +115,11 @@ async function runPluginSpyListener(
         await sleep(1000);
       }
     } catch (e) {
-      logger.error("spy service threw an exception: %o", e);
+      logger().error("spy service threw an exception: %o", e);
     }
 
     stream.destroy();
     await sleep(5 * 1000);
-    logger.info("attempting to reconnect to the spy service");
+    logger().info("attempting to reconnect to the spy service");
   }
 }

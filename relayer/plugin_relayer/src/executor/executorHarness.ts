@@ -1,8 +1,8 @@
 import {
-  getCommonEnvironment,
-  getExecutorEnvironment,
+  getCommonEnv,
+  getExecutorEnv,
   ExecutorEnv,
-} from "../configureEnv";
+} from "../helpers/validateConfig";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import {
   ActionQueueUpdate,
@@ -23,7 +23,6 @@ import { EVMChainId } from "@certusone/wormhole-sdk";
 
 const WORKER_RESTART_MS = 10 * 1000;
 const WORKER_INTERVAL_MS = 500;
-const commonEnv = getCommonEnvironment();
 let executorEnv: ExecutorEnv | undefined;
 
 /*
@@ -33,7 +32,7 @@ let executorEnv: ExecutorEnv | undefined;
  * 5. For each wallet, spawn worker
  */
 export async function run(plugins: Plugin[], storage: Storage) {
-  executorEnv = getExecutorEnvironment();
+  executorEnv = getExecutorEnv();
   const logger = getScopedLogger(["executorHarness"], getLogger());
 
   await storage.handleStorageStartupConfig(plugins, executorEnv);
@@ -82,7 +81,7 @@ async function spawnWalletWorker(
         plugins
       );
       if (!maybeAction) {
-        logger.debug("No action found, sleeping...")
+        logger.debug("No action found, sleeping...");
         await sleep(WORKER_INTERVAL_MS);
         continue;
       }

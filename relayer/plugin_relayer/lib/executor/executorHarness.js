@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = void 0;
-const configureEnv_1 = require("../configureEnv");
+const validateConfig_1 = require("../helpers/validateConfig");
 const logHelper_1 = require("../helpers/logHelper");
 const solana = require("@solana/web3.js");
 const utils_1 = require("../helpers/utils");
@@ -10,7 +10,7 @@ const ethers = require("ethers");
 const providers_1 = require("../utils/providers");
 const WORKER_RESTART_MS = 10 * 1000;
 const WORKER_INTERVAL_MS = 500;
-const commonEnv = (0, configureEnv_1.getCommonEnvironment)();
+const commonEnv = (0, validateConfig_1.getCommonEnv)();
 let executorEnv;
 /*
  * 1. Grab logger & commonEnv
@@ -19,7 +19,7 @@ let executorEnv;
  * 5. For each wallet, spawn worker
  */
 async function run(plugins, storage) {
-    executorEnv = (0, configureEnv_1.getExecutorEnvironment)();
+    executorEnv = (0, validateConfig_1.getExecutorEnv)();
     const logger = (0, logHelper_1.getScopedLogger)(["executorHarness"], (0, logHelper_1.getLogger)());
     await storage.handleStorageStartupConfig(plugins, executorEnv);
     const providers = (0, providers_1.providersFromChainConfig)(executorEnv.supportedChains);
@@ -46,7 +46,7 @@ exports.run = run;
  */
 async function spawnWalletWorker(storage, plugins, providers, workerInfo) {
     const logger = (0, logHelper_1.getScopedLogger)([`${workerInfo.targetChainName}-${workerInfo.id}-worker`], (0, logHelper_1.getLogger)());
-    logger.debug(`Spawned`);
+    logger.info(`Spawned`);
     // todo: add metrics
     while (true) {
         try {

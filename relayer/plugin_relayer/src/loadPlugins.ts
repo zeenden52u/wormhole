@@ -1,6 +1,7 @@
 import { PluginFactory, Plugin } from "plugin_interface";
-import { CommonEnv } from "./configureEnv";
+import { loadPluginConfig } from "./helpers/loadConfig";
 import { getLogger } from "./helpers/logHelper";
+import { CommonEnv } from "./helpers/validateConfig";
 
 /*
   1. read plugin URIs from common config
@@ -13,9 +14,7 @@ export async function loadPlugins(commonEnv: CommonEnv): Promise<Plugin[]> {
   const logger = getLogger();
   logger.info("Loading plugins...");
   const plugins = await Promise.all(
-    commonEnv.plugins.map(({ uri, overrides }) =>
-      loadPlugin(uri, overrides, commonEnv)
-    )
+    commonEnv.pluginURIs.map(uri => loadPlugin(uri, commonEnv))
   );
   logger.info(`Loaded ${plugins.length} plugins`);
   return plugins;
@@ -23,11 +22,11 @@ export async function loadPlugins(commonEnv: CommonEnv): Promise<Plugin[]> {
 
 export async function loadPlugin(
   uri: string,
-  overrides: { [key: string]: any } | undefined,
   commonEnv: CommonEnv
 ): Promise<Plugin> {
   const module = (await import(uri)) as PluginFactory;
-  return module.create(commonEnv, overrides);
+  const pluginEnv = await loadPluginConfig(module.pluginName, uri, commonEnv.envType);
+  return module.create(commonEnv, pluginEnv);
 }
 
 /* uncomment and run with ts-node loadPlugins.ts to test separately */

@@ -11,7 +11,6 @@ import { getScopedLogger } from "./logHelper";
 // 2) Create a method to set the metric to a value
 // 3) Register the metric
 
-const logger = getScopedLogger(["prometheusHelpers"]);
 export enum PromMode {
   Listen,
   Execute,

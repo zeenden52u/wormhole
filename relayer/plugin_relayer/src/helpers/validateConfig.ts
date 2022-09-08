@@ -1,5 +1,5 @@
 /*
- * Takes in untyped, resolved config objects and outputs typed config objects
+ * Takes in untyped, resolved config objects and sets typed config objects
  */
 import { EnvTypes } from "plugin_interface";
 import {
@@ -20,7 +20,7 @@ export type CommonEnv = {
   redisHost: string;
   redisPort: number;
   pluginURIs: NodeURI[];
-  envType: EnvTypes | string;
+  envType: EnvTypes;
 };
 
 export type ListenerEnv = {
@@ -59,33 +59,62 @@ export type SupportedToken = {
 };
 
 let loggingEnv: CommonEnv | undefined = undefined;
+let executorEnv: ExecutorEnv | undefined = undefined;
+let commonEnv: CommonEnv | undefined = undefined;
+let listenerEnv: ListenerEnv | undefined = undefined;
 
 type ConfigPrivateKey = {
   chainId: ChainId;
   privateKeys: string[];
 };
 
-let commonEnv: CommonEnv | undefined = undefined;
-
-export function validateEnvs(mode: Mode, rawCommonEnv: any, rawListenerOrExecutorEnv: any) {
-  commonEnv = validateCommonEnv(rawCommonEnv)
-  if (mode === Mode.executor) {
-    executorEnv = validateExecutorEnv(rawListenerOrExecutorEnv)
-  } else if (mode === Mode.listener) {
-    listenerEnv = validateListenerEnv(rawListenerOrExecutorEnv)
-  } else {
-    throw new Error("Unexpected mode: ", Mode)
-  }
-}
-
-export const getCommonEnvironment: () => CommonEnv = () => {
+export function getCommonEnv(): CommonEnv {
   if (!commonEnv) {
     throw new Error(
       "Tried to get CommonEnv but it does not exist. Has it been loaded yet?"
     );
   }
   return commonEnv;
-};
+}
+
+export function validateEnvs({
+  mode,
+  rawCommonEnv,
+  rawListenerOrExecutorEnv,
+}: {
+  mode: Mode;
+  rawCommonEnv: any;
+  rawListenerOrExecutorEnv: any;
+}) {
+  console.log("Validating envs...")
+  commonEnv = validateCommonEnv(rawCommonEnv);
+  if (mode === Mode.executor) {
+    executorEnv = validateExecutorEnv(rawListenerOrExecutorEnv);
+  } else if (mode === Mode.listener) {
+    listenerEnv = validateListenerEnv(rawListenerOrExecutorEnv);
+  } else {
+    throw new Error("Unexpected mode: " + mode);
+  }
+  console.log("Validated envs")
+}
+
+export function getExecutorEnv(): ExecutorEnv {
+  if (!executorEnv) {
+    throw new Error(
+      "Tried to get ExecutorEnv but it does not exist. Has it been loaded yet?"
+    );
+  }
+  return executorEnv;
+}
+
+export function getListenerEnv(): ListenerEnv {
+  if (!listenerEnv) {
+    throw new Error(
+      "Tried to get ListenerEnv but it does not exist. Has it been loaded yet?"
+    );
+  }
+  return listenerEnv;
+}
 
 function assertInt(x: any, fieldName?: string): number {
   if (!Number.isInteger(x)) {
@@ -124,17 +153,6 @@ function validateCommonEnv(raw: any): CommonEnv {
     envType: validateStringEnum<EnvTypes>(EnvTypes, raw.envTypes),
   };
 }
-
-let listenerEnv: ListenerEnv | undefined = undefined;
-
-export const getListenerEnvironment: () => ListenerEnv = () => {
-  if (!listenerEnv) {
-    throw new Error(
-      "Tried to get ListenerEnv but it does not exist. Has it been loaded yet?"
-    );
-  }
-  return listenerEnv;
-};
 
 function validateListenerEnv(raw: Keys<ListenerEnv>): ListenerEnv {
   let spyServiceHost: string;
@@ -198,17 +216,6 @@ function validateListenerEnv(raw: Keys<ListenerEnv>): ListenerEnv {
     numSpyWorkers,
   };
 }
-
-let executorEnv: ExecutorEnv | undefined = undefined;
-
-export const getExecutorEnvironment: () => ExecutorEnv = () => {
-  if (!executorEnv) {
-    throw new Error(
-      "Tried to get ExecutorEnv but it does not exist. Has it been loaded yet?"
-    );
-  }
-  return executorEnv;
-};
 
 function validateExecutorEnv(
   raw: Keys<ExecutorEnv & { privateKeys: ConfigPrivateKey[] }>
@@ -467,6 +474,8 @@ export function validateStringEnum<B>(
   throw e;
 }
 
+/* We should do typesafe key validation, but this may require types specific to the on-disk config format, not the resolved config objects
+
 const commonEnvKeys = createKeys<CommonEnv>({
   logDir: 1,
   logLevel: 1,
@@ -508,3 +517,4 @@ function validateKeys<T>(keys: (keyof T)[], obj: Record<string, any>): Keys<T> {
 function createKeys<T>(keyRecord: Record<keyof T, any>): (keyof T)[] {
   return Object.keys(keyRecord) as any;
 }
+*/

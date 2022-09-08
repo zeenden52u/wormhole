@@ -9,14 +9,14 @@
 */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = void 0;
-const configureEnv_1 = require("../configureEnv");
+const validateConfig_1 = require("../helpers/validateConfig");
 const logHelper_1 = require("../helpers/logHelper");
 const wormhole_spydk_1 = require("@certusone/wormhole-spydk");
 const utils_1 = require("../helpers/utils");
 const logger = (0, logHelper_1.getScopedLogger)(["listenerHarness"], (0, logHelper_1.getLogger)());
-const commonEnv = (0, configureEnv_1.getCommonEnvironment)();
+const commonEnv = (0, validateConfig_1.getCommonEnv)();
 async function run(plugins, storage) {
-    const listnerEnv = (0, configureEnv_1.getListenerEnvironment)();
+    const listnerEnv = (0, validateConfig_1.getListenerEnv)();
     //if spy is enabled, instantiate spy with filters
     if (shouldSpy(plugins)) {
         logger.info("Initializing spy listener...");

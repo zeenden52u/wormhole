@@ -2,9 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getScopedLogger = exports.getLogger = void 0;
 const winston = require("winston");
-const configureEnv_1 = require("../configureEnv");
+const validateConfig_1 = require("../helpers/validateConfig");
 //Be careful not to access this before having called init logger, or it will be undefined
 let logger;
+// todo: fallback to console.log if logger not init'd
 function getLogger() {
     if (logger) {
         return logger;
@@ -29,7 +30,7 @@ function getScopedLogger(labels, parentLogger) {
 }
 exports.getScopedLogger = getScopedLogger;
 function initLogger() {
-    const loggingEnv = (0, configureEnv_1.getCommonEnvironment)();
+    const loggingEnv = (0, validateConfig_1.getCommonEnv)();
     let useConsole = true;
     let logFileName;
     if (loggingEnv.logDir) {

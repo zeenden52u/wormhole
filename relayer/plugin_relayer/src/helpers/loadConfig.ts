@@ -11,7 +11,7 @@
 import * as yaml from "js-yaml";
 import * as fs from "fs/promises";
 import * as nodePath from "path";
-import { validateStringEnum } from "./validateConfig";
+import { NodeURI, validateStringEnum } from "./validateConfig";
 import { EnvTypes as EnvType } from "plugin_interface";
 
 export enum Mode {
@@ -19,14 +19,14 @@ export enum Mode {
   executor = "executor",
 }
 
-export function envTypeToDirName(envType: EnvType): string {
+export function envTypeToPath(envType: EnvType): string {
   return envType.toLowerCase();
 }
 
 export async function loadUntypedEnvs(): Promise<{
-  common: any;
-  listenerOrExecutor: any;
   mode: Mode;
+  rawCommonEnv: any;
+  rawListenerOrExecutorEnv: any;
 }> {
   const mode = validateStringEnum<Mode>(Mode, process.env.MODE);
   const envType = validateStringEnum<EnvType>(
@@ -34,18 +34,18 @@ export async function loadUntypedEnvs(): Promise<{
     process.env.ENV_TYPE ? process.env.ENV_TYPE : EnvType.MAINNET
   );
 
-  const common = await loadCommon(envType, mode);
+  const rawCommonEnv = loadCommon(envType, mode);
   const listenerOrExecutor = loadListenerOrExecutor(envType, mode);
   return {
-    common,
-    listenerOrExecutor: await listenerOrExecutor,
+    rawCommonEnv: await rawCommonEnv,
+    rawListenerOrExecutorEnv: await listenerOrExecutor,
     mode,
   };
 }
 
 async function loadCommon(envType: EnvType, mode: Mode): Promise<any> {
   const obj = await loadFileAndParseToObject(
-    `./config/${envTypeToDirName(envType)}/common.yml`
+    `./config/${envTypeToPath(envType)}/common.yml`
   );
   obj.mode = mode;
   return obj;
@@ -56,8 +56,14 @@ async function loadListenerOrExecutor(
   mode: Mode
 ): Promise<any> {
   return await loadFileAndParseToObject(
-    `./config/${envTypeToDirName(envType)}/${mode.toLowerCase()}.yml`
+    `./config/${envTypeToPath(envType)}/${mode.toLowerCase()}.yml`
   );
+}
+
+export async function loadPluginConfig(pluginName: string, pluginURI: NodeURI, envType: EnvType): Promise<Record<string, any>> {
+  const overrides = loadFileAndParseToObject(`./config/${envTypeToPath(envType)}/plugins/${pluginName}`)
+  const defaultConfig = loadFileAndParseToObject(`./node_modules/${pluginURI}/config/${envTypeToPath(envType)}.yml`)
+  return {...await defaultConfig, ...await overrides}
 }
 
 // todo: extend to take path w/o extension and look for all supported extensions

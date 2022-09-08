@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadPlugin = exports.loadPlugins = void 0;
+const loadConfig_1 = require("./helpers/loadConfig");
 const logHelper_1 = require("./helpers/logHelper");
 /*
   1. read plugin URIs from common config
@@ -12,14 +13,15 @@ const logHelper_1 = require("./helpers/logHelper");
 async function loadPlugins(commonEnv) {
     const logger = (0, logHelper_1.getLogger)();
     logger.info("Loading plugins...");
-    const plugins = await Promise.all(commonEnv.plugins.map(({ uri, overrides }) => loadPlugin(uri, overrides, commonEnv)));
+    const plugins = await Promise.all(commonEnv.pluginURIs.map(uri => loadPlugin(uri, commonEnv)));
     logger.info(`Loaded ${plugins.length} plugins`);
     return plugins;
 }
 exports.loadPlugins = loadPlugins;
-async function loadPlugin(uri, overrides, commonEnv) {
+async function loadPlugin(uri, commonEnv) {
     const module = (await Promise.resolve().then(() => require(uri)));
-    return module.create(commonEnv, overrides);
+    const pluginEnv = await (0, loadConfig_1.loadPluginConfig)(module.pluginName, uri, commonEnv.envType);
+    return module.create(commonEnv, pluginEnv);
 }
 exports.loadPlugin = loadPlugin;
 /* uncomment and run with ts-node loadPlugins.ts to test separately */

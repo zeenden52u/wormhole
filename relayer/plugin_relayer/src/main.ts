@@ -15,7 +15,6 @@ Execute
 require("./helpers/loadConfig");
 
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
-import { getCommonEnvironment } from "./configureEnv";
 import * as executorHarness from "./executor/executorHarness";
 import { getLogger } from "./helpers/logHelper";
 import { PromHelper, PromMode } from "./helpers/promHelpers";
@@ -23,18 +22,25 @@ import { PromHelper, PromMode } from "./helpers/promHelpers";
 import { createStorage, RedisStorage } from "./helpers/storage";
 import * as listenerHarness from "./listener/listenerHarness";
 import { loadPlugins } from "./loadPlugins";
+import { loadUntypedEnvs } from "./helpers/loadConfig";
+import { getCommonEnv, validateEnvs } from "./helpers/validateConfig";
 
 setDefaultWasm("node");
 
 // instantiate common environment
-const logger = getLogger();
 
 async function main() {
-  load
+  await loadUntypedEnvs().then(async o => validateEnvs(o));
+  const commonEnv = getCommonEnv();
+  console.log("here");
+  const logger = getLogger();
   const plugins = await loadPlugins(commonEnv);
   const storage = await createStorage(commonEnv);
+
+  launchReadinessPortTask();
+
   if (process.env.MODE === "listener") {
-    logger.info("Running in listener mode")
+    logger.info("Running in listener mode");
     // init listener harness
     const promHelper = new PromHelper(
       "plugin_relayer",
@@ -44,7 +50,7 @@ async function main() {
 
     await listenerHarness.run(plugins, storage);
   } else if (process.env.MODE === "executor") {
-    logger.info("Running in executor mode")
+    logger.info("Running in executor mode");
     // init executor harness
     const promHelper = new PromHelper(
       "plugin_relayer",
@@ -61,21 +67,24 @@ async function main() {
   }
 }
 
-if (commonEnv.readinessPort) {
-  const Net = require("net");
-  const readinessServer = new Net.Server();
-  readinessServer.listen(commonEnv.readinessPort, function () {
-    logger.info(
-      "listening for readiness requests on port " + commonEnv.readinessPort
-    );
-  });
+async function launchReadinessPortTask() {
+  const commonEnv = getCommonEnv();
+  if (commonEnv.readinessPort) {
+    const Net = await import("net");
+    const readinessServer = new Net.Server();
+    readinessServer.listen(commonEnv.readinessPort, function () {
+      getLogger().info(
+        "listening for readiness requests on port " + commonEnv.readinessPort
+      );
+    });
 
-  readinessServer.on("connection", function (socket: any) {
-    //logger.debug("readiness connection");
-  });
+    readinessServer.on("connection", function (socket: any) {
+      //logger.debug("readiness connection");
+    });
+  }
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error(e);
   process.exit(1);
 });

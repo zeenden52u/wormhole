@@ -1,5 +1,5 @@
 import winston = require("winston");
-import { getCommonEnvironment } from "../configureEnv";
+import { getCommonEnv } from "../helpers/validateConfig";
 
 //Be careful not to access this before having called init logger, or it will be undefined
 let logger: winston.Logger | undefined;
@@ -35,7 +35,7 @@ export function getScopedLogger(
 }
 
 function initLogger(): winston.Logger {
-  const loggingEnv = getCommonEnvironment();
+  const loggingEnv = getCommonEnv();
 
   let useConsole = true;
   let logFileName;

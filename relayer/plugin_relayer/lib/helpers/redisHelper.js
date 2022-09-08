@@ -3,10 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.compareAndSwap = exports.ensureClient = exports.getItem = exports.removeItem = exports.insertItem = exports.executeBacklog = exports.getPrefix = exports.init = void 0;
 const async_mutex_1 = require("async-mutex");
 const redis_1 = require("redis");
-const configureEnv_1 = require("../configureEnv");
+const validateConfig_1 = require("../helpers/validateConfig");
 const logHelper_1 = require("./logHelper");
 const logger = (0, logHelper_1.getScopedLogger)(["redisHelper"]);
-const commonEnv = (0, configureEnv_1.getCommonEnvironment)();
+const commonEnv = (0, validateConfig_1.getCommonEnv)();
 const { redisHost, redisPort } = commonEnv;
 let promHelper;
 function init(ph) {
@@ -59,6 +59,7 @@ async function getPrefix(prefix) {
     for await (const key of iterator) {
         output.push({ key, value: nnull(await client.get(key)) });
     }
+    logger.debug(`Prefix: ${prefix}, output: ${output}`);
     return output;
 }
 exports.getPrefix = getPrefix;

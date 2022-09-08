@@ -2,7 +2,7 @@ import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
 import * as BN from "bn.js";
 import { deserializeUnchecked } from "borsh";
 import { BinaryReader, BinaryWriter } from "borsh";
-import { ChainConfigInfo } from "../configureEnv";
+import { ChainConfigInfo } from "../helpers/validateConfig";
 import { getMultipleAccountsRPC } from "../utils/solana";
 const base58: any = require("bs58");
 

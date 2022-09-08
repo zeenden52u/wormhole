@@ -7,7 +7,7 @@ import {
 import { Connection } from "@solana/web3.js";
 import { ethers } from "ethers";
 import { Providers } from "plugin_interface";
-import { ChainConfigInfo } from "../configureEnv";
+import { ChainConfigInfo } from "../helpers/validateConfig";
 
 export function providersFromChainConfig(
   chainConfigs: ChainConfigInfo[]
