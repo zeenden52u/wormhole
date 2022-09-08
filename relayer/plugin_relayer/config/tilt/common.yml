@@ -1,0 +1,9 @@
+logLevel: debug
+promPort: 8083
+readinessPort?: 2000
+# logDir?: undefined
+redisHost: localhost
+redisPort: 4201
+pluginURIs:
+  - dummy_plugin
+envType: LOCALHOST

@@ -1,0 +1,52 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plugin-listener
+  labels:
+    app: plugin-listener
+spec:
+  clusterIP: None
+  selector:
+    app: plugin-listener
+  ports:
+    - port: 8083
+      name: prometheus
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: plugin-listener
+spec:
+  selector:
+    matchLabels:
+      app: plugin-listener
+  serviceName: plugin-listener
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: plugin-listener
+    spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: plugin-listener
+          image: plugin-listener-image
+          command:
+            - npm
+            - run
+            - --prefix
+            - /app/relayer/plugin_relayer/
+            - tilt_listener
+          ports:
+            - containerPort: 8083
+              name: prometheus
+              protocol: TCP
+          tty: true
+          readinessProbe:
+            tcpSocket:
+              port: 2000
+            periodSeconds: 1
+            failureThreshold: 300
