@@ -87,7 +87,7 @@ async function spawnWalletWorker(
       }
       const { pluginStorage, action, queuedActions } = maybeAction;
       logger.info(
-        `Relaying action ${action.id} with plugin ${pluginStorage.plugin.name}...`
+        `Relaying action ${action.id} with plugin ${pluginStorage.plugin.pluginName}...`
       );
       const update = await relayDispatcher(
         action,

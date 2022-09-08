@@ -32,7 +32,9 @@ export async function run(plugins: Plugin[], storage: Storage) {
     );
     plugins.forEach(plugin => {
       if (plugin.shouldSpy) {
-        logger().info(`Initializing spy listener for plugin ${plugin.name}...`);
+        logger().info(
+          `Initializing spy listener for plugin ${plugin.pluginName}...`
+        );
         runPluginSpyListener(storage.getPluginStorage(plugin), spyClient);
       }
     });

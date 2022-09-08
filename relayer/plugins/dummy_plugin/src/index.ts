@@ -19,7 +19,8 @@ export function create(config: CommonPluginEnv, overrides?: any): Plugin {
 class DummyPlugin implements Plugin {
   shouldSpy: boolean;
   shouldRest: boolean;
-  name: string;
+  static pluginName: string;
+  pluginName = DummyPlugin.pluginName
   env: any;
   config: CommonPluginEnv
 
@@ -30,7 +31,7 @@ class DummyPlugin implements Plugin {
     this.env = { shouldSpy: true, shouldRest: true, ...overrides };
     this.shouldRest = this.env.shouldRest;
     this.shouldSpy = this.env.shouldSpy;
-    this.name = "DummyPlugin";
+    this.pluginName = "DummyPlugin";
   }
 
   getFilters(): ContractFilter[] {
@@ -51,4 +52,6 @@ class DummyPlugin implements Plugin {
   }
 }
 
-export default { create };
+const factory: PluginFactory = { create, pluginName: DummyPlugin.pluginName }
+
+export default factory;

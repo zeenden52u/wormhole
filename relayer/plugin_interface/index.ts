@@ -70,7 +70,7 @@ export interface Providers {
  *  Plugin interfaces
  */
 interface PluginCommonFields {
-  name: string;
+  pluginName: string;
   env: any;
 }
 export interface Executor extends PluginCommonFields {

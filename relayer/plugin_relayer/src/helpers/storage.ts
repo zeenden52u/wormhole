@@ -16,11 +16,11 @@ function sanitize(dirtyString: string): string {
 }
 
 function stagingAreaKey(plugin: Plugin): string {
-  return `staging-area/${sanitize(plugin.name)}`;
+  return `staging-area/${sanitize(plugin.pluginName)}`;
 }
 
 function actionPrefix(plugin: Plugin, chainId: number): string {
-  return `actions/${sanitize(plugin.name)}/${chainId}/`;
+  return `actions/${sanitize(plugin.pluginName)}/${chainId}/`;
 }
 
 function actionKey(
@@ -165,7 +165,7 @@ class RedisPluginStorage implements PluginStorage {
     const raw = await this.redis.getItem(key);
     if (!raw) {
       logger.warn(
-        `Missing staging area for plugin ${this.plugin.name}. Returning empty object`
+        `Missing staging area for plugin ${this.plugin.pluginName}. Returning empty object`
       );
       return {};
     }
