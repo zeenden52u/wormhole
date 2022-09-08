@@ -1,13 +1,13 @@
 import { PluginFactory, Plugin } from "plugin_interface";
 import { loadPluginConfig } from "./config/loadConfig";
-import { dbg, getLogger } from "./helpers/logHelper";
+import { dbg, getLogger, getScopedLogger } from "./helpers/logHelper";
 import { CommonEnv } from "./config";
 
 /*
   1. read plugin URIs from common config
   For Each
     a. dynamically load plugin
-    b. look for plugin overrides in common config
+    b. load plugin config files (default and override)
     c. construct plugin 
  */
 export async function loadPlugins(commonEnv: CommonEnv): Promise<Plugin[]> {
@@ -30,19 +30,6 @@ export async function loadPlugin(
     uri,
     commonEnv.envType
   );
-  return module.create(commonEnv, pluginEnv);
+  const logger = getScopedLogger([module.pluginName], getLogger());
+  return module.create(commonEnv, pluginEnv, logger);
 }
-
-/* uncomment and run with ts-node loadPlugins.ts to test separately */
-
-// loadPlugins({
-//   plugins: [{ uri: "dummy_plugin", overrides: {key: "val"} }],
-//   logLevel: "",
-//   promPort: 0,
-//   redisHost: "",
-//   redisPort: 0,
-//   envType: "",
-// }).then((e) => {
-//   console.error(e);
-//   process.exit(1);
-// });

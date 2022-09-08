@@ -12,9 +12,11 @@
     "prom-client": "^14.1.0"
   },
   "devDependencies": {
-    "@types/node": "^18.7.13"
+    "@types/node": "^18.7.13",
+    "@types/winston": "^2.4.4"
   },
   "peerDependencies": {
-    "ethers": "^5.7.0"
+    "ethers": "^5.7.0",
+    "winston": "^3.8.2"
   }
 }

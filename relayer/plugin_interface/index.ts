@@ -2,7 +2,7 @@ import { Metric } from "prom-client";
 import * as ethers from "ethers";
 import * as solana from "@solana/web3.js";
 import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
-
+import winston 
 /*
  *  Config
  */
@@ -35,7 +35,7 @@ export interface WorkerAction {
   delayTimestamp?: Date;
 }
 
-export type ActionId = "UUID"; // todo: import real type
+export type ActionId = number; // todo: UUID
 
 export type ActionQueueUpdate = {
   enqueueActions: WorkerAction[];
@@ -104,7 +104,7 @@ export interface Listener extends PluginCommonFields {
 export type Plugin = Listener & Executor;
 export interface PluginFactory {
   // validate untyped config and exception out if invalid
-  create(config: CommonPluginEnv, pluginEnv: Record<string, any>): Plugin;
+  create(config: CommonPluginEnv, pluginEnv: Record<string, any>, logger: winston.Logger): Plugin;
   // plugin name
   pluginName: string;
 }

@@ -10,10 +10,19 @@ import {
   StagingArea,
   WorkerAction,
 } from "plugin_interface";
+import { ChainId } from "@certusone/wormhole-sdk";
+import { Logger } from "winston";
 
-function create(config: CommonPluginEnv, overrides?: any): Plugin {
+function create(config: CommonPluginEnv, overrides?: any, logger: Logger): Plugin {
   console.log("Creating da plugin...");
-  return new DummyPlugin(config, overrides);
+  return new DummyPlugin(config, overrides, logger);
+}
+
+interface Env {
+  hi?: string;
+  spyServiceFilters?: { chainId: ChainId; emitterAddress: string }[];
+  shouldRest: boolean;
+  shouldSpy: boolean;
 }
 
 class DummyPlugin implements Plugin {
@@ -21,19 +30,23 @@ class DummyPlugin implements Plugin {
   shouldRest: boolean;
   static readonly pluginName: string = "DummyPlugin";
   readonly pluginName = DummyPlugin.pluginName;
-  env: any;
+  env: Env;
   config: CommonPluginEnv;
 
-  constructor(config: CommonPluginEnv, overrides: Object) {
+  constructor(config: CommonPluginEnv, env: Object, logger: Logger) {
     console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
-    console.log(`Overrides: ${JSON.stringify(overrides, undefined, 2)}`);
+    console.log(`Plugin Env: ${JSON.stringify(env, undefined, 2)}`);
+
     this.config = config;
-    this.env = { shouldSpy: true, shouldRest: true, ...overrides };
+    this.env = env as Env;
     this.shouldRest = this.env.shouldRest;
     this.shouldSpy = this.env.shouldSpy;
   }
 
   getFilters(): ContractFilter[] {
+    if (this.env.spyServiceFilters) {
+      return this.env.spyServiceFilters;
+    }
     return [{ chainId: 1, emitterAddress: "gotcha!!" }];
   }
 
@@ -43,7 +56,13 @@ class DummyPlugin implements Plugin {
   ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }> {
     console.log(`DummyPlugin consumed an event. Staging area: ${stagingArea}`);
     return {
-      actions: [],
+      actions: [
+        {
+          chainId: 2,
+          id: Math.floor(Math.random() * 1000),
+          data: Math.random(),
+        },
+      ],
       nextStagingArea: {
         counter: stagingArea?.counter ? stagingArea.counter + 1 : 0,
       },
@@ -52,6 +71,6 @@ class DummyPlugin implements Plugin {
 }
 
 const factory: PluginFactory = { create, pluginName: DummyPlugin.pluginName };
-console.log(factory.pluginName)
+console.log(factory.pluginName);
 
 export default factory;

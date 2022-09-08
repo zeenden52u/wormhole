@@ -14,7 +14,6 @@
   },
   "author": "",
   "license": "Apache-2.0",
-  "main": 
   "devDependencies": {
     "@improbable-eng/grpc-web-node-http-transport": "^0.15.0",
     "@types/config": "^3.3.0",
