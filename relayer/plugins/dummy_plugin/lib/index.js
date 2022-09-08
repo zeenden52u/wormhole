@@ -6,16 +6,16 @@ function create(config, overrides) {
     return new DummyPlugin(config, overrides);
 }
 exports.create = create;
-/*
- */
 class DummyPlugin {
     shouldSpy;
     shouldRest;
     name;
     env;
+    config;
     constructor(config, overrides) {
         console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
         console.log(`Overrides: ${JSON.stringify(overrides, undefined, 2)}`);
+        this.config = config;
         this.env = { shouldSpy: true, shouldRest: true, ...overrides };
         this.shouldRest = this.env.shouldRest;
         this.shouldSpy = this.env.shouldSpy;

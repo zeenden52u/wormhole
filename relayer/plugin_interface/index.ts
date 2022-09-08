@@ -104,7 +104,9 @@ export interface Listener extends PluginCommonFields {
 export type Plugin = Listener & Executor;
 export interface PluginFactory {
   // validate untyped config and exception out if invalid
-  create(config: CommonPluginEnv, overrides?: any): Plugin;
+  create(config: CommonPluginEnv, pluginEnv: Record<string, any>): Plugin;
+  // plugin name
+  pluginName: string;
 }
 
 export type ContractFilter = {

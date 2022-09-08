@@ -21,7 +21,7 @@ class DummyPlugin implements Plugin {
   shouldRest: boolean;
   name: string;
   env: any;
-  config: CommonPluginEnv,
+  config: CommonPluginEnv
 
   constructor(config: CommonPluginEnv, overrides: Object) {
     console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
