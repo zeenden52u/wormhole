@@ -2,7 +2,7 @@ import {
   getCommonEnv,
   getExecutorEnv,
   ExecutorEnv,
-} from "../helpers/validateConfig";
+} from "../config";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import {
   ActionQueueUpdate,
@@ -15,7 +15,7 @@ import {
 } from "plugin_interface";
 import * as solana from "@solana/web3.js";
 import { sleep } from "../helpers/utils";
-import { Storage } from "../helpers/storage";
+import { Storage } from "../storage/storage";
 import * as wh from "@certusone/wormhole-sdk";
 import * as ethers from "ethers";
 import { providersFromChainConfig } from "../utils/providers";

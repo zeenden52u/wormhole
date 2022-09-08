@@ -11,7 +11,7 @@ import {
   WorkerAction,
 } from "plugin_interface";
 
-export function create(config: CommonPluginEnv, overrides?: any): Plugin {
+function create(config: CommonPluginEnv, overrides?: any): Plugin {
   console.log("Creating da plugin...");
   return new DummyPlugin(config, overrides);
 }
@@ -19,19 +19,18 @@ export function create(config: CommonPluginEnv, overrides?: any): Plugin {
 class DummyPlugin implements Plugin {
   shouldSpy: boolean;
   shouldRest: boolean;
-  static pluginName: string;
-  pluginName = DummyPlugin.pluginName
+  static readonly pluginName: string = "DummyPlugin";
+  readonly pluginName = DummyPlugin.pluginName;
   env: any;
-  config: CommonPluginEnv
+  config: CommonPluginEnv;
 
   constructor(config: CommonPluginEnv, overrides: Object) {
     console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
     console.log(`Overrides: ${JSON.stringify(overrides, undefined, 2)}`);
-    this.config = config
+    this.config = config;
     this.env = { shouldSpy: true, shouldRest: true, ...overrides };
     this.shouldRest = this.env.shouldRest;
     this.shouldSpy = this.env.shouldSpy;
-    this.pluginName = "DummyPlugin";
   }
 
   getFilters(): ContractFilter[] {
@@ -52,6 +51,7 @@ class DummyPlugin implements Plugin {
   }
 }
 
-const factory: PluginFactory = { create, pluginName: DummyPlugin.pluginName }
+const factory: PluginFactory = { create, pluginName: DummyPlugin.pluginName };
+console.log(factory.pluginName)
 
 export default factory;

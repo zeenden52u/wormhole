@@ -7,10 +7,10 @@ function sanitize(dirtyString) {
     return dirtyString.replace("[^a-zA-z_0-9]*", "");
 }
 function stagingAreaKey(plugin) {
-    return `staging-area/${sanitize(plugin.name)}`;
+    return `staging-area/${sanitize(plugin.pluginName)}`;
 }
 function actionPrefix(plugin, chainId) {
-    return `actions/${sanitize(plugin.name)}/${chainId}/`;
+    return `actions/${sanitize(plugin.pluginName)}/${chainId}/`;
 }
 function actionKey(plugin, action) {
     return `${actionPrefix(plugin, action.chainId)}${action.id}`;
@@ -83,7 +83,7 @@ class RedisPluginStorage {
         const key = stagingAreaKey(this.plugin);
         const raw = await this.redis.getItem(key);
         if (!raw) {
-            ethers_1.logger.warn(`Missing staging area for plugin ${this.plugin.name}. Returning empty object`);
+            ethers_1.logger.warn(`Missing staging area for plugin ${this.plugin.pluginName}. Returning empty object`);
             return {};
         }
         return JSON.parse(raw);

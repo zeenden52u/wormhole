@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = void 0;
-const validateConfig_1 = require("../helpers/validateConfig");
+const config_1 = require("../config");
 const logHelper_1 = require("../helpers/logHelper");
 const solana = require("@solana/web3.js");
 const utils_1 = require("../helpers/utils");
@@ -10,7 +10,6 @@ const ethers = require("ethers");
 const providers_1 = require("../utils/providers");
 const WORKER_RESTART_MS = 10 * 1000;
 const WORKER_INTERVAL_MS = 500;
-const commonEnv = (0, validateConfig_1.getCommonEnv)();
 let executorEnv;
 /*
  * 1. Grab logger & commonEnv
@@ -19,7 +18,7 @@ let executorEnv;
  * 5. For each wallet, spawn worker
  */
 async function run(plugins, storage) {
-    executorEnv = (0, validateConfig_1.getExecutorEnv)();
+    executorEnv = (0, config_1.getExecutorEnv)();
     const logger = (0, logHelper_1.getScopedLogger)(["executorHarness"], (0, logHelper_1.getLogger)());
     await storage.handleStorageStartupConfig(plugins, executorEnv);
     const providers = (0, providers_1.providersFromChainConfig)(executorEnv.supportedChains);
@@ -57,7 +56,7 @@ async function spawnWalletWorker(storage, plugins, providers, workerInfo) {
                 continue;
             }
             const { pluginStorage, action, queuedActions } = maybeAction;
-            logger.info(`Relaying action ${action.id} with plugin ${pluginStorage.plugin.name}...`);
+            logger.info(`Relaying action ${action.id} with plugin ${pluginStorage.plugin.pluginName}...`);
             const update = await relayDispatcher(action, queuedActions, pluginStorage.plugin, workerInfo, providers, logger);
             pluginStorage.applyActionUpdate(update.enqueueActions, action);
             logger.info(`Action ${action.id} relayed`);

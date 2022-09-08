@@ -9,21 +9,20 @@
 */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = void 0;
-const validateConfig_1 = require("../helpers/validateConfig");
+const config_1 = require("../config");
 const logHelper_1 = require("../helpers/logHelper");
 const wormhole_spydk_1 = require("@certusone/wormhole-spydk");
 const utils_1 = require("../helpers/utils");
-const logger = (0, logHelper_1.getScopedLogger)(["listenerHarness"], (0, logHelper_1.getLogger)());
-const commonEnv = (0, validateConfig_1.getCommonEnv)();
+const logger = () => (0, logHelper_1.getScopedLogger)(["listenerHarness"], (0, logHelper_1.getLogger)());
 async function run(plugins, storage) {
-    const listnerEnv = (0, validateConfig_1.getListenerEnv)();
+    const listnerEnv = (0, config_1.getListenerEnv)();
     //if spy is enabled, instantiate spy with filters
     if (shouldSpy(plugins)) {
-        logger.info("Initializing spy listener...");
+        logger().info("Initializing spy listener...");
         const spyClient = (0, wormhole_spydk_1.createSpyRPCServiceClient)(listnerEnv.spyServiceHost || "");
         plugins.forEach(plugin => {
             if (plugin.shouldSpy) {
-                logger.info(`Initializing spy listener for plugin ${plugin.name}...`);
+                logger().info(`Initializing spy listener for plugin ${plugin.pluginName}...`);
                 runPluginSpyListener(storage.getPluginStorage(plugin), spyClient);
             }
         });
@@ -32,7 +31,7 @@ async function run(plugins, storage) {
     if (shouldRest(plugins)) {
         //const restListener = setupRestListener(restFilters);
     }
-    logger.debug("End of listener harness run function");
+    logger().debug("End of listener harness run function");
 }
 exports.run = run;
 function shouldRest(plugins) {
@@ -52,7 +51,7 @@ async function consumeEventHarness(vaa, storage) {
         await storage.saveStagingArea(nextStagingArea);
     }
     catch (e) {
-        logger.error(e);
+        logger().error(e);
         // metric onError
     }
 }
@@ -73,24 +72,24 @@ async function runPluginSpyListener(pluginStorage, client) {
             stream.on("data", (vaa) => consumeEventHarness(vaa, pluginStorage));
             let connected = true;
             stream.on("error", (err) => {
-                logger.error("spy service returned an error: %o", err);
+                logger().error("spy service returned an error: %o", err);
                 connected = false;
             });
             stream.on("close", () => {
-                logger.error("spy service closed the connection!");
+                logger().error("spy service closed the connection!");
                 connected = false;
             });
-            logger.info("connected to spy service, listening for transfer signed VAAs");
+            logger().info("connected to spy service, listening for transfer signed VAAs");
             while (connected) {
                 await (0, utils_1.sleep)(1000);
             }
         }
         catch (e) {
-            logger.error("spy service threw an exception: %o", e);
+            logger().error("spy service threw an exception: %o", e);
         }
         stream.destroy();
         await (0, utils_1.sleep)(5 * 1000);
-        logger.info("attempting to reconnect to the spy service");
+        logger().info("attempting to reconnect to the spy service");
     }
 }
 //# sourceMappingURL=listenerHarness.js.map

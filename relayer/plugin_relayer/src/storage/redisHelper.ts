@@ -1,14 +1,19 @@
 import { Mutex } from "async-mutex";
 import { createClient } from "redis";
-import { CommonEnv, getCommonEnv } from "../helpers/validateConfig";
-import { getScopedLogger } from "./logHelper";
-import { PromHelper } from "./promHelpers";
+import { CommonEnv, getCommonEnv } from "../config";
+import { getScopedLogger } from "../helpers/logHelper";
+import { PromHelper } from "../helpers/promHelpers";
 
 const logger = () => getScopedLogger(["redisHelper"]);
 let promHelper: PromHelper;
 
-export function init(ph: PromHelper, {redisHost, redisPort}: CommonEnv): boolean {
-  logger().info("will connect to redis at [" + redisHost + ":" + redisPort + "]");
+export function init(
+  ph: PromHelper,
+  { redisHost, redisPort }: CommonEnv
+): boolean {
+  logger().info(
+    "will connect to redis at [" + redisHost + ":" + redisPort + "]"
+  );
   promHelper = ph;
   return true;
 }
@@ -22,8 +27,8 @@ type RedisClientType = Awaited<ReturnType<typeof createConnection>>;
 let rClient: RedisClientType | null;
 
 async function createConnection() {
-  const commonEnv = getCommonEnv()
-  const {redisHost, redisPort} = commonEnv
+  const commonEnv = getCommonEnv();
+  const { redisHost, redisPort } = commonEnv;
   try {
     let client = createClient({
       socket: {

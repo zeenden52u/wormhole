@@ -22,14 +22,15 @@ const promHelpers_1 = require("./helpers/promHelpers");
 const storage_1 = require("./helpers/storage");
 const listenerHarness = require("./listener/listenerHarness");
 const loadPlugins_1 = require("./loadPlugins");
-const loadConfig_1 = require("./helpers/loadConfig");
-const validateConfig_1 = require("./helpers/validateConfig");
+const config_1 = require("./config");
+const config_2 = require("./config");
 (0, wasm_1.setDefaultWasm)("node");
 // instantiate common environment
-const logger = (0, logHelper_1.getLogger)();
 async function main() {
-    await (0, loadConfig_1.loadUntypedEnvs)().then(validateConfig_1.validateEnvs);
-    const commonEnv = (0, validateConfig_1.getCommonEnv)();
+    await (0, config_2.loadAndValidateConfig)();
+    const commonEnv = (0, config_1.getCommonEnv)();
+    console.log("here");
+    const logger = (0, logHelper_1.getLogger)();
     const plugins = await (0, loadPlugins_1.loadPlugins)(commonEnv);
     const storage = await (0, storage_1.createStorage)(commonEnv);
     launchReadinessPortTask();
@@ -51,12 +52,12 @@ async function main() {
     }
 }
 async function launchReadinessPortTask() {
-    const commonEnv = (0, validateConfig_1.getCommonEnv)();
+    const commonEnv = (0, config_1.getCommonEnv)();
     if (commonEnv.readinessPort) {
         const Net = await Promise.resolve().then(() => require("net"));
         const readinessServer = new Net.Server();
         readinessServer.listen(commonEnv.readinessPort, function () {
-            logger.info("listening for readiness requests on port " + commonEnv.readinessPort);
+            (0, logHelper_1.getLogger)().info("listening for readiness requests on port " + commonEnv.readinessPort);
         });
         readinessServer.on("connection", function (socket) {
             //logger.debug("readiness connection");
@@ -64,6 +65,7 @@ async function launchReadinessPortTask() {
     }
 }
 main().catch(e => {
+    console.error("Fatal Error");
     console.error(e);
     process.exit(1);
 });

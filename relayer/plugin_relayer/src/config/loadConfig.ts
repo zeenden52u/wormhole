@@ -11,8 +11,9 @@
 import * as yaml from "js-yaml";
 import * as fs from "fs/promises";
 import * as nodePath from "path";
-import { NodeURI, validateStringEnum } from "./validateConfig";
+import { validateStringEnum } from "./validateConfig";
 import { EnvTypes as EnvType } from "plugin_interface";
+import { NodeURI } from ".";
 
 export enum Mode {
   LISTENER = "LISTENER",
@@ -78,7 +79,7 @@ export async function loadPluginConfig(
   envType: EnvType
 ): Promise<Record<string, any>> {
   const overrides = loadFileAndParseToObject(
-    `./config/${envTypeToPath(envType)}/plugins/${pluginName}`
+    `./config/${envTypeToPath(envType)}/plugins/${pluginName}.yml`
   );
   const defaultConfig = loadFileAndParseToObject(
     `./node_modules/${pluginURI}/config/${envTypeToPath(envType)}.yml`

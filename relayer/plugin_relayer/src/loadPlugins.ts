@@ -1,7 +1,7 @@
 import { PluginFactory, Plugin } from "plugin_interface";
-import { loadPluginConfig } from "./helpers/loadConfig";
-import { getLogger } from "./helpers/logHelper";
-import { CommonEnv } from "./helpers/validateConfig";
+import { loadPluginConfig } from "./config/loadConfig";
+import { dbg, getLogger } from "./helpers/logHelper";
+import { CommonEnv } from "./config";
 
 /*
   1. read plugin URIs from common config
@@ -24,8 +24,12 @@ export async function loadPlugin(
   uri: string,
   commonEnv: CommonEnv
 ): Promise<Plugin> {
-  const module = (await import(uri)) as PluginFactory;
-  const pluginEnv = await loadPluginConfig(module.pluginName, uri, commonEnv.envType);
+  const module = (await import(uri)).default as PluginFactory;
+  const pluginEnv = await loadPluginConfig(
+    module.pluginName,
+    uri,
+    commonEnv.envType
+  );
   return module.create(commonEnv, pluginEnv);
 }
 

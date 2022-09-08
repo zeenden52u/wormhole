@@ -3,20 +3,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.compareAndSwap = exports.ensureClient = exports.getItem = exports.removeItem = exports.insertItem = exports.executeBacklog = exports.getPrefix = exports.init = void 0;
 const async_mutex_1 = require("async-mutex");
 const redis_1 = require("redis");
-const validateConfig_1 = require("../helpers/validateConfig");
+const config_1 = require("../config");
 const logHelper_1 = require("./logHelper");
-const logger = (0, logHelper_1.getScopedLogger)(["redisHelper"]);
-const commonEnv = (0, validateConfig_1.getCommonEnv)();
-const { redisHost, redisPort } = commonEnv;
+const logger = () => (0, logHelper_1.getScopedLogger)(["redisHelper"]);
 let promHelper;
-function init(ph) {
-    logger.info("will connect to redis at [" + redisHost + ":" + redisPort + "]");
+function init(ph, { redisHost, redisPort }) {
+    logger().info("will connect to redis at [" + redisHost + ":" + redisPort + "]");
     promHelper = ph;
     return true;
 }
 exports.init = init;
 let rClient;
 async function createConnection() {
+    const commonEnv = (0, config_1.getCommonEnv)();
+    const { redisHost, redisPort } = commonEnv;
     try {
         let client = (0, redis_1.createClient)({
             socket: {
@@ -26,7 +26,7 @@ async function createConnection() {
         });
         client.on("connect", function (err) {
             if (err) {
-                logger.error("connectToRedis: failed to connect to host [" +
+                logger().error("connectToRedis: failed to connect to host [" +
                     redisHost +
                     "], port [" +
                     redisPort +
@@ -38,7 +38,7 @@ async function createConnection() {
         return nnull(client);
     }
     catch (e) {
-        logger.error("connectToRedis: failed to connect to host [" +
+        logger().error("connectToRedis: failed to connect to host [" +
             redisHost +
             "], port [" +
             redisPort +
@@ -59,7 +59,7 @@ async function getPrefix(prefix) {
     for await (const key of iterator) {
         output.push({ key, value: nnull(await client.get(key)) });
     }
-    logger.debug(`Prefix: ${prefix}, output: ${output}`);
+    logger().debug(`Prefix: ${prefix}, output: ${output}`);
     return output;
 }
 exports.getPrefix = getPrefix;
@@ -70,15 +70,15 @@ async function insertItemToHashMap(
   value: string
 ): Promise<boolean> {
   try {
-    logger.debug(
+    logger().debug(
       `Inserting into redis hash set: ${mapKey}, key: ${fieldKey}, value: ${value}`
     );
     const client = await getClient();
     client.hSet(mapKey, fieldKey, value);
-    logger.debug(`Done inserting key: ${fieldKey} into ${mapKey}`);
+    logger().debug(`Done inserting key: ${fieldKey} into ${mapKey}`);
     return true;
   } catch (e) {
-    logger.error(
+    logger().error(
       `Failed inserting into redis hash set: ${mapKey}, key: ${fieldKey}, value: ${value}`
     );
     return false;
@@ -103,7 +103,7 @@ async function executeBacklog() {
             }
             catch (e) {
                 backlog = backlog.slice(i);
-                logger.error(e);
+                logger().error(e);
                 return;
             }
         }
@@ -114,20 +114,20 @@ exports.executeBacklog = executeBacklog;
 async function insertItem(key, value) {
     //Insert item into end of backlog
     const wrappedOp = async () => {
-        logger.debug(`Inserting into redis key: ${key}, value: ${value}`);
+        logger().debug(`Inserting into redis key: ${key}, value: ${value}`);
         const client = await getClient();
         await client.set(key, value);
-        logger.debug(`Done inserting key: ${key}`);
+        logger().debug(`Done inserting key: ${key}`);
     };
     await enqueueOp(wrappedOp);
 }
 exports.insertItem = insertItem;
 async function removeItem(key) {
     const wrappedOp = async () => {
-        logger.debug(`removing redis key: ${key}`);
+        logger().debug(`removing redis key: ${key}`);
         const client = await getClient();
         await client.del(key);
-        logger.debug(`Done removing key: ${key}`);
+        logger().debug(`Done removing key: ${key}`);
     };
     await enqueueOp(wrappedOp);
 }
@@ -148,15 +148,15 @@ async function compareAndSwap(prefix, previousValue, newValue) {
             const client = await getClient();
             const itemInRedis = await client.get(prefix);
             if (itemInRedis !== previousValue) {
-                logger.info("Compare and swap failed");
+                logger().info("Compare and swap failed");
                 return false;
             }
             await client.set(prefix, newValue);
             return true;
         }
         catch (e) {
-            logger.error("Failed compare and swap");
-            logger.error(e);
+            logger().error("Failed compare and swap");
+            logger().error(e);
             return false;
         }
     });

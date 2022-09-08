@@ -5,13 +5,11 @@ const http = require("http");
 const client = require("prom-client");
 // import { WalletBalance } from "../monitor/walletMonitor";
 const wormhole_1 = require("../utils/wormhole");
-const logHelper_1 = require("./logHelper");
 // import { RedisTables } from "./redisHelper";
 // NOTE:  To create a new metric:
 // 1) Create a private counter/gauge with appropriate name and help
 // 2) Create a method to set the metric to a value
 // 3) Register the metric
-const logger = (0, logHelper_1.getScopedLogger)(["prometheusHelpers"]);
 var PromMode;
 (function (PromMode) {
     PromMode[PromMode["Listen"] = 0] = "Listen";

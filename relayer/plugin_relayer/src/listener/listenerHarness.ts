@@ -7,9 +7,9 @@
 6.  
 */
 
-import { getCommonEnv, getListenerEnv } from "../helpers/validateConfig";
+import { getCommonEnv, getListenerEnv } from "../config";
 import { getLogger, getScopedLogger } from "../helpers/logHelper";
-import * as redisHelper from "../helpers/redisHelper";
+import * as redisHelper from "../storage/redisHelper";
 import { ContractFilter, Plugin } from "plugin_interface";
 import {
   createSpyRPCServiceClient,
@@ -17,7 +17,7 @@ import {
 } from "@certusone/wormhole-spydk";
 import { sleep } from "../helpers/utils";
 import { SpyRPCServiceClient } from "@certusone/wormhole-spydk/lib/cjs/proto/spy/v1/spy";
-import { PluginStorage, Storage } from "../helpers/storage";
+import { PluginStorage, Storage } from "../storage/storage";
 
 const logger = () => getScopedLogger(["listenerHarness"], getLogger());
 

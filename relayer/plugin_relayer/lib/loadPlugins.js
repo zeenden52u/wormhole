@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadPlugin = exports.loadPlugins = void 0;
-const loadConfig_1 = require("./helpers/loadConfig");
+const loadConfig_1 = require("./config/loadConfig");
 const logHelper_1 = require("./helpers/logHelper");
 /*
   1. read plugin URIs from common config

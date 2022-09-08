@@ -1,15 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.create = void 0;
 function create(config, overrides) {
     console.log("Creating da plugin...");
     return new DummyPlugin(config, overrides);
 }
-exports.create = create;
 class DummyPlugin {
     shouldSpy;
     shouldRest;
-    name;
+    static pluginName = "DummyPlugin";
+    pluginName = DummyPlugin.pluginName;
     env;
     config;
     constructor(config, overrides) {
@@ -19,7 +18,6 @@ class DummyPlugin {
         this.env = { shouldSpy: true, shouldRest: true, ...overrides };
         this.shouldRest = this.env.shouldRest;
         this.shouldSpy = this.env.shouldSpy;
-        this.name = "DummyPlugin";
     }
     getFilters() {
         return [{ chainId: 1, emitterAddress: "gotcha!!" }];
@@ -34,5 +32,7 @@ class DummyPlugin {
         };
     }
 }
-exports.default = { create };
+const factory = { create, pluginName: DummyPlugin.pluginName };
+console.log(factory.pluginName);
+exports.default = factory;
 //# sourceMappingURL=index.js.map

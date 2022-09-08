@@ -12,7 +12,7 @@ exports.EDITION_MARKER_BIT_SIZE = 248;
 exports.METADATA_PREFIX = "metadata";
 exports.EDITION = "edition";
 function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 exports.sleep = sleep;
 var MetadataKey;
@@ -361,8 +361,8 @@ const getMetaplexData = async (mintAddresses, chainInfo) => {
     const metaAddresses = await Promise.all(promises);
     // const connection = new Connection(SOLANA_HOST, "confirmed");
     const connection = new web3_js_1.Connection(chainInfo.nodeUrl, "confirmed");
-    const results = await (0, solana_1.getMultipleAccountsRPC)(connection, metaAddresses.map((pair) => pair && pair[0]));
-    const output = results.map((account) => {
+    const results = await (0, solana_1.getMultipleAccountsRPC)(connection, metaAddresses.map(pair => pair && pair[0]));
+    const output = results.map(account => {
         if (account === null) {
             return undefined;
         }

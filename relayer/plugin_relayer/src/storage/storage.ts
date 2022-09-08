@@ -7,7 +7,7 @@ import {
   StagingArea,
   WorkerAction,
 } from "plugin_interface";
-import { CommonEnv, ExecutorEnv } from "../helpers/validateConfig";
+import { CommonEnv, ExecutorEnv } from "../config";
 import * as RedisHelper from "./redisHelper";
 import { RedisHelper as IRedisHelper } from "./redisHelper";
 

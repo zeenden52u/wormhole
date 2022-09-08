@@ -12,27 +12,24 @@ Execute
 -Init Executor
 */
 
-require("./helpers/loadConfig");
-
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as executorHarness from "./executor/executorHarness";
 import { getLogger } from "./helpers/logHelper";
 import { PromHelper, PromMode } from "./helpers/promHelpers";
 // import * as redisHelper from "./helpers/redisHelper";
-import { createStorage, RedisStorage } from "./helpers/storage";
+import { createStorage, RedisStorage } from "./storage/storage";
 import * as listenerHarness from "./listener/listenerHarness";
 import { loadPlugins } from "./loadPlugins";
-import { loadUntypedEnvs } from "./helpers/loadConfig";
-import { getCommonEnv, validateEnvs } from "./helpers/validateConfig";
+import { getCommonEnv, validateEnvs } from "./config";
+import { loadAndValidateConfig } from "./config";
 
 setDefaultWasm("node");
 
 // instantiate common environment
 
 async function main() {
-  await loadUntypedEnvs().then(async o => validateEnvs(o));
+  await loadAndValidateConfig();
   const commonEnv = getCommonEnv();
-  console.log("here");
   const logger = getLogger();
   const plugins = await loadPlugins(commonEnv);
   const storage = await createStorage(commonEnv);

@@ -2,7 +2,7 @@ import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
 import * as BN from "bn.js";
 import { deserializeUnchecked } from "borsh";
 import { BinaryReader, BinaryWriter } from "borsh";
-import { ChainConfigInfo } from "../helpers/validateConfig";
+import { ChainConfigInfo } from "../config";
 import { getMultipleAccountsRPC } from "../utils/solana";
 const base58: any = require("bs58");
 
@@ -13,7 +13,7 @@ export const METADATA_PREFIX = "metadata";
 export const EDITION = "edition";
 
 export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export type StringPublicKey = string;
@@ -438,10 +438,10 @@ export const getMetaplexData = async (
   const connection = new Connection(chainInfo.nodeUrl, "confirmed");
   const results = await getMultipleAccountsRPC(
     connection,
-    metaAddresses.map((pair) => pair && pair[0])
+    metaAddresses.map(pair => pair && pair[0])
   );
 
-  const output = results.map((account) => {
+  const output = results.map(account => {
     if (account === null) {
       return undefined;
     } else {
