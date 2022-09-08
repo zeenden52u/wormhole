@@ -18,7 +18,7 @@ export enum EnvTypes {
   MAINNET = "MAINNET",
   DEVNET = "DEVNET",
   TILT = "TILT",
-  LOCALNET = "LOCALNET",
+  LOCALHOST = "LOCALHOST",
   OTHER = "OTHER",
 }
 
