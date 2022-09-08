@@ -85,6 +85,7 @@ async function launchReadinessPortTask() {
 }
 
 main().catch(e => {
+  console.error("Fatal Error");
   console.error(e);
   process.exit(1);
 });

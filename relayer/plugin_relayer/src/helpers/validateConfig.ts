@@ -86,16 +86,16 @@ export function validateEnvs({
   rawCommonEnv: any;
   rawListenerOrExecutorEnv: any;
 }) {
-  console.log("Validating envs...")
+  console.log("Validating envs...");
   commonEnv = validateCommonEnv(rawCommonEnv);
-  if (mode === Mode.executor) {
+  if (mode === Mode.EXECUTOR) {
     executorEnv = validateExecutorEnv(rawListenerOrExecutorEnv);
-  } else if (mode === Mode.listener) {
+  } else if (mode === Mode.LISTENER) {
     listenerEnv = validateListenerEnv(rawListenerOrExecutorEnv);
   } else {
     throw new Error("Unexpected mode: " + mode);
   }
-  console.log("Validated envs")
+  console.log("Validated envs");
 }
 
 export function getExecutorEnv(): ExecutorEnv {
@@ -145,12 +145,12 @@ function validateCommonEnv(raw: any): CommonEnv {
   return {
     logLevel: nnull(raw.logLevel, "logLevel"),
     promPort: assertInt(raw.promPort),
-    logDir: nnull(raw.logDir, "logDir"),
+    logDir: raw.logDir,
     readinessPort: raw.readinessPort && assertInt(raw.readinessPort),
     redisHost: nnull(raw.redisHost),
     redisPort: parseInt(raw.restPort),
     pluginURIs: assertArray(raw.pluginURIs, "pluginURIs"),
-    envType: validateStringEnum<EnvTypes>(EnvTypes, raw.envTypes),
+    envType: validateStringEnum<EnvTypes>(EnvTypes, raw.envType),
   };
 }
 
@@ -165,32 +165,6 @@ function validateListenerEnv(raw: Keys<ListenerEnv>): ListenerEnv {
     throw new Error("Missing required environment variable: spyServiceHost");
   } else {
     spyServiceHost = raw.spyServiceHost;
-  }
-
-  console.info("Getting spyServiceFilters...");
-  if (!raw.spyServiceFilters) {
-    throw new Error("Missing required environment variable: spyServiceFilters");
-  } else {
-    const array = JSON.parse(raw.spyServiceFilters);
-    // if (!array.foreach) {
-    if (!array || !Array.isArray(array)) {
-      throw new Error("Spy service filters is not an array.");
-    } else {
-      array.forEach((filter: any) => {
-        if (filter.chainId && filter.emitterAddress) {
-          console.info(
-            "nativeToHexString: " +
-              nativeToHexString(filter.emitterAddress, filter.chainId)
-          );
-          spyServiceFilters.push({
-            chainId: filter.chainId as ChainId,
-            emitterAddress: filter.emitterAddress,
-          });
-        } else {
-          throw new Error("Invalid filter record. " + filter.toString());
-        }
-      });
-    }
   }
 
   console.info("Getting restPort...");

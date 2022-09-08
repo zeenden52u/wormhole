@@ -15,8 +15,8 @@ import { NodeURI, validateStringEnum } from "./validateConfig";
 import { EnvTypes as EnvType } from "plugin_interface";
 
 export enum Mode {
-  listener = "listener",
-  executor = "executor",
+  LISTENER = "LISTENER",
+  EXECUTOR = "EXECUTOR",
 }
 
 export function envTypeToPath(envType: EnvType): string {
@@ -28,17 +28,29 @@ export async function loadUntypedEnvs(): Promise<{
   rawCommonEnv: any;
   rawListenerOrExecutorEnv: any;
 }> {
-  const mode = validateStringEnum<Mode>(Mode, process.env.MODE);
+  const modeString = process.env.MODE && process.env.MODE.toUpperCase();
+  const envTypeString =
+    process.env.ENV_TYPE && process.env.ENV_TYPE.toUpperCase();
+
+  const mode = validateStringEnum<Mode>(Mode, modeString);
   const envType = validateStringEnum<EnvType>(
     EnvType,
-    process.env.ENV_TYPE ? process.env.ENV_TYPE : EnvType.MAINNET
+    envTypeString ? envTypeString : EnvType.MAINNET
   );
 
-  const rawCommonEnv = loadCommon(envType, mode);
-  const listenerOrExecutor = loadListenerOrExecutor(envType, mode);
+  console.log(
+    `Starting common config load for env: ${envTypeString}, mode: ${modeString}`
+  );
+
+  const rawCommonEnv = await loadCommon(envType, mode);
+
+  console.log("Successfully loaded the common config file.");
+  const listenerOrExecutor = await loadListenerOrExecutor(envType, mode);
+  console.log("Successfully loaded the mode config file.");
+
   return {
-    rawCommonEnv: await rawCommonEnv,
-    rawListenerOrExecutorEnv: await listenerOrExecutor,
+    rawCommonEnv: rawCommonEnv,
+    rawListenerOrExecutorEnv: listenerOrExecutor,
     mode,
   };
 }
@@ -60,34 +72,44 @@ async function loadListenerOrExecutor(
   );
 }
 
-export async function loadPluginConfig(pluginName: string, pluginURI: NodeURI, envType: EnvType): Promise<Record<string, any>> {
-  const overrides = loadFileAndParseToObject(`./config/${envTypeToPath(envType)}/plugins/${pluginName}`)
-  const defaultConfig = loadFileAndParseToObject(`./node_modules/${pluginURI}/config/${envTypeToPath(envType)}.yml`)
-  return {...await defaultConfig, ...await overrides}
+export async function loadPluginConfig(
+  pluginName: string,
+  pluginURI: NodeURI,
+  envType: EnvType
+): Promise<Record<string, any>> {
+  const overrides = loadFileAndParseToObject(
+    `./config/${envTypeToPath(envType)}/plugins/${pluginName}`
+  );
+  const defaultConfig = loadFileAndParseToObject(
+    `./node_modules/${pluginURI}/config/${envTypeToPath(envType)}.yml`
+  );
+  return { ...(await defaultConfig), ...(await overrides) };
 }
 
 // todo: extend to take path w/o extension and look for all supported extensions
 async function loadFileAndParseToObject(
   path: string
 ): Promise<Record<string, any>> {
-  const readFile = () => fs.readFile(path, { encoding: "utf-8" });
+  console.log("About to read contents of : " + path);
+  const fileContent = await fs.readFile(path, { encoding: "utf-8" });
+  console.log("Successfully read file contents");
   const ext = nodePath.extname(path);
   switch (ext) {
-    case "json":
-      return JSON.parse(await readFile());
-    case "yaml":
-      return yaml.load(await readFile(), {
+    case ".json":
+      return JSON.parse(fileContent);
+    case ".yaml":
+      return yaml.load(fileContent, {
         schema: yaml.JSON_SCHEMA,
       }) as Record<string, any>;
-    case "yml":
-      return yaml.load(await readFile(), {
+    case ".yml":
+      return yaml.load(fileContent, {
         schema: yaml.JSON_SCHEMA,
       }) as Record<string, any>;
     default:
       const err = new Error("Config file has unsupported extension") as any;
       err.ext = ext;
       err.path = path;
-      throw ext;
+      throw err;
   }
 }
 
