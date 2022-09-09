@@ -2,7 +2,7 @@ import { Metric } from "prom-client";
 import * as ethers from "ethers";
 import * as solana from "@solana/web3.js";
 import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
-import winston 
+import * as winston from "winston";
 /*
  *  Config
  */
@@ -104,7 +104,11 @@ export interface Listener extends PluginCommonFields {
 export type Plugin = Listener & Executor;
 export interface PluginFactory {
   // validate untyped config and exception out if invalid
-  create(config: CommonPluginEnv, pluginEnv: Record<string, any>, logger: winston.Logger): Plugin;
+  create(
+    config: CommonPluginEnv,
+    pluginEnv: Record<string, any>,
+    logger: winston.Logger
+  ): Plugin;
   // plugin name
   pluginName: string;
 }

@@ -13,13 +13,12 @@ Execute
 -Init Executor
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-require("./helpers/loadConfig");
 const wasm_1 = require("@certusone/wormhole-sdk/lib/cjs/solana/wasm");
 const executorHarness = require("./executor/executorHarness");
 const logHelper_1 = require("./helpers/logHelper");
 const promHelpers_1 = require("./helpers/promHelpers");
 // import * as redisHelper from "./helpers/redisHelper";
-const storage_1 = require("./helpers/storage");
+const storage_1 = require("./storage/storage");
 const listenerHarness = require("./listener/listenerHarness");
 const loadPlugins_1 = require("./loadPlugins");
 const config_1 = require("./config");
@@ -29,7 +28,6 @@ const config_2 = require("./config");
 async function main() {
     await (0, config_2.loadAndValidateConfig)();
     const commonEnv = (0, config_1.getCommonEnv)();
-    console.log("here");
     const logger = (0, logHelper_1.getLogger)();
     const plugins = await (0, loadPlugins_1.loadPlugins)(commonEnv);
     const storage = await (0, storage_1.createStorage)(commonEnv);

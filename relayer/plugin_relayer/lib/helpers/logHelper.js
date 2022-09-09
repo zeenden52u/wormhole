@@ -1,10 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getScopedLogger = exports.getLogger = void 0;
+exports.getScopedLogger = exports.getLogger = exports.dbg = void 0;
 const winston = require("winston");
 const config_1 = require("../config");
 //Be careful not to access this before having called init logger, or it will be undefined
 let logger;
+function dbg(x, msg) {
+    if (msg) {
+        console.log(msg);
+    }
+    console.log(x);
+    return x;
+}
+exports.dbg = dbg;
 // todo: fallback to console.log if logger not init'd
 function getLogger() {
     if (logger) {

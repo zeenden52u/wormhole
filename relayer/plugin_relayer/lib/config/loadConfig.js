@@ -50,7 +50,7 @@ async function loadListenerOrExecutor(envType, mode) {
     return await loadFileAndParseToObject(`./config/${envTypeToPath(envType)}/${mode.toLowerCase()}.yml`);
 }
 async function loadPluginConfig(pluginName, pluginURI, envType) {
-    const overrides = loadFileAndParseToObject(`./config/${envTypeToPath(envType)}/plugins/${pluginName}`);
+    const overrides = loadFileAndParseToObject(`./config/${envTypeToPath(envType)}/plugins/${pluginName}.yml`);
     const defaultConfig = loadFileAndParseToObject(`./node_modules/${pluginURI}/config/${envTypeToPath(envType)}.yml`);
     return { ...(await defaultConfig), ...(await overrides) };
 }

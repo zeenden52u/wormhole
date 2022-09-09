@@ -14,9 +14,9 @@
   "author": "Joe Howarth",
   "license": "ISC",
   "peerDependencies": {
-    "winston": "^3.8.2"
+    "winston": "3.8.2"
   },
   "devDependencies": {
-    "winston": "^3.8.2"
+    "winston": "3.8.2"
   }
 }

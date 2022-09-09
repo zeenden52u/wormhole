@@ -42,62 +42,21 @@ function validateCommonEnv(raw) {
 }
 exports.validateCommonEnv = validateCommonEnv;
 function validateListenerEnv(raw) {
-    let spyServiceHost;
-    let spyServiceFilters = [];
-    let restPort;
-    let numSpyWorkers;
-    let supportedTokens = [];
-    if (!raw.spyServiceHost) {
-        throw new Error("Missing required environment variable: spyServiceHost");
-    }
-    else {
-        spyServiceHost = raw.spyServiceHost;
-    }
-    console.info("Getting restPort...");
-    if (!raw.restPort) {
-        throw new Error("Missing required environment variable: restPort");
-    }
-    else {
-        restPort = parseInt(raw.restPort);
-    }
-    console.info("Getting numSpyWorkers...");
-    if (!raw.numSpyWorkers) {
-        throw new Error("Missing required environment variable: numSpyWorkers");
-    }
-    else {
-        numSpyWorkers = parseInt(raw.numSpyWorkers);
-    }
-    console.info("Setting the listener backend...");
     return {
-        spyServiceHost,
-        spyServiceFilters,
-        restPort,
-        numSpyWorkers,
+        spyServiceHost: raw.spyServiceHost,
+        restPort: raw.restPort ? assertInt(raw.restPort, "restPort") : undefined,
+        numSpyWorkers: raw.numSpyWorkers
+            ? assertInt(raw.numSpyWorkers, "numSpyWorkers")
+            : 1,
     };
 }
 exports.validateListenerEnv = validateListenerEnv;
 function validateExecutorEnv(raw) {
-    let supportedChains = [];
-    let redisHost;
-    let redisPort;
-    if (!raw.redisHost) {
-        throw new Error("Missing required environment variable: redisHost");
-    }
-    else {
-        redisHost = raw.redisHost;
-    }
-    if (!raw.redisPort) {
-        throw new Error("Missing required environment variable: redisPort");
-    }
-    else {
-        redisPort = parseInt(raw.redisPort);
-    }
-    supportedChains = validateChainConfig(raw.supportedChains, raw.privateKeys);
-    console.info("Setting the relayer backend...");
+    const supportedChains = validateChainConfig(raw.supportedChains, raw.privateKeys);
     return {
         supportedChains,
-        redisHost,
-        redisPort,
+        redisHost: nnull(raw.redisHost, "redisHost"),
+        redisPort: assertInt(raw.redisPort, "redisPort"),
     };
 }
 exports.validateExecutorEnv = validateExecutorEnv;
@@ -115,7 +74,6 @@ function validateChainConfig(supportedChainsRaw, privateKeysRaw) {
         }
         return k;
     });
-    const supportedChains = [];
     supportedChainsRaw.forEach((element) => {
         if (!element.chainId) {
             throw new Error("Invalid chain config: " + element);
@@ -139,29 +97,9 @@ function validateChainConfig(supportedChainsRaw, privateKeysRaw) {
 }
 exports.validateChainConfig = validateChainConfig;
 function createSolanaChainConfig(config, privateKeys) {
-    if (!config.chainId) {
-        throw new Error("Missing required field in chain config: chainId");
-    }
-    if (!config.chainName) {
-        throw new Error("Missing required field in chain config: chainName");
-    }
-    if (!config.nativeCurrencySymbol) {
-        throw new Error("Missing required field in chain config: nativeCurrencySymbol");
-    }
-    if (!config.nodeUrl) {
-        throw new Error("Missing required field in chain config: nodeUrl");
-    }
-    if (!config.tokenBridgeAddress) {
-        throw new Error("Missing required field in chain config: tokenBridgeAddress");
-    }
+    const msg = (fieldName) => `Missing required field in chain config: ${fieldName}`;
     if (!(privateKeys && privateKeys.length && privateKeys.forEach)) {
         throw new Error("Ill formatted object received as private keys for Solana.");
-    }
-    if (!config.bridgeAddress) {
-        throw new Error("Missing required field in chain config: bridgeAddress");
-    }
-    if (!config.wrappedAsset) {
-        throw new Error("Missing required field in chain config: wrappedAsset");
     }
     const solanaPrivateKey = privateKeys.map((item) => {
         try {
@@ -173,93 +111,49 @@ function createSolanaChainConfig(config, privateKeys) {
     });
     return {
         solanaPrivateKey,
-        chainId: config.chainId,
-        chainName: config.chainName,
-        nativeCurrencySymbol: config.nativeCurrencySymbol,
-        nodeUrl: config.nodeUrl,
-        tokenBridgeAddress: config.tokenBridgeAddress,
-        bridgeAddress: config.bridgeAddress,
-        wrappedAsset: config.wrappedAsset,
+        chainId: nnull(config.chainId, msg("chainId")),
+        chainName: nnull(config.chainName, msg("chainName")),
+        nativeCurrencySymbol: nnull(config.nativeCurrencySymbol, msg("nativeCurrencySymbol")),
+        nodeUrl: nnull(config.nodeUrl, msg("nodeUrl")),
+        tokenBridgeAddress: nnull(config.tokenBridgeAddress, msg("tokenBridgeAddress")),
+        bridgeAddress: nnull(config.bridgeAddress, msg("bridgeAddress")),
+        wrappedAsset: nnull(config.wrappedAsset, msg("wrappedAsset")),
     };
 }
 function createTerraChainConfig(config, privateKeys) {
+    const msg = (fieldName) => `Missing required field in chain config: ${fieldName}`;
     let walletPrivateKey;
-    let isTerraClassic = false;
-    if (!config.chainId) {
-        throw new Error("Missing required field in chain config: chainId");
-    }
-    if (!config.chainName) {
-        throw new Error("Missing required field in chain config: chainName");
-    }
-    if (!config.nativeCurrencySymbol) {
-        throw new Error("Missing required field in chain config: nativeCurrencySymbol");
-    }
-    if (!config.nodeUrl) {
-        throw new Error("Missing required field in chain config: nodeUrl");
-    }
-    if (!config.tokenBridgeAddress) {
-        throw new Error("Missing required field in chain config: tokenBridgeAddress");
-    }
     if (!(privateKeys && privateKeys.length && privateKeys.forEach)) {
         throw new Error("Private keys for Terra are length zero or not an array.");
-    }
-    if (!config.terraName) {
-        throw new Error("Missing required field in chain config: terraName");
-    }
-    if (!config.terraChainId) {
-        throw new Error("Missing required field in chain config: terraChainId");
-    }
-    if (!config.terraCoin) {
-        throw new Error("Missing required field in chain config: terraCoin");
-    }
-    if (!config.terraGasPriceUrl) {
-        throw new Error("Missing required field in chain config: terraGasPriceUrl");
     }
     walletPrivateKey = privateKeys;
     return {
         walletPrivateKey,
         isTerraClassic: config.isTerraClassic || false,
-        chainId: config.chainId,
-        chainName: config.chainName,
-        nativeCurrencySymbol: config.nativeCurrencySymbol,
-        nodeUrl: config.nodeUrl,
-        tokenBridgeAddress: config.tokenBridgeAddress,
-        terraName: config.terraName,
-        terraChainId: config.terraChainId,
-        terraCoin: config.terraCoin,
-        terraGasPriceUrl: config.terraGasPriceUrl,
+        chainId: nnull(config.chainId, msg("chainId")),
+        chainName: nnull(config.chainName, msg("chainName")),
+        nativeCurrencySymbol: nnull(config.nativeCurrencySymbol, msg("nativeCurrencySymbol")),
+        nodeUrl: nnull(config.nodeUrl, msg("nodeUrl")),
+        tokenBridgeAddress: nnull(config.tokenBridgeAddress, msg("tokenBridgeAddress")),
+        terraName: nnull(config.terraName, msg("terraName")),
+        terraChainId: nnull(config.terraChainId, msg("terraChainId")),
+        terraCoin: nnull(config.terraCoin, msg("terraCoin")),
+        terraGasPriceUrl: nnull(config.terraGasPriceUrl, msg("terraGasPriceUrl")),
     };
 }
 function createEvmChainConfig(config, privateKeys) {
-    if (!config.chainId) {
-        throw new Error("Missing required field in chain config: chainId");
-    }
-    if (!config.chainName) {
-        throw new Error("Missing required field in chain config: chainName");
-    }
-    if (!config.nativeCurrencySymbol) {
-        throw new Error("Missing required field in chain config: nativeCurrencySymbol");
-    }
-    if (!config.nodeUrl) {
-        throw new Error("Missing required field in chain config: nodeUrl");
-    }
-    if (!config.tokenBridgeAddress) {
-        throw new Error("Missing required field in chain config: tokenBridgeAddress");
-    }
     if (!(privateKeys && privateKeys.length && privateKeys.forEach)) {
         throw new Error(`Private keys for chain id ${config.chainId} are length zero or not an array.`);
     }
-    if (!config.wrappedAsset) {
-        throw new Error("Missing required field in chain config: wrappedAsset");
-    }
+    const msg = (fieldName) => `Missing required field in chain config: ${fieldName}`;
     return {
         walletPrivateKey: privateKeys,
-        chainId: config.chainId,
-        chainName: config.chainName,
-        nativeCurrencySymbol: config.nativeCurrencySymbol,
-        nodeUrl: config.nodeUrl,
-        tokenBridgeAddress: config.tokenBridgeAddress,
-        wrappedAsset: config.wrappedAsset,
+        chainId: nnull(config.chainId, msg("chainId")),
+        chainName: nnull(config.chainName, msg("chainName")),
+        nativeCurrencySymbol: nnull(config.nativeCurrencySymbol, msg("nativeCurrencySymbol")),
+        nodeUrl: nnull(config.nodeUrl, msg("nodeUrl")),
+        tokenBridgeAddress: nnull(config.tokenBridgeAddress, msg("tokenBridgeAddress")),
+        wrappedAsset: nnull(config.wrappedAsset, msg("wrappedAsset")),
     };
 }
 function validateStringEnum(enumObj, value) {
