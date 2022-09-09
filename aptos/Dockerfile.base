@@ -4,13 +4,12 @@ RUN apt-get update && apt-get -y install libclang-dev jq cmake curl npm --no-ins
 
 WORKDIR /tmp
 
-RUN cargo install --git https://github.com/aptos-labs/aptos-core.git aptos --branch alin/move-keccak
+RUN cargo install --git https://github.com/aptos-labs/aptos-core.git aptos --rev 8ba12c5badeb68d8ff4625a32aceb9043398b16b
 
 RUN npm install -g n typescript ts-node
 RUN n stable
 
 COPY clients/js  /tmp/js
-COPY aptos  /tmp/aptos
 
 WORKDIR /tmp/js
 
