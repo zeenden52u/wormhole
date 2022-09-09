@@ -41,7 +41,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - /tmp/start_node.sh
+            - worm start-validator aptos
           ports:
             - containerPort: 8080
               name: node
