@@ -33,7 +33,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
         - name: plugin-executor
-          image: plugin-executor-image
+          image: plugin-relay-image
           command:
             - npm
             - run

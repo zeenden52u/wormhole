@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "description": "Plugin interfaces used in plugin_relayer",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
   },
   "author": "Joe Howarth",
   "license": "ISC",
@@ -13,7 +14,8 @@
   },
   "devDependencies": {
     "@types/node": "^18.7.13",
-    "@types/winston": "^2.4.4"
+    "@types/winston": "^2.4.4",
+    "typescript": "^4.8.3"
   },
   "peerDependencies": {
     "ethers": "^5.7.0",

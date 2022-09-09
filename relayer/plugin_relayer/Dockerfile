@@ -10,7 +10,19 @@ RUN apk add python3 \
 
 COPY . .
 
-WORKDIR ./relayer/plugin_relayer
+WORKDIR /app/relayer/plugin_interface
+
+RUN npm ci && \
+    npm run build
+
+# TODO handle all plugins in this directory
+WORKDIR /app/relayer/plugins/dummy_plugin
+
+RUN npm ci && \
+    npm run build
+
+
+WORKDIR /app/relayer/plugin_relayer
 
 RUN npm ci && \
     npm run build

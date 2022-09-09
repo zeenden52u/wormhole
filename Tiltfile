@@ -46,6 +46,7 @@ config.define_bool("terra_classic", False, "Enable Terra Classic component")
 config.define_bool("terra2", False, "Enable Terra 2 component")
 config.define_bool("explorer", False, "Enable explorer component")
 config.define_bool("spy_relayer", False, "Enable spy relayer")
+config.define_bool("plugin_relayer", False, "Enable plugin relayer")
 config.define_bool("e2e", False, "Enable E2E testing stack")
 config.define_bool("ci_tests", False, "Enable tests runner component")
 config.define_bool("guardiand_debug", False, "Enable dlv endpoint for guardiand")
@@ -67,6 +68,7 @@ terra2 = cfg.get("terra2", True)
 ci = cfg.get("ci", False)
 explorer = cfg.get("explorer", ci)
 spy_relayer = cfg.get("spy_relayer", ci)
+plugin_relayer = cfg.get("plugin_relayer", ci)
 e2e = cfg.get("e2e", ci)
 ci_tests = cfg.get("ci_tests", ci)
 guardiand_debug = cfg.get("guardiand_debug", False)
@@ -391,7 +393,7 @@ docker_build(
     ],
 )
 
-if spy_relayer:
+if spy_relayer or plugin_relayer:
     docker_build(
         ref = "redis",
         context = ".",
@@ -409,6 +411,43 @@ if spy_relayer:
         labels = ["spy-relayer"],
         trigger_mode = trigger_mode,
     )
+
+if plugin_relayer:
+    docker_build(
+        ref = "plugin-relay-image",
+        context = ".",
+        only = ["./relayer/plugin_relayer", "./relayer/plugin_interface", "./relayer/plugins"],
+        dockerfile = "relayer/plugin_relayer/Dockerfile",
+        live_update = []
+    )
+
+    k8s_yaml_with_ns("devnet/plugin-listener.yaml")
+
+    k8s_resource(
+        "plugin-listener",
+        resource_deps = ["proto-gen", "guardian", "redis"],
+        port_forwards = [
+            port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
+            port_forward(4201, name = "REST [:4201]", host = webHost),
+            port_forward(8082, name = "Prometheus [:8082]", host = webHost),
+        ],
+        labels = ["plugin-relayer"],
+        trigger_mode = trigger_mode,
+    )
+
+    k8s_yaml_with_ns("devnet/plugin-executor.yaml")
+
+    k8s_resource(
+        "plugin-executor",
+        resource_deps = ["proto-gen", "guardian", "redis"],
+        port_forwards = [
+            port_forward(8083, name = "Prometheus [:8083]", host = webHost),
+        ],
+        labels = ["plugin-relayer"],
+        trigger_mode = trigger_mode,
+    )
+
+if spy_relayer:
 
     docker_build(
         ref = "spy-relay-image",
