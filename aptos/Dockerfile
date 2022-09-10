@@ -5,7 +5,7 @@ COPY cert.pem* /certs/
 RUN if [ -e /certs/cert.pem ]; then cp /certs/cert.pem /etc/ssl/certs/ca-certificates.crt; fi
 
 WORKDIR /tmp
-COPY README.md aptos/README.md
+RUN mkdir -p /tmp/aptos
 
 FROM aptos AS tests
 
