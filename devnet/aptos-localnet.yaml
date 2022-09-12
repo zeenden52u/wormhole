@@ -55,5 +55,17 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 8081
+        - name: aptos-contracts
+          image: aptos-contracts
+          command:
+            - /bin/sh
+            - -c
+            - "sh deploy && touch success && sleep infinity"
+          readinessProbe:
+            tcpSocket:
+              port: 8081
+            periodSeconds: 1
+            initialDelaySeconds: 15
+            periodSeconds: 5
 
       restartPolicy: Always

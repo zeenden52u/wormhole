@@ -745,6 +745,12 @@ if aptos:
         only = ["Dockerfile", "node_builder.sh", "start_node.sh", "README.md", "cert.pem"],
     )
 
+    docker_build(
+        ref = "aptos-contracts",
+        context = "aptos",
+        dockerfile = "aptos/Dockerfile.contracts",
+    )
+
     k8s_resource(
         "aptos",
         port_forwards = [
