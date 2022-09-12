@@ -3,4 +3,6 @@ shouldSpy: true
 shouldRest: false
 spyServiceFilters:
   - chainId: 1
-    emitterAddress: worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth
+    emitterAddress: B6RHG3mfcckmrYN1UhmJzyS1XX3fZKbkeUcpJe9Sy3FE
+  - chainId: 2
+    emitterAddress: "0x0290FB167208Af455bB137780163b7B7a9a10C16"
