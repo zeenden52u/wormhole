@@ -44,11 +44,17 @@ export async function query_contract_evm(
       }
       result.guardianSetExpiry = await core.getGuardianSetExpiry()
       result.chainId = await core.chainId()
+      const core2 = new ethers.Contract(contract_address, ["function evmChainId() public view returns (uint256)", "function isFork() public view returns (bool)"], provider)
+      try {
+        result.evmChainId = await core2.evmChainId()
+        result.isFork = await core2.isFork()
+      } catch {}
       result.governanceChainId = await core.governanceChainId()
       result.governanceContract = await core.governanceContract()
       result.messageFee = await core.messageFee()
       result.implementation = (await getStorageAt(rpc, contract_address, _IMPLEMENTATION_SLOT, ["address"]))[0]
       result.isInitialized = await core.isInitialized(result.implementation)
+      console.log(result)
       break
     case "TokenBridge":
       contract_address = contract_address ? contract_address : contracts.token_bridge;
@@ -63,7 +69,11 @@ export async function query_contract_evm(
       result.tokenImplementation = await tb.tokenImplementation()
       result.chainId = await tb.chainId()
       // TODO: need new sdk release to expose this function in BridgeImplementation
-      const tb2 = new ethers.Contract(contract_address, ["function finality() public view returns (uint8)"], provider)
+      const tb2 = new ethers.Contract(contract_address, ["function finality() public view returns (uint8)", "function evmChainId() public view returns (uint256)", "function isFork() public view returns (bool)"], provider)
+      try {
+        result.evmChainId = await tb2.evmChainId()
+        result.isFork = await tb2.isFork()
+      } catch {}
       result.finality = await tb2.finality()
       result.governanceChainId = await tb.governanceChainId()
       result.governanceContract = await tb.governanceContract()
@@ -75,6 +85,7 @@ export async function query_contract_evm(
         }
         result.registrations[c_name] = await tb.bridgeContracts(c_id)
       }
+      console.log(result)
       break
     case "NFTBridge":
       contract_address = contract_address ? contract_address : contracts.nft_bridge;
@@ -90,6 +101,10 @@ export async function query_contract_evm(
       result.chainId = await nb.chainId()
       // TODO: need new sdk release to expose this function in NFTBridgeImplementation
       const nb2 = new ethers.Contract(contract_address, ["function finality() public view returns (uint8)"], provider)
+      try {
+        result.evmChainId = await nb2.evmChainId()
+        result.isFork = await nb2.isFork()
+      } catch {}
       result.finality = await nb2.finality()
       result.governanceChainId = await nb.governanceChainId()
       result.governanceContract = await nb.governanceContract()
@@ -100,6 +115,7 @@ export async function query_contract_evm(
         }
         result.registrations[c_name] = await nb.bridgeContracts(c_id)
       }
+      console.log(result)
       break
     default:
       impossible(module)
