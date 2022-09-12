@@ -4,9 +4,10 @@ module token_bridge::register_chain {
     use wormhole::cursor;
     use wormhole::deserialize;
     use wormhole::vaa;
+    use wormhole::external_address::{Self, ExternalAddress};
 
     use token_bridge::vaa as token_bridge_vaa;
-    use token_bridge::bridge_state as state;
+    use token_bridge::state;
 
     /// "TokenBridge" (left padded)
     const TOKEN_BRIDGE: vector<u8> = x"000000000000000000000000000000000000000000546f6b656e427269646765";
@@ -19,7 +20,7 @@ module token_bridge::register_chain {
         /// Chain ID
         emitter_chain_id: U16,
         /// Emitter address. Left-zero-padded if shorter than 32 bytes
-        emitter_address: vector<u8>,
+        emitter_address: ExternalAddress,
     }
 
     #[test_only]
@@ -43,7 +44,7 @@ module token_bridge::register_chain {
 
         let emitter_chain_id = deserialize::deserialize_u16(&mut cur);
 
-        let emitter_address = deserialize::deserialize_vector(&mut cur, 32);
+        let emitter_address = external_address::deserialize(&mut cur);
 
         cursor::destroy_empty(cur);
 
@@ -64,7 +65,7 @@ module token_bridge::register_chain {
         a.emitter_chain_id
     }
 
-    public fun get_emitter_address(a: &RegisterChain): vector<u8> {
+    public fun get_emitter_address(a: &RegisterChain): ExternalAddress {
         a.emitter_address
     }
 
@@ -77,8 +78,9 @@ module token_bridge::register_chain_test {
     use token_bridge::register_chain;
     use wormhole::vaa;
     use wormhole::wormhole;
+    use wormhole::external_address;
     use token_bridge::token_bridge;
-    use token_bridge::bridge_state as state;
+    use token_bridge::state;
 
     /// Registration VAA for the etheruem token bridge 0xdeadbeef
     const ETHEREUM_TOKEN_REG: vector<u8> = x"0100000000010015d405c74be6d93c3c33ed6b48d8db70dfb31e0981f8098b2a6c7583083e0c3343d4a1abeb3fc1559674fa067b0c0e2e9de2fafeaecdfeae132de2c33c9d27cc0100000001000000010001000000000000000000000000000000000000000000000000000000000000000400000000016911ae00000000000000000000000000000000000000000000546f6b656e427269646765010000000200000000000000000000000000000000000000000000000000000000deadbeef";
@@ -112,7 +114,7 @@ module token_bridge::register_chain_test {
         let address = register_chain::get_emitter_address(&register_chain);
 
         assert!(chain == u16::from_u64(ETH_ID), 0);
-        assert!(address == x"00000000000000000000000000000000000000000000000000000000deadbeef", 0);
+        assert!(address == external_address::from_bytes(x"deadbeef"), 0);
 
     }
 
@@ -131,7 +133,16 @@ module token_bridge::register_chain_test {
 
         register_chain::submit_vaa(ETHEREUM_TOKEN_REG);
         let address = state::get_registered_emitter(u16::from_u64(ETH_ID));
-        assert!(address == option::some(x"00000000000000000000000000000000000000000000000000000000deadbeef"), 0);
+        assert!(address == option::some(external_address::from_bytes(x"deadbeef")), 0);
+    }
+
+    #[test(deployer = @deployer)]
+    #[expected_failure(abort_code = 25607)]
+    public fun test_replay_protect(deployer: &signer) {
+        setup(deployer);
+
+        register_chain::submit_vaa(ETHEREUM_TOKEN_REG);
+        register_chain::submit_vaa(ETHEREUM_TOKEN_REG);
     }
 
     #[test(deployer = @deployer)]
@@ -144,7 +155,7 @@ module token_bridge::register_chain_test {
         // Easy to change, should be discussed.
         register_chain::submit_vaa(ETHEREUM_TOKEN_REG_2);
         let address = state::get_registered_emitter(u16::from_u64(ETH_ID));
-        assert!(address == option::some(x"00000000000000000000000000000000000000000000000000000000beefface"), 0);
+        assert!(address == option::some(external_address::from_bytes(x"beefface")), 0);
     }
 
 }

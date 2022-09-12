@@ -8,6 +8,7 @@ module wormhole::wormhole {
     use wormhole::u16;
     use wormhole::u32::{Self, U32};
     use wormhole::emitter;
+    use wormhole::external_address::{Self};
 
     const E_INSUFFICIENT_FEE: u64 = 0;
 
@@ -87,7 +88,7 @@ module wormhole::wormhole {
             &wormhole,
             u16::from_u64(chain_id),
             u16::from_u64(governance_chain_id),
-            governance_contract,
+            external_address::from_bytes(governance_contract),
             guardian_set_expiry,
             message_fee,
             signer_cap
@@ -136,15 +137,15 @@ module wormhole::wormhole_test {
     use aptos_framework::coin;
 
     // public so we an re-use this in token_bridge test
-    public fun setup(aptos_framework: &signer) {
-        std::account::create_account_for_test(@aptos_framework);
-        std::timestamp::set_time_has_started_for_testing(aptos_framework);
+    public fun setup(message_fee: u64) {
+        let aptos_framework = std::account::create_account_for_test(@aptos_framework);
+        std::timestamp::set_time_has_started_for_testing(&aptos_framework);
         wormhole::init_test(
             22,
             1,
             x"0000000000000000000000000000000000000000000000000000000000000004",
             x"beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe",
-            100 // message_fee
+            message_fee
         );
     }
 
@@ -156,7 +157,7 @@ module wormhole::wormhole_test {
 
     #[test(aptos_framework = @aptos_framework)]
     public fun test_publish_message(aptos_framework: &signer) {
-        setup(aptos_framework);
+        setup(100);
 
         let (burn_cap, mint_cap) = aptos_coin::initialize_for_test(aptos_framework);
         let fees = coin::mint(100, &mint_cap);
@@ -177,10 +178,10 @@ module wormhole::wormhole_test {
         coin::destroy_burn_cap(burn_cap);
     }
 
-    #[test(aptos_framework = @aptos_framework)]
+    #[test]
     #[expected_failure(abort_code = 0x0)]
-    public fun test_publish_message_insufficient_fee(aptos_framework: &signer) {
-        setup(aptos_framework);
+    public fun test_publish_message_insufficient_fee() {
+        setup(100);
         let emitter_cap = wormhole::register_emitter();
 
         wormhole::publish_message(

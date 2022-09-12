@@ -1,13 +1,13 @@
 module wormhole::vaa {
     use 0x1::vector;
-    use 0x1::secp256k1::{Self};
+    use 0x1::secp256k1;
     use 0x1::aptos_hash;
 
     use wormhole::u16::{U16};
     use wormhole::u32::{U32};
     use wormhole::deserialize;
-    use wormhole::cursor::{Self};
-    use wormhole::guardian_pubkey::{Self};
+    use wormhole::cursor;
+    use wormhole::guardian_pubkey;
     use wormhole::structs::{
         Guardian,
         GuardianSet,
@@ -18,6 +18,7 @@ module wormhole::vaa {
         get_address,
     };
     use wormhole::state;
+    use wormhole::external_address::{Self, ExternalAddress};
 
     friend wormhole::guardian_set_upgrade;
     friend wormhole::contract_upgrade;
@@ -33,15 +34,15 @@ module wormhole::vaa {
     const E_OLD_GUARDIAN_SET_GOVERNANCE: u64 = 0x8;
 
     struct VAA {
-        // Header
+        /// Header
         guardian_set_index: U32,
         signatures:         vector<Signature>,
 
-        // Body
+        /// Body
         timestamp:          U32,
         nonce:              U32,
         emitter_chain:      U16,
-        emitter_address:    vector<u8>,
+        emitter_address:    ExternalAddress,
         sequence:           u64,
         consistency_level:  u8,
         hash:               vector<u8>, // 32 bytes
@@ -86,7 +87,7 @@ module wormhole::vaa {
         let timestamp = deserialize::deserialize_u32(&mut cur);
         let nonce = deserialize::deserialize_u32(&mut cur);
         let emitter_chain = deserialize::deserialize_u16(&mut cur);
-        let emitter_address = deserialize::deserialize_vector(&mut cur, 32);
+        let emitter_address = external_address::deserialize(&mut cur);
         let sequence = deserialize::deserialize_u64(&mut cur);
         let consistency_level = deserialize::deserialize_u8(&mut cur);
 
@@ -126,7 +127,7 @@ module wormhole::vaa {
          vaa.emitter_chain
     }
 
-    public fun get_emitter_address(vaa: &VAA): vector<u8> {
+    public fun get_emitter_address(vaa: &VAA): ExternalAddress {
          vaa.emitter_address
     }
 
