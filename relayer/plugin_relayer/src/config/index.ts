@@ -28,8 +28,6 @@ export type ListenerEnv = {
 
 export type ExecutorEnv = {
   supportedChains: ChainConfigInfo[];
-  redisHost: string;
-  redisPort: number;
 };
 
 export type ChainConfigInfo = {

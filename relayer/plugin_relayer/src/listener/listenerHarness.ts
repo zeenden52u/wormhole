@@ -18,6 +18,15 @@ import {
 import { sleep } from "../helpers/utils";
 import { SpyRPCServiceClient } from "@certusone/wormhole-spydk/lib/cjs/proto/spy/v1/spy";
 import { PluginStorage, Storage } from "../storage/storage";
+import {
+  ChainId,
+  CHAIN_ID_SOLANA,
+  getEmitterAddressEth,
+  getEmitterAddressSolana,
+  getEmitterAddressTerra,
+  isTerraChain,
+} from "@certusone/wormhole-sdk";
+import { encode } from "punycode";
 
 const logger = () => getScopedLogger(["listenerHarness"], getLogger());
 
@@ -76,6 +85,32 @@ async function consumeEventHarness(
   }
 }
 
+async function transformEmitterFilter(
+  x: ContractFilter
+): Promise<ContractFilter> {
+  const newEmitter = await encodeEmitterAddress(x.chainId, x.emitterAddress);
+
+  return {
+    chainId: x.chainId,
+    emitterAddress: newEmitter,
+  };
+}
+
+async function encodeEmitterAddress(
+  myChainId: ChainId,
+  emitterAddressStr: string
+): Promise<string> {
+  if (myChainId === CHAIN_ID_SOLANA) {
+    return await getEmitterAddressSolana(emitterAddressStr);
+  }
+
+  if (isTerraChain(myChainId)) {
+    return await getEmitterAddressTerra(emitterAddressStr);
+  }
+
+  return getEmitterAddressEth(emitterAddressStr);
+}
+
 //used for both rest & spy relayer for now
 async function runPluginSpyListener(
   pluginStorage: PluginStorage,
@@ -86,11 +121,13 @@ async function runPluginSpyListener(
     let stream: any;
     try {
       stream = await subscribeSignedVAA(client, {
-        filters: plugin.getFilters().map(x => {
-          return {
-            emitterFilter: x,
-          };
-        }),
+        filters: await Promise.all(
+          plugin.getFilters().map(async x => {
+            return {
+              emitterFilter: await transformEmitterFilter(x),
+            };
+          })
+        ),
       });
 
       //TODO add staging area for event consume

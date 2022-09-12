@@ -11,7 +11,7 @@ import { CommonEnv, ExecutorEnv, ListenerEnv, ChainConfigInfo } from ".";
 
 type ConfigPrivateKey = {
   chainId: ChainId;
-  privateKeys: string[];
+  privateKeys: string[] | number[][];
 };
 
 function assertInt(x: any, fieldName?: string): number {
@@ -39,14 +39,14 @@ function nnull<T>(x: T | undefined | null, errMsg?: string): T {
   return x;
 }
 
-export function validateCommonEnv(raw: any): CommonEnv {
+export function validateCommonEnv(raw: Keys<CommonEnv>): CommonEnv {
   return {
     logLevel: nnull(raw.logLevel, "logLevel"),
     promPort: assertInt(raw.promPort),
     logDir: raw.logDir,
     readinessPort: raw.readinessPort && assertInt(raw.readinessPort),
     redisHost: nnull(raw.redisHost),
-    redisPort: parseInt(raw.restPort),
+    redisPort: parseInt(raw.redisPort),
     pluginURIs: assertArray(raw.pluginURIs, "pluginURIs"),
     envType: validateStringEnum<EnvTypes>(EnvTypes, raw.envType),
   };
@@ -71,8 +71,6 @@ export function validateExecutorEnv(
   );
   return {
     supportedChains,
-    redisHost: nnull(raw.redisHost, "redisHost"),
-    redisPort: assertInt(raw.redisPort, "redisPort"),
   };
 }
 
@@ -88,7 +86,7 @@ export function validateChainConfig(
     throw new Error("Missing required environment variable: privateKeys");
   }
   const privateKeys: ConfigPrivateKey[] = privateKeysRaw.map((k: any) => {
-    if (!(k.chainId && k.privateKey && Number.isInteger(k.chainId))) {
+    if (!(k.chainId && k.privateKeys && Number.isInteger(k.chainId))) {
       throw new Error("Invalid private key record from config");
     }
     return k as ConfigPrivateKey;

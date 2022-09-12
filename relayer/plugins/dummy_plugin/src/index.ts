@@ -13,9 +13,13 @@ import {
 import { ChainId } from "@certusone/wormhole-sdk";
 import { Logger } from "winston";
 
-function create(config: CommonPluginEnv, overrides?: any, logger: Logger): Plugin {
+function create(
+  commonConfig: CommonPluginEnv,
+  pluginConfig: any,
+  logger: Logger
+): Plugin {
   console.log("Creating da plugin...");
-  return new DummyPlugin(config, overrides, logger);
+  return new DummyPlugin(commonConfig, pluginConfig, logger);
 }
 
 interface Env {

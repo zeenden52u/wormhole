@@ -4,6 +4,7 @@
     "target": "esnext",
     "module": "commonjs",
     "moduleResolution": "node",
+    "declaration": true,
     "lib": ["es2019"],
     "skipLibCheck": true,
     "allowJs": true,
