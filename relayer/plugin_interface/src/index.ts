@@ -74,6 +74,7 @@ interface PluginCommonFields {
   env: any;
 }
 export interface Executor extends PluginCommonFields {
+  demoteInProgress?: boolean;
   relayEvmAction?: (
     walletToolbox: WalletToolBox<EVMWallet>,
     action: WorkerAction,

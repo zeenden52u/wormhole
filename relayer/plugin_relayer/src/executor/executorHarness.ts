@@ -1,8 +1,4 @@
-import {
-  getCommonEnv,
-  getExecutorEnv,
-  ExecutorEnv,
-} from "../config";
+import { getCommonEnv, getExecutorEnv, ExecutorEnv } from "../config";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import {
   ActionQueueUpdate,
@@ -15,11 +11,16 @@ import {
 } from "plugin_interface";
 import * as solana from "@solana/web3.js";
 import { sleep } from "../helpers/utils";
-import { Storage } from "../storage/storage";
+import { getPluginStorage, Storage } from "../storage/storage";
 import * as wh from "@certusone/wormhole-sdk";
 import * as ethers from "ethers";
 import { providersFromChainConfig } from "../utils/providers";
-import { EVMChainId } from "@certusone/wormhole-sdk";
+import {
+  CHAIN_ID_SOLANA,
+  EVMChainId,
+  isEVMChain,
+  isTerraChain,
+} from "@certusone/wormhole-sdk";
 
 const WORKER_RESTART_MS = 10 * 1000;
 const WORKER_INTERVAL_MS = 500;
@@ -45,8 +46,16 @@ export async function run(plugins: Plugin[], storage: Storage) {
       chain.solanaPrivateKey,
       chain.walletPrivateKey
     );
+    //TODO update for all ecosystems
+    const filteredPlugins = plugins.filter(x => {
+      return (
+        (isEVMChain(chain.chainId) && x.relayEvmAction) ||
+        (chain.chainId === CHAIN_ID_SOLANA && x.relaySolanaAction) ||
+        (isTerraChain(chain.chainId) && x.relayCosmAction)
+      );
+    });
     privatekeys.forEach(key => {
-      spawnWalletWorker(storage, plugins, providers, {
+      spawnWalletWorker(storage, filteredPlugins, providers, {
         id: id++,
         targetChainId: chain.chainId,
         targetChainName: chain.chainName,
@@ -89,17 +98,26 @@ async function spawnWalletWorker(
       logger.info(
         `Relaying action ${action.id} with plugin ${pluginStorage.plugin.pluginName}...`
       );
-      const update = await relayDispatcher(
-        action,
-        queuedActions,
-        pluginStorage.plugin,
-        workerInfo,
-        providers,
-        logger
-      );
-      pluginStorage.applyActionUpdate(update.enqueueActions, action);
-      logger.info(`Action ${action.id} relayed`);
-      await sleep(WORKER_INTERVAL_MS);
+      try {
+        const update = await relayDispatcher(
+          action,
+          queuedActions,
+          pluginStorage.plugin,
+          workerInfo,
+          providers,
+          logger
+        );
+        pluginStorage.applyActionUpdate(update.enqueueActions, action);
+        logger.info(`Action ${action.id} relayed`);
+        await sleep(WORKER_INTERVAL_MS);
+      } catch (e) {
+        logger.error(e);
+        logger.warn(
+          "Unexpected error while relaying, demoting action " + action.id
+        );
+        await pluginStorage.demoteInProgress(action);
+        await sleep(WORKER_INTERVAL_MS);
+      }
     } catch (e) {
       logger.error(e);
       await sleep(WORKER_RESTART_MS);

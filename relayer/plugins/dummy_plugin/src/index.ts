@@ -11,7 +11,8 @@ import {
   WorkerAction,
 } from "plugin_interface";
 import { ChainId } from "@certusone/wormhole-sdk";
-import { Logger } from "winston";
+import { Logger, loggers } from "winston";
+import { WalletToolBox } from "plugin_interface";
 
 function create(
   commonConfig: CommonPluginEnv,
@@ -27,6 +28,7 @@ interface Env {
   spyServiceFilters?: { chainId: ChainId; emitterAddress: string }[];
   shouldRest: boolean;
   shouldSpy: boolean;
+  demoteInProgress: boolean;
 }
 
 class DummyPlugin implements Plugin {
@@ -36,8 +38,9 @@ class DummyPlugin implements Plugin {
   readonly pluginName = DummyPlugin.pluginName;
   env: Env;
   config: CommonPluginEnv;
+  demoteInProgress;
 
-  constructor(config: CommonPluginEnv, env: Object, logger: Logger) {
+  constructor(config: CommonPluginEnv, env: Object, readonly logger: Logger) {
     console.log(`Config: ${JSON.stringify(config, undefined, 2)}`);
     console.log(`Plugin Env: ${JSON.stringify(env, undefined, 2)}`);
 
@@ -45,6 +48,7 @@ class DummyPlugin implements Plugin {
     this.env = env as Env;
     this.shouldRest = this.env.shouldRest;
     this.shouldSpy = this.env.shouldSpy;
+    this.demoteInProgress = this.env.demoteInProgress;
   }
 
   getFilters(): ContractFilter[] {
@@ -52,6 +56,17 @@ class DummyPlugin implements Plugin {
       return this.env.spyServiceFilters;
     }
     return [{ chainId: 1, emitterAddress: "gotcha!!" }];
+  }
+
+  async relayEvmAction(
+    walletToolbox: WalletToolBox<EVMWallet>,
+    action: WorkerAction,
+    queuedActions: WorkerAction[]
+  ): Promise<ActionQueueUpdate> {
+    this.logger.debug("Executing relayEVMAction");
+    return {
+      enqueueActions: [],
+    };
   }
 
   async consumeEvent(
