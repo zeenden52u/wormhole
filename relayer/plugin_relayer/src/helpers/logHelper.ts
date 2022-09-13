@@ -79,6 +79,7 @@ function initLogger(): winston.Logger {
     // NOTE: do not specify labels in defaultMeta, as it cannot be overridden
     transports: [transport],
     format: winston.format.combine(
+      winston.format.colorize(),
       winston.format.splat(),
       winston.format.simple(),
       winston.format.timestamp({

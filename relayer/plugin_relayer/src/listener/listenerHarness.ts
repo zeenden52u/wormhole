@@ -8,7 +8,7 @@
 */
 
 import { getCommonEnv, getListenerEnv } from "../config";
-import { getLogger, getScopedLogger } from "../helpers/logHelper";
+import { dbg, getLogger, getScopedLogger } from "../helpers/logHelper";
 import * as redisHelper from "../storage/redisHelper";
 import { ContractFilter, Plugin } from "plugin_interface";
 import {
@@ -74,13 +74,15 @@ async function consumeEventHarness(
   try {
     const stagingArea = await storage.getStagingArea();
     const { actions, nextStagingArea } = await storage.plugin.consumeEvent(
-      vaa,
+      dbg(new Uint8Array(vaa)),
       stagingArea
     );
     await storage.addActions(actions);
     await storage.saveStagingArea(nextStagingArea);
   } catch (e) {
-    logger().error(e);
+    const l = logger()
+    l.error(`Encountered error consumingEvent for plugin ${storage.plugin.pluginName}`)
+    l.error(e);
     // metric onError
   }
 }
@@ -120,17 +122,28 @@ async function runPluginSpyListener(
   while (true) {
     let stream: any;
     try {
+      const rawFilters = plugin.getFilters();
+      const filters = await Promise.all(
+        rawFilters.map(async x => {
+          return {
+            emitterFilter: await transformEmitterFilter(x),
+          };
+        })
+      );
+      logger().info(
+        `${
+          plugin.pluginName
+        } subscribing to spy with raw filters: ${JSON.stringify(rawFilters)}`
+      );
+      logger().debug(
+        `${plugin.pluginName} using transformed filters: ${JSON.stringify(
+          filters
+        )}`
+      );
       stream = await subscribeSignedVAA(client, {
-        filters: await Promise.all(
-          plugin.getFilters().map(async x => {
-            return {
-              emitterFilter: await transformEmitterFilter(x),
-            };
-          })
-        ),
+        filters,
       });
 
-      //TODO add staging area for event consume
       stream.on("data", (vaa: Buffer) =>
         consumeEventHarness(vaa, pluginStorage)
       );

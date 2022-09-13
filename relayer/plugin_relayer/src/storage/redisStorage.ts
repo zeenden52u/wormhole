@@ -77,18 +77,25 @@ export class RedisStorage implements Storage {
     plugins: Plugin[],
     config: ExecutorEnv
   ): Promise<void> {
+    this.logger.debug("Handling storage startup config")
     for (const plugin of plugins) {
       if (!plugin.demoteInProgress) {
+        this.logger.debug(`Plugin ${plugin.pluginName} has demoteInProgress set to ${plugin.demoteInProgress}`)
         continue;
       }
+      this.logger.info("Checking for inProgress actions to demote on startup");
       try {
         for (const chainId of config.supportedChains.map(x => x.chainId)) {
           const items = await this.redis.getPrefix(
             actionPrefix(plugin, chainId)
           );
+          this.logger.debug(`Found ${items.length} in redis`);
           for (const { key, value } of items) {
-            const storageAction = JSON.parse(value);
+            const storageAction = JSON.parse(value) as StorageAction;
             if (storageAction.inProgress) {
+              this.logger.debug(
+                `Found inProgress item ${storageAction.action.id} in redis, demoting...`
+              );
               await this.getPluginStorage(plugin).demoteInProgress(
                 storageAction.action
               );
@@ -96,7 +103,7 @@ export class RedisStorage implements Storage {
           }
         }
       } catch (e) {
-        this.logger.info(
+        this.logger.error(
           "Encountered an error while demoting in progress items at startup."
         );
         this.logger.error(e);

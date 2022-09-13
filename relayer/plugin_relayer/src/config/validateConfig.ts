@@ -81,8 +81,8 @@ export function validateExecutorEnv(
 
 //Polygon is not supported on local Tilt network atm.
 export function validateChainConfig(
-  supportedChainsRaw: any,
-  privateKeysRaw: any
+  supportedChainsRaw: Keys<ChainConfigInfo>,
+  privateKeysRaw: Keys<ConfigPrivateKey[]>
 ): ChainConfigInfo[] {
   if (!supportedChainsRaw || !Array.isArray(supportedChainsRaw)) {
     throw new Error("Missing required environment variable: supportedChains");
@@ -97,7 +97,7 @@ export function validateChainConfig(
     return k as ConfigPrivateKey;
   });
 
-  supportedChainsRaw.forEach((element: any) => {
+  let supportedChains: ChainConfigInfo[] = supportedChainsRaw.map((element: any) => {
     if (!element.chainId) {
       throw new Error("Invalid chain config: " + element);
     }
@@ -113,21 +113,15 @@ export function validateChainConfig(
     }
 
     if (element.chainId === CHAIN_ID_SOLANA) {
-      supportedChainsRaw.push(
-        createSolanaChainConfig(element, privateKeyObj.privateKeys)
-      );
+        return createSolanaChainConfig(element, privateKeyObj.privateKeys)
     } else if (isTerraChain(element.chainId)) {
-      supportedChainsRaw.push(
-        createTerraChainConfig(element, privateKeyObj.privateKeys)
-      );
+        return createTerraChainConfig(element, privateKeyObj.privateKeys)
     } else {
-      supportedChainsRaw.push(
-        createEvmChainConfig(element, privateKeyObj.privateKeys)
-      );
+        return createEvmChainConfig(element, privateKeyObj.privateKeys)
     }
   });
 
-  return supportedChainsRaw;
+  return supportedChains;
 }
 
 function createSolanaChainConfig(

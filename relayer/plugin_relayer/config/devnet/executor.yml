@@ -1,4 +1,4 @@
-actionInterval: 1000
+actionInterval: 3000
 supportedChains:
   - chainId: 1
     chainName: Solana

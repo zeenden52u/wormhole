@@ -71,7 +71,7 @@ export interface Providers {
  */
 interface PluginCommonFields {
   pluginName: string;
-  env: any;
+  pluginConfig: any;
 }
 export interface Executor extends PluginCommonFields {
   demoteInProgress?: boolean;

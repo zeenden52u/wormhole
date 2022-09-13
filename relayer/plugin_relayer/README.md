@@ -18,6 +18,11 @@ npm i $PLUGIN_URI
 mkdir config/$PLUGIN_NAME
 touch config/$PLUGIN_NAME/testnet.yml
 
+# if there are locally defined plugins (e.g. dummy_plugin)
+cd wormhole/relayer/plugins/dummy_plugin
+npm ci 
+npm run build
+
 # after installing plugins
 npm ci
 npm run build

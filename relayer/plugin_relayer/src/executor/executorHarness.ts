@@ -1,5 +1,5 @@
 import { getCommonEnv, getExecutorEnv, ExecutorEnv } from "../config";
-import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
+import { dbg, getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import {
   ActionQueueUpdate,
   EVMWallet,
@@ -39,6 +39,7 @@ export async function run(plugins: Plugin[], storage: Storage) {
   const providers = providersFromChainConfig(executorEnv.supportedChains);
 
   logger.info("Spawning chain workers...");
+  dbg(executorEnv.supportedChains)
   executorEnv.supportedChains.forEach(chain => {
     let id = 0;
     const privatekeys = maybeConcat<WalletPrivateKey>(
@@ -53,6 +54,12 @@ export async function run(plugins: Plugin[], storage: Storage) {
         (isTerraChain(chain.chainId) && x.relayCosmAction)
       );
     });
+    if (filteredPlugins.length === 0) {
+      logger.warn(
+        `No plugins support chain, not starting workers. ChainName: ${chain.chainName} ChainId: ${chain.chainId}`
+      );
+      return;
+    }
     privatekeys.forEach(key => {
       spawnWalletWorker(storage, filteredPlugins, providers, {
         id: id++,
