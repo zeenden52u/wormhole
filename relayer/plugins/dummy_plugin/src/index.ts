@@ -2,11 +2,9 @@ import {
   ActionQueueUpdate,
   CommonPluginEnv,
   ContractFilter,
-  CosmWallet,
   EVMWallet,
   Plugin,
   PluginFactory,
-  SolanaWallet,
   StagingArea,
   WorkerAction,
 } from "plugin_interface";
@@ -19,7 +17,7 @@ import { Logger, loggers } from "winston";
 import { WalletToolBox } from "plugin_interface";
 
 // todo: do we need this in the plugin or just the relayer??
-setDefaultWasm("node")
+setDefaultWasm("node");
 
 function create(
   commonConfig: CommonPluginEnv,
@@ -30,7 +28,7 @@ function create(
   return new DummyPlugin(commonConfig, pluginConfig, logger);
 }
 
-interface Env {
+interface DummyPluginConfig {
   hi?: string;
   spyServiceFilters?: { chainId: ChainId; emitterAddress: string }[];
   shouldRest: boolean;
@@ -43,7 +41,7 @@ class DummyPlugin implements Plugin {
   shouldRest: boolean;
   static readonly pluginName: string = "DummyPlugin";
   readonly pluginName = DummyPlugin.pluginName;
-  readonly pluginConfig: Env;
+  readonly pluginConfig: DummyPluginConfig;
   readonly demoteInProgress;
 
   constructor(
@@ -61,7 +59,9 @@ class DummyPlugin implements Plugin {
         assertArray(env.spyServiceFilters, "spyServiceFilters"),
       shouldRest: assertBool(env.shouldRest, "shouldRest"),
       shouldSpy: assertBool(env.shouldSpy, "shouldSpy"),
-      demoteInProgress: assertBool(env.demoteInProgress, "demoteInProgress"),
+      demoteInProgress:
+        env.demoteInProgress &&
+        assertBool(env.demoteInProgress, "demoteInProgress"),
     };
     this.shouldRest = this.pluginConfig.shouldRest;
     this.shouldSpy = this.pluginConfig.shouldSpy;
@@ -72,8 +72,8 @@ class DummyPlugin implements Plugin {
     if (this.pluginConfig.spyServiceFilters) {
       return this.pluginConfig.spyServiceFilters;
     }
-    this.logger.error("");
-    return [{ chainId: 1, emitterAddress: "gotcha!!" }];
+    this.logger.error("Contract filters not specified in config");
+    throw new Error("Contract filters not specified in config");
   }
 
   async relayEvmAction(
@@ -102,13 +102,13 @@ class DummyPlugin implements Plugin {
     vaa: Uint8Array,
     stagingArea: { counter?: number }
   ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }> {
-    this.logger.debug("Parsing VAA...")
+    this.logger.debug("Parsing VAA...");
     try {
       const { parse_vaa } = await importCoreWasm();
       var parsed = parse_vaa(vaa) as BaseVAA;
     } catch (e) {
-      this.logger.error("Failed to parse vaa")
-      throw e
+      this.logger.error("Failed to parse vaa");
+      throw e;
     }
     this.logger.info(
       `DummyPlugin consumed an event. Staging area: ${JSON.stringify(

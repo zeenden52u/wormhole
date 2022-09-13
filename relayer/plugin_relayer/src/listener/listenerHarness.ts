@@ -74,7 +74,7 @@ async function consumeEventHarness(
   try {
     const stagingArea = await storage.getStagingArea();
     const { actions, nextStagingArea } = await storage.plugin.consumeEvent(
-      dbg(new Uint8Array(vaa)),
+      new Uint8Array(vaa),
       stagingArea
     );
     await storage.addActions(actions);
@@ -144,8 +144,8 @@ async function runPluginSpyListener(
         filters,
       });
 
-      stream.on("data", (vaa: Buffer) =>
-        consumeEventHarness(vaa, pluginStorage)
+      stream.on("data", (vaa: {vaaBytes: Buffer}) =>
+        consumeEventHarness(vaa.vaaBytes, pluginStorage)
       );
 
       let connected = true;

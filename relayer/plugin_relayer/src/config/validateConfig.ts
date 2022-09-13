@@ -208,6 +208,11 @@ function createEvmChainConfig(
       `Private keys for chain id ${config.chainId} are length zero or not an array.`
     );
   }
+  if (privateKeys.some(k => typeof k !== "string")) {
+    throw new Error(
+      `Private keys for chain id ${config.chainId} are not strings. Make sure to put hex values in quotes in yaml.`
+    )
+  }
 
   const msg = (fieldName: string) =>
     `Missing required field in chain config: ${fieldName}`;

@@ -1,5 +1,10 @@
 import { getCommonEnv, getExecutorEnv, ExecutorEnv } from "../config";
-import { dbg, getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
+import {
+  dbg,
+  getLogger,
+  getScopedLogger,
+  ScopedLogger,
+} from "../helpers/logHelper";
 import {
   ActionQueueUpdate,
   EVMWallet,
@@ -39,7 +44,7 @@ export async function run(plugins: Plugin[], storage: Storage) {
   const providers = providersFromChainConfig(executorEnv.supportedChains);
 
   logger.info("Spawning chain workers...");
-  dbg(executorEnv.supportedChains)
+  dbg(executorEnv.supportedChains);
   executorEnv.supportedChains.forEach(chain => {
     let id = 0;
     const privatekeys = maybeConcat<WalletPrivateKey>(
