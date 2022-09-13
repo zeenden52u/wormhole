@@ -17,12 +17,12 @@ import * as executorHarness from "./executor/executorHarness";
 import { getLogger } from "./helpers/logHelper";
 import { PromHelper, PromMode } from "./helpers/promHelpers";
 // import * as redisHelper from "./helpers/redisHelper";
-import { createStorage, RedisStorage } from "./storage/storage";
 import * as listenerHarness from "./listener/listenerHarness";
 import { loadPlugins } from "./loadPlugins";
 import { CommonEnv, getCommonEnv, validateEnvs } from "./config";
 import { loadAndValidateConfig } from "./config";
 import { Mode } from "./config/loadConfig";
+import { createRedisStorage } from "./storage/redisStorage";
 
 setDefaultWasm("node");
 
@@ -33,7 +33,7 @@ async function main() {
   const commonEnv = getCommonEnv();
   const logger = getLogger();
   const plugins = await loadPlugins(commonEnv);
-  const storage = await createStorage(commonEnv);
+  const storage = await createRedisStorage(commonEnv);
 
   launchReadinessPortTask(commonEnv);
   // todo: init prometheus

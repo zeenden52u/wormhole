@@ -18,8 +18,6 @@ export function init(
   return true;
 }
 
-//V2 starts about here
-
 // TODO
 interface RedisConnectionConfig {}
 

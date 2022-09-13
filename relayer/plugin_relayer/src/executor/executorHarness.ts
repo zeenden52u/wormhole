@@ -11,7 +11,7 @@ import {
 } from "plugin_interface";
 import * as solana from "@solana/web3.js";
 import { sleep } from "../helpers/utils";
-import { getPluginStorage, Storage } from "../storage/storage";
+import { Storage } from "../storage/storage";
 import * as wh from "@certusone/wormhole-sdk";
 import * as ethers from "ethers";
 import { providersFromChainConfig } from "../utils/providers";
