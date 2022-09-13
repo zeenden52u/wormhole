@@ -8,6 +8,8 @@
     "spy_relay": "node lib/main.js",
     "localhost_listener": "ENV_TYPE=LOCALHOST MODE=listener ts-node src/main.ts",
     "localhost_executor": "ENV_TYPE=LOCALHOST MODE=executor ts-node src/main.ts",
+    "devnet_listener": "ENV_TYPE=DEVNET MODE=listener ts-node src/main.ts",
+    "devnet_executor": "ENV_TYPE=DEVNET MODE=executor ts-node src/main.ts",
     "tilt_listener": "ENV_TYPE=tilt MODE=listener ts-node src/main.ts",
     "tilt_executor": "ENV_TYPE=tilt MODE=executor ts-node src/main.ts",
     "test": "jest --config jestconfig.json --verbose"

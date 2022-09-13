@@ -22,9 +22,8 @@ import {
   isTerraChain,
 } from "@certusone/wormhole-sdk";
 
-const WORKER_RESTART_MS = 10 * 1000;
-const WORKER_INTERVAL_MS = 500;
-let executorEnv: ExecutorEnv | undefined;
+const DEFAULT_WORKER_RESTART_MS = 10 * 1000;
+const DEFAULT_WORKER_INTERVAL_MS = 500;
 
 /*
  * 1. Grab logger & commonEnv
@@ -33,7 +32,7 @@ let executorEnv: ExecutorEnv | undefined;
  * 5. For each wallet, spawn worker
  */
 export async function run(plugins: Plugin[], storage: Storage) {
-  executorEnv = getExecutorEnv();
+  const executorEnv = getExecutorEnv();
   const logger = getScopedLogger(["executorHarness"], getLogger());
 
   await storage.handleStorageStartupConfig(plugins, executorEnv);
@@ -82,8 +81,13 @@ async function spawnWalletWorker(
     getLogger()
   );
   logger.info(`Spawned`);
+  const workerIntervalMS =
+    getExecutorEnv().actionInterval || DEFAULT_WORKER_INTERVAL_MS;
   // todo: add metrics
   while (true) {
+    // always sleep between loop iterations
+    await sleep(workerIntervalMS);
+
     try {
       const maybeAction = await storage.getNextAction(
         workerInfo.targetChainId,
@@ -91,13 +95,14 @@ async function spawnWalletWorker(
       );
       if (!maybeAction) {
         logger.debug("No action found, sleeping...");
-        await sleep(WORKER_INTERVAL_MS);
         continue;
       }
       const { pluginStorage, action, queuedActions } = maybeAction;
+
       logger.info(
         `Relaying action ${action.id} with plugin ${pluginStorage.plugin.pluginName}...`
       );
+
       try {
         const update = await relayDispatcher(
           action,
@@ -109,18 +114,16 @@ async function spawnWalletWorker(
         );
         pluginStorage.applyActionUpdate(update.enqueueActions, action);
         logger.info(`Action ${action.id} relayed`);
-        await sleep(WORKER_INTERVAL_MS);
       } catch (e) {
         logger.error(e);
         logger.warn(
           "Unexpected error while relaying, demoting action " + action.id
         );
         await pluginStorage.demoteInProgress(action);
-        await sleep(WORKER_INTERVAL_MS);
       }
     } catch (e) {
       logger.error(e);
-      await sleep(WORKER_RESTART_MS);
+      await sleep(DEFAULT_WORKER_RESTART_MS);
     }
   }
 }

@@ -44,8 +44,10 @@ export async function loadUntypedEnvs(): Promise<{
   );
 
   const rawCommonEnv = await loadCommon(envType, mode);
-
+  rawCommonEnv.envType = envType;
+  rawCommonEnv.mode = mode;
   console.log("Successfully loaded the common config file.");
+
   const listenerOrExecutor = await loadListenerOrExecutor(envType, mode);
   console.log("Successfully loaded the mode config file.");
 

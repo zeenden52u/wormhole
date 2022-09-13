@@ -6,4 +6,3 @@ redisHost: redis
 redisPort: 6379
 pluginURIs:
   - dummy_plugin
-envType: TILT

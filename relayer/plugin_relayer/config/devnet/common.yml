@@ -1,6 +1,6 @@
 logLevel: debug
-promPort: 8083
-readinessPort?: 2000
+# promPort: 8083
+# readinessPort: 2000
 # logDir?: undefined
 redisHost: localhost
 redisPort: 6379

@@ -8,6 +8,7 @@ import {
   isTerraChain,
 } from "@certusone/wormhole-sdk";
 import { CommonEnv, ExecutorEnv, ListenerEnv, ChainConfigInfo } from ".";
+import { Mode } from "./loadConfig";
 
 type ConfigPrivateKey = {
   chainId: ChainId;
@@ -42,13 +43,15 @@ function nnull<T>(x: T | undefined | null, errMsg?: string): T {
 export function validateCommonEnv(raw: Keys<CommonEnv>): CommonEnv {
   return {
     logLevel: nnull(raw.logLevel, "logLevel"),
-    promPort: assertInt(raw.promPort),
-    logDir: raw.logDir,
-    readinessPort: raw.readinessPort && assertInt(raw.readinessPort),
-    redisHost: nnull(raw.redisHost),
-    redisPort: parseInt(raw.redisPort),
+    redisHost: nnull(raw.redisHost, "redisHost"),
+    redisPort: assertInt(raw.redisPort, "redisPort"),
     pluginURIs: assertArray(raw.pluginURIs, "pluginURIs"),
     envType: validateStringEnum<EnvTypes>(EnvTypes, raw.envType),
+    mode: validateStringEnum<Mode>(Mode, raw.mode),
+    promPort: raw.promPort && assertInt(raw.promPort, "promPort"),
+    readinessPort:
+      raw.readinessPort && assertInt(raw.readinessPort, "readinessPort"),
+    logDir: raw.logDir,
   };
 }
 
@@ -71,6 +74,8 @@ export function validateExecutorEnv(
   );
   return {
     supportedChains,
+    actionInterval:
+      raw.actionInterval && assertInt(raw.actionInterval, "actionInterval"),
   };
 }
 

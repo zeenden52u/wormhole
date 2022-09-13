@@ -11,13 +11,14 @@ export type NodeURI = string;
 
 export type CommonEnv = {
   logLevel: string;
-  promPort: number;
+  promPort?: number;
   readinessPort?: number;
   logDir?: string;
   redisHost: string;
   redisPort: number;
   pluginURIs: NodeURI[];
   envType: EnvTypes;
+  mode: Mode
 };
 
 export type ListenerEnv = {
@@ -28,6 +29,7 @@ export type ListenerEnv = {
 
 export type ExecutorEnv = {
   supportedChains: ChainConfigInfo[];
+  actionInterval?: number // milliseconds between attempting to process actions
 };
 
 export type ChainConfigInfo = {

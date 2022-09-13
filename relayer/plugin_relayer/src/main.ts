@@ -20,8 +20,9 @@ import { PromHelper, PromMode } from "./helpers/promHelpers";
 import { createStorage, RedisStorage } from "./storage/storage";
 import * as listenerHarness from "./listener/listenerHarness";
 import { loadPlugins } from "./loadPlugins";
-import { getCommonEnv, validateEnvs } from "./config";
+import { CommonEnv, getCommonEnv, validateEnvs } from "./config";
 import { loadAndValidateConfig } from "./config";
+import { Mode } from "./config/loadConfig";
 
 setDefaultWasm("node");
 
@@ -34,51 +35,44 @@ async function main() {
   const plugins = await loadPlugins(commonEnv);
   const storage = await createStorage(commonEnv);
 
-  launchReadinessPortTask();
+  launchReadinessPortTask(commonEnv);
+  // todo: init prometheus
 
-  if (process.env.MODE === "listener") {
-    logger.info("Running in listener mode");
-    // init listener harness
-    const promHelper = new PromHelper(
-      "plugin_relayer",
-      commonEnv.promPort,
-      PromMode.Listen
-    );
-
-    await listenerHarness.run(plugins, storage);
-  } else if (process.env.MODE === "executor") {
-    logger.info("Running in executor mode");
-    // init executor harness
-    const promHelper = new PromHelper(
-      "plugin_relayer",
-      commonEnv.promPort,
-      PromMode.Execute
-    );
-
-    executorHarness.run(plugins, storage);
-  } else {
-    throw new Error(
-      "Expected MODE env var to be listener or executor, instead got: " +
-        process.env.MODE
-    );
+  switch (commonEnv.mode) {
+    case Mode.LISTENER:
+      logger.info("Running in listener mode");
+      await listenerHarness.run(plugins, storage);
+      return;
+    case Mode.EXECUTOR:
+      logger.info("Running in executor mode");
+      executorHarness.run(plugins, storage);
+      return;
+    default:
+      throw new Error(
+        "Expected MODE env var to be listener or executor, instead got: " +
+          process.env.MODE
+      );
   }
 }
 
-async function launchReadinessPortTask() {
-  const commonEnv = getCommonEnv();
-  if (commonEnv.readinessPort) {
-    const Net = await import("net");
-    const readinessServer = new Net.Server();
-    readinessServer.listen(commonEnv.readinessPort, function () {
-      getLogger().info(
-        "listening for readiness requests on port " + commonEnv.readinessPort
-      );
-    });
-
-    readinessServer.on("connection", function (socket: any) {
-      //logger.debug("readiness connection");
-    });
+async function launchReadinessPortTask(commonEnv: CommonEnv) {
+  if (!commonEnv.readinessPort) {
+    getLogger().warn(
+      "Readiness port not defined, not starting readiness server"
+    );
+    return;
   }
+  const Net = await import("net");
+  const readinessServer = new Net.Server();
+  readinessServer.listen(commonEnv.readinessPort, function () {
+    getLogger().info(
+      "listening for readiness requests on port " + commonEnv.readinessPort
+    );
+  });
+
+  readinessServer.on("connection", function (socket: any) {
+    //logger.debug("readiness connection");
+  });
 }
 
 main().catch(e => {
