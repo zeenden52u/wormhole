@@ -16,7 +16,7 @@ cd ../relayer/plugin_relayer
 # for all plugins you wish to run
 npm i $PLUGIN_URI
 mkdir config/$PLUGIN_NAME
-touch config/$PLUGIN_NAME/testnet.yml
+touch config/$PLUGIN_NAME/devnet.yml
 
 # if there are locally defined plugins (e.g. dummy_plugin)
 cd wormhole/relayer/plugins/dummy_plugin
@@ -26,8 +26,8 @@ npm run build
 # after installing plugins
 npm ci
 npm run build
-npm run testnet_listener
+npm run devnet_listener
 
 # new terminal (pwd wormhole/relayer/plugin_relayer)
-npm run testnet_executor
+npm run devnet_executor
 ```
