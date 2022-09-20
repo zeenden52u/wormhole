@@ -307,7 +307,6 @@ const (
 //
 // WARNING: Unmarshall will truncate payloads at 1000 bytes, this is done mainly to avoid denial of service
 //   - If you need to access the full payload, consider parsing VAA from Bytes instead of Unmarshal
-//
 func Unmarshal(data []byte) (*VAA, error) {
 	if len(data) < minVAALength {
 		return nil, fmt.Errorf("VAA is too short")
@@ -747,6 +746,10 @@ func (v *VAA) HexDigest() string {
 	return hex.EncodeToString(v.SigningMsg().Bytes())
 }
 
+/*
+SECURITY: Do not change this code! Changing it could result in two different hashes for
+the same observation. But xDapps rely on the hash of an observation for replay protection.
+*/
 // HexDigest returns the hex-encoded digest.
 func (b *BatchVAA) HexDigest() string {
 	return hex.EncodeToString(b.SigningBatchMsg().Bytes())

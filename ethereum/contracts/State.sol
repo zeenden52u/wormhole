@@ -42,7 +42,9 @@ contract Storage {
 
         uint256 messageFee;
 
-        // Cache of verified hashes
+        // EIP-155 Chain ID
+        uint256 evmChainId;
+
         mapping(bytes32 => bool) verifiedHashCache;
     }
 }

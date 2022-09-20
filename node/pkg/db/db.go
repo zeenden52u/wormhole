@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 )
 
 type Database struct {
@@ -21,6 +21,7 @@ type VAAID struct {
 	EmitterAddress vaa.Address
 	Sequence       uint64
 }
+
 type BatchVAAID struct {
 	EmitterChain  vaa.ChainID
 	TransactionID common.Hash

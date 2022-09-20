@@ -1,9 +1,9 @@
 package governor
 
 import (
-	"github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"github.com/stretchr/testify/assert"
+	"github.com/wormhole-foundation/wormhole/sdk"
+	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 
 	"testing"
 )
@@ -25,10 +25,10 @@ func TestChainDailyLimitRange(t *testing.T) {
 	min_daily_limit := uint64(0)
 
 	/* This IS NOT a hard limit, we can adjust it up as we see fit,
-	   but setting something sane such that if we accidentially go
+	   but setting something sane such that if we accidentally go
 	   too high that the unit tests will make sure it's
 	   intentional */
-	max_daily_limit := uint64(50000001)
+	max_daily_limit := uint64(100_000_001)
 
 	// Do not remove this assertion
 	assert.NotEqual(t, max_daily_limit, uint64(0))
@@ -50,8 +50,8 @@ func TestChainListChainPresent(t *testing.T) {
 		entries = append(entries, e.emitterChainID)
 	}
 
-	emitters := make([]vaa.ChainID, 0, len(common.KnownTokenbridgeEmitters))
-	for e := range common.KnownTokenbridgeEmitters {
+	emitters := make([]vaa.ChainID, 0, len(sdk.KnownTokenbridgeEmitters))
+	for e := range sdk.KnownTokenbridgeEmitters {
 		emitters = append(emitters, e)
 	}
 
@@ -65,7 +65,7 @@ func TestChainListBigTransfers(t *testing.T) {
 		// it's always ideal to have bigTransactionSize be less than dailyLimit
 		assert.Less(t, e.bigTransactionSize, e.dailyLimit)
 
-		// in fact, it's even better for bigTransactionSize not to exceed 1/5th the limit (convention has it at 1/10th to start)
-		assert.Less(t, e.bigTransactionSize, e.dailyLimit/5)
+		// in fact, it's even better for bigTransactionSize not to exceed 1/3rd the limit (convention has it at 1/10th to start)
+		assert.Less(t, e.bigTransactionSize, e.dailyLimit/3)
 	}
 }

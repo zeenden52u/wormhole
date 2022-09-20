@@ -775,7 +775,7 @@ export async function transferNearFromNear(
       payload: payload,
       message_fee: message_fee,
     },
-    attachedDeposit: (new BN(qty.toString(10)) + new BN(message_fee)),
+    attachedDeposit: (new BN(qty.toString(10)).add(new BN(message_fee))),
     gas: new BN("100000000000000"),
   });
 

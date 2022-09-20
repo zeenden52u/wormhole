@@ -14,9 +14,9 @@ use {
         },
         collections::LazyOption,
         env,
-        utils::assert_one_yocto,
         json_types::U128,
         near_bindgen,
+        utils::assert_one_yocto,
         AccountId,
         Balance,
         PanicOnDefault,
@@ -123,6 +123,14 @@ impl FTContract {
 
         let vaa = self.meta.get().unwrap().vaa;
 
+        if amount > (u64::MAX as u128) || fee > (u64::MAX as u128) {
+            env::panic_str("transfer exceeds max bridged token amount");
+        }
+
+        if fee >= amount {
+            env::panic_str("fee exceeds amount");
+        }
+
         let mut p = [
             // PayloadID uint8 = 1
             (if payload.is_empty() { 1 } else { 3 } as u8)
@@ -146,12 +154,16 @@ impl FTContract {
         if payload.is_empty() {
             p = [p, vec![0; 24], (fee as u64).to_be_bytes().to_vec()].concat();
             if p.len() != 133 {
-                env::panic_str(&format!("paylod1 formatting errro  len = {}", p.len()));
+                env::panic_str(&format!("payload1 formatting error  len = {}", p.len()));
             }
         } else {
+            if fee != 0 {
+                env::panic_str("Payload3 does not support fees");
+            }
+
             p = [p, hex::decode(&payload).unwrap()].concat();
             if p.len() != (133 + (payload.len() / 2)) {
-                env::panic_str(&format!("paylod3 formatting errro  len = {}", p.len()));
+                env::panic_str(&format!("payload3 formatting error  len = {}", p.len()));
             }
         }
 

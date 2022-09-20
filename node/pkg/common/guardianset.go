@@ -7,7 +7,7 @@ import (
 
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -29,7 +29,7 @@ var (
 // MaxGuardianCount specifies the maximum number of guardians supported by on-chain contracts.
 //
 // Matching constants:
-//  - MAX_LEN_GUARDIAN_KEYS in Solana contract (limited by transaction size - 19 is the maximum amount possible)
+//   - MAX_LEN_GUARDIAN_KEYS in Solana contract (limited by transaction size - 19 is the maximum amount possible)
 //
 // The Eth and Terra contracts do not specify a maximum number and support more than that,
 // but presumably, chain-specific transaction size limits will apply at some point (untested).

@@ -14,17 +14,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/db"
 	"github.com/certusone/wormhole/node/pkg/ethereum/abi"
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	nodev1 "github.com/certusone/wormhole/node/pkg/proto/node/v1"
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	abi2 "github.com/ethereum/go-ethereum/accounts/abi"
 	eth_common "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/wormhole-foundation/wormhole/sdk"
+	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var etherscanAPIMap = map[vaa.ChainID]string{
@@ -38,7 +39,8 @@ var etherscanAPIMap = map[vaa.ChainID]string{
 	vaa.ChainIDKarura:    "https://blockscout.karura.network/api",
 	vaa.ChainIDAcala:     "https://blockscout.acala.network/api",
 	// NOTE: Not sure what should be here for Klaytn, since they use: https://scope.klaytn.com/
-	vaa.ChainIDCelo: "https://celoscan.xyz/api",
+	vaa.ChainIDCelo:     "https://celoscan.xyz/api",
+	vaa.ChainIDMoonbeam: "https://api-moonbeam.moonscan.io",
 }
 
 var coreContractMap = map[vaa.ChainID]string{
@@ -53,6 +55,7 @@ var coreContractMap = map[vaa.ChainID]string{
 	vaa.ChainIDAcala:     strings.ToLower("0xa321448d90d4e5b0A732867c18eA198e75CAC48E"),
 	vaa.ChainIDKlaytn:    strings.ToLower("0x0C21603c4f3a6387e241c0091A7EA39E43E90bb7"),
 	vaa.ChainIDCelo:      strings.ToLower("0xa321448d90d4e5b0A732867c18eA198e75CAC48E"),
+	vaa.ChainIDMoonbeam:  strings.ToLower("0xC8e2b0cD52Cf01b0Ce87d389Daa3d414d4cE29f3"),
 }
 
 var (
@@ -85,7 +88,7 @@ func usesBlockscout(chainId vaa.ChainID) bool {
 }
 
 func getAdminClient(ctx context.Context, addr string) (*grpc.ClientConn, error, nodev1.NodePrivilegedServiceClient) {
-	conn, err := grpc.DialContext(ctx, fmt.Sprintf("unix:///%s", addr), grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("unix:///%s", addr), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
 		log.Fatalf("failed to connect to %s: %v", addr, err)
@@ -292,7 +295,7 @@ func main() {
 		EmitterAddress: ignoreAddress,
 	}
 
-	for _, emitter := range common.KnownEmitters {
+	for _, emitter := range sdk.KnownEmitters {
 		if emitter.ChainID != chainID {
 			continue
 		}
@@ -305,7 +308,7 @@ func main() {
 			EmitterChain:   uint32(chainID),
 			EmitterAddress: emitter.Emitter,
 			RpcBackfill:    true,
-			BackfillNodes:  common.PublicRPCEndpoints,
+			BackfillNodes:  sdk.PublicRPCEndpoints,
 		}
 		resp, err := admin.FindMissingMessages(ctx, &msg)
 		if err != nil {
@@ -472,7 +475,7 @@ func main() {
 				log.Printf("verifying %d", seq)
 				req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(
 					"%s/v1/signed_vaa/%d/%s/%d",
-					common.PublicRPCEndpoints[0],
+					sdk.PublicRPCEndpoints[0],
 					chainID,
 					hex.EncodeToString(eth_common.LeftPadBytes(emitter.Bytes(), 32)),
 					seq), nil)

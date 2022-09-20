@@ -1,5 +1,5 @@
 import { BridgeImplementation__factory, CHAINS, Implementation__factory, NFTBridgeImplementation__factory } from "@certusone/wormhole-sdk"
-import { ethers } from "ethers"
+import { BigNumber, ethers } from "ethers"
 import { NETWORKS } from "./networks"
 import { encode, Encoding, impossible, Payload, typeWidth } from "./vaa"
 import { Contracts, CONTRACTS, EVMChainName } from "@certusone/wormhole-sdk"
@@ -44,6 +44,18 @@ export async function query_contract_evm(
       }
       result.guardianSetExpiry = await core.getGuardianSetExpiry()
       result.chainId = await core.chainId()
+       // TODO: need new sdk release to expose this function in BridgeImplementation
+       const core2 = new ethers.Contract(contract_address, ["function evmChainId() public view returns (uint256)", "function isFork() public view returns (bool)"], provider)
+       try {
+         result.evmChainId = await core2.evmChainId()
+       } catch (e) {
+         result.evmChainId = null
+       }
+       try {
+         result.isFork = await core2.isFork()
+       } catch (e) {
+         result.isFork = null
+       }
       result.governanceChainId = await core.governanceChainId()
       result.governanceContract = await core.governanceContract()
       result.messageFee = await core.messageFee()
@@ -51,7 +63,6 @@ export async function query_contract_evm(
       result.isInitialized = await core.isInitialized(result.implementation)
       break
     case "TokenBridge":
-      // TODO: add finality (need new sdk release)
       contract_address = contract_address ? contract_address : contracts.token_bridge;
       if (contract_address === undefined) {
         throw Error(`Unknown token bridge contract on ${network} for ${chain}`)
@@ -63,6 +74,19 @@ export async function query_contract_evm(
       result.isInitialized = await tb.isInitialized(result.implementation)
       result.tokenImplementation = await tb.tokenImplementation()
       result.chainId = await tb.chainId()
+      // TODO: need new sdk release to expose this function in BridgeImplementation
+      const tb2 = new ethers.Contract(contract_address, ["function finality() public view returns (uint8)", "function evmChainId() public view returns (uint256)", "function isFork() public view returns (bool)"], provider)
+      result.finality = await tb2.finality()
+      try {
+        result.evmChainId = await tb2.evmChainId()
+      } catch (e) {
+        result.evmChainId = null
+      }
+      try {
+        result.isFork = await tb2.isFork()
+      } catch (e) {
+        result.isFork = null
+      }
       result.governanceChainId = await tb.governanceChainId()
       result.governanceContract = await tb.governanceContract()
       result.WETH = await tb.WETH()
@@ -75,7 +99,6 @@ export async function query_contract_evm(
       }
       break
     case "NFTBridge":
-      // TODO: add finality (need new sdk release)
       contract_address = contract_address ? contract_address : contracts.nft_bridge;
       if (contract_address === undefined) {
         throw Error(`Unknown nft bridge contract on ${network} for ${chain}`)
@@ -87,6 +110,19 @@ export async function query_contract_evm(
       result.isInitialized = await nb.isInitialized(result.implementation)
       result.tokenImplementation = await nb.tokenImplementation()
       result.chainId = await nb.chainId()
+      // TODO: need new sdk release to expose this function in NFTBridgeImplementation
+      const nb2 = new ethers.Contract(contract_address, ["function finality() public view returns (uint8)", "function evmChainId() public view returns (uint256)", "function isFork() public view returns (bool)"], provider)
+      result.finality = await nb2.finality()
+      try {
+        result.evmChainId = await tb2.evmChainId()
+      } catch (e) {
+        result.evmChainId = null
+      }
+      try {
+        result.isFork = await tb2.isFork()
+      } catch (e) {
+        result.isFork = null
+      }
       result.governanceChainId = await nb.governanceChainId()
       result.governanceContract = await nb.governanceContract()
       result.registrations = {}

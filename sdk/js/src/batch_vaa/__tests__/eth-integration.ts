@@ -79,8 +79,9 @@ describe("Batch VAAs", () => {
           receipt.transactionHash,
           {
             transport: NodeHttpTransport(),
-          })
-        encodedBatchVAAFromEth = batchVaaRes.batchVaaBytes
+          }
+        );
+        encodedBatchVAAFromEth = batchVaaRes.batchVaaBytes;
 
         // destory the provider and end the test
         provider.destroy();
@@ -173,8 +174,9 @@ describe("Batch VAAs", () => {
           receipt.transactionHash,
           {
             transport: NodeHttpTransport(),
-          })
-        encodedBatchVAAFromBsc = batchVaaRes.batchVaaBytes
+          }
+        );
+        encodedBatchVAAFromBsc = batchVaaRes.batchVaaBytes;
 
         // fetch the legacy VAA for the observation in the batch
         legacyVAAFromBSC = await getSignedVaaFromReceiptOnEth(receipt, CHAIN_ID_BSC, MOCK_BATCH_VAA_SENDER_ADDRESS);
@@ -446,6 +448,49 @@ describe("Batch VAAs", () => {
         // were removed from the batch VAA.
         const payloadFromContract = await contractWithSigner.getPayload(partialBatchHashes[0]);
         expect(payloadFromContract).toEqual(batchVAAPayloads[batchVAAPayloads.length - 1]);
+
+        // destory the provider and end the test
+        provider.destroy();
+        done();
+      } catch (e) {
+        console.error(e);
+        done("An error occurred while trying to generate a batch VAA on ethereum");
+      }
+    })();
+  });
+
+  test("Should Verify a Legacy VAA From a Contract on Ethereum Using parseAndVerifyVAA", (done) => {
+    (async () => {
+      try {
+        // create a signer for ETH
+        const provider = new ethers.providers.WebSocketProvider(ETH_NODE_URL);
+        const signer = new ethers.Wallet(ETH_PRIVATE_KEY, provider);
+
+        // create a contract instance for the mock batch VAA sender contract
+        const mockBatchSenderContractOnEth = new ethers.Contract(
+          MOCK_BATCH_VAA_SENDER_ADDRESS,
+          MOCK_BATCH_VAA_SENDER_ABI,
+          provider
+        );
+        const contractWithSigner = mockBatchSenderContractOnEth.connect(signer);
+
+        // Invoke the ETH contract to parse the encoded batch VAA. Grab the hash
+        // and clear the verifiedPayloads map.
+        const parsedBatchVAAFromBsc = await contractWithSigner.parseBatchVAA(encodedBatchVAAFromBsc);
+        await contractWithSigner.clearPayload(parsedBatchVAAFromBsc.header.hashes[0]);
+
+        // confirm that the payload was removed from the verifiedPayloads map
+        const emptyPayloadFromContract = await contractWithSigner.getPayload(parsedBatchVAAFromBsc.header.hashes[0]);
+        expect(emptyPayloadFromContract).toEqual("0x");
+
+        // invoke the ETH contract to parse the legacy VAA and save the hash
+        const parsedLegacyVAA = await contractWithSigner.parseLegacyVAA(legacyVAAFromBSC);
+        const legacyVAAHash = parsedLegacyVAA.hash;
+
+        // verify the legacy VAA and confirm that the payload was saved in the contract
+        await contractWithSigner.consumeSingleVAA(legacyVAAFromBSC);
+        const payloadFromContract = await contractWithSigner.getPayload(legacyVAAHash);
+        expect(payloadFromContract).toEqual(parsedLegacyVAA.payload);
 
         // destory the provider and end the test
         provider.destroy();

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"github.com/spf13/cobra"
+	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 )
 
 // How to test in container:
@@ -113,11 +113,11 @@ func runListNodes(cmd *cobra.Command, args []string) {
 		{"Near", vaa.ChainIDNear},
 		{"Terra2", vaa.ChainIDTerra2},
 		{"Pythnet", vaa.ChainIDPythNet},
+		{"Moonbeam", vaa.ChainIDMoonbeam},
 	}
 
 	if isTestnet {
 		networks = append(networks, network{"Ropsten", vaa.ChainIDEthereumRopsten})
-		networks = append(networks, network{"Moonbeam", vaa.ChainIDMoonbeam})
 		networks = append(networks, network{"Neon", vaa.ChainIDNeon})
 		networks = append(networks, network{"Injective", vaa.ChainIDInjective})
 	}

@@ -1,9 +1,9 @@
-import {ethers} from "ethers";
-import {describe, it} from "@jest/globals";
-import {ChainId, getSignedVAAWithRetry, getEmitterAddressEth} from "../..";
-import {WORMHOLE_MESSAGE_EVENT_ABI, SIGNER_PRIVATE_KEY, WORMHOLE_RPC_HOSTS} from "./consts";
+import { ethers } from "ethers";
+import { describe, it } from "@jest/globals";
+import { ChainId, getSignedVAAWithRetry, getEmitterAddressEth } from "../..";
+import { WORMHOLE_MESSAGE_EVENT_ABI, SIGNER_PRIVATE_KEY, WORMHOLE_RPC_HOSTS } from "./consts";
 const elliptic = require("elliptic");
-import {NodeHttpTransport} from "@improbable-eng/grpc-web-node-http-transport";
+import { NodeHttpTransport } from "@improbable-eng/grpc-web-node-http-transport";
 
 export async function parseWormholeEventsFromReceipt(
   receipt: ethers.ContractReceipt
@@ -13,7 +13,7 @@ export async function parseWormholeEventsFromReceipt(
 
   // loop through the logs and parse the events that were emitted
   const logDescriptions: ethers.utils.LogDescription[] = await Promise.all(
-    receipt.logs.map(async (log) => {
+    receipt.logs.map(async log => {
       return wormholeMessageInterface.parseLog(log);
     })
   );
@@ -59,7 +59,7 @@ export async function getSignedBatchVaaFromReceiptOnEth(
         emitterAddress,
         event.args.sequence,
         event.args.consistencyLevel,
-        event.args.payload,
+        event.args.payload
       ]
     );
 
@@ -72,7 +72,7 @@ export async function getSignedBatchVaaFromReceiptOnEth(
     const observationElements = [
       ethers.utils.solidityPack(["uint8"], [i]).substring(2),
       ethers.utils.solidityPack(["uint32"], [encodedObservation.substring(2).length / 2]).substring(2),
-      encodedObservation.substring(2),
+      encodedObservation.substring(2)
     ];
     encodedObservationsWithLengthPrefix += observationElements.join("");
   }
@@ -83,14 +83,14 @@ export async function getSignedBatchVaaFromReceiptOnEth(
   // sign the batchHash
   const ec = new elliptic.ec("secp256k1");
   const key = ec.keyFromPrivate(SIGNER_PRIVATE_KEY);
-  const signature = key.sign(batchHash.substring(2), {canonical: true});
+  const signature = key.sign(batchHash.substring(2), { canonical: true });
 
   // create the signature
   const packSig = [
     ethers.utils.solidityPack(["uint8"], [0]).substring(2),
     zeroPadBytes(signature.r.toString(16), 32),
     zeroPadBytes(signature.s.toString(16), 32),
-    ethers.utils.solidityPack(["uint8"], [signature.recoveryParam]).substring(2),
+    ethers.utils.solidityPack(["uint8"], [signature.recoveryParam]).substring(2)
   ];
   const signatures = packSig.join("");
 
@@ -103,7 +103,7 @@ export async function getSignedBatchVaaFromReceiptOnEth(
     ethers.utils.solidityPack(["uint8"], [messageEvents.length]).substring(2),
     observationHashes,
     ethers.utils.solidityPack(["uint8"], [messageEvents.length]).substring(2),
-    encodedObservationsWithLengthPrefix,
+    encodedObservationsWithLengthPrefix
   ].join("");
 
   return "0x" + vm;
@@ -129,7 +129,7 @@ export async function getSignedVaaFromReceiptOnEth(
     getEmitterAddressEth(contractAddress),
     sequence.toString(),
     {
-      transport: NodeHttpTransport(),
+      transport: NodeHttpTransport()
     }
   );
   return result.vaaBytes;
@@ -183,7 +183,7 @@ export function removeObservationFromBatch(indexToRemove: number, encodedVM: eth
     ethers.utils.hexDataSlice(encodedVM, 0, observationCountIndex),
     ethers.utils.hexlify([observationCount - 1]),
     ethers.utils.hexDataSlice(encodedVM, observationCountIndex + 1, bytesRangeToRemove[0]),
-    ethers.utils.hexDataSlice(encodedVM, bytesRangeToRemove[1], encodedVM.length),
+    ethers.utils.hexDataSlice(encodedVM, bytesRangeToRemove[1], encodedVM.length)
   ];
   return ethers.utils.hexConcat(newEncodedVMByteArray);
 }

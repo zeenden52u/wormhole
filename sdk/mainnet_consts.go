@@ -1,17 +1,16 @@
-package common
+package sdk
 
 import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 )
 
 // PublicRPCEndpoints is a list of known public RPC endpoints for mainnet, operated by
 // Wormhole guardian nodes.
 //
 // This list is duplicated a couple times across the codebase - make to to update all copies!
-//
 var PublicRPCEndpoints = []string{
 	"https://wormhole-v2-mainnet-api.certus.one",
 	"https://wormhole.inotel.ro",
@@ -58,7 +57,6 @@ type EmitterInfo struct {
 //
 // Wormhole is not permissioned - anyone can use it. Adding contracts to this list is
 // entirely optional and at the core team's discretion.
-//
 var KnownEmitters = buildKnownEmitters(knownTokenbridgeEmitters, knownNFTBridgeEmitters)
 
 func buildKnownEmitters(tokenEmitters, nftEmitters map[vaa.ChainID]string) []EmitterInfo {
@@ -106,7 +104,7 @@ var knownTokenbridgeEmitters = map[vaa.ChainID]string{
 	vaa.ChainIDPolygon:   "0000000000000000000000005a58505a96d1dbf8df91cb21b54419fc36e93fde",
 	vaa.ChainIDAvalanche: "0000000000000000000000000e082f06ff657d94310cb8ce8b0d9a04541d8052",
 	vaa.ChainIDOasis:     "0000000000000000000000005848c791e09901b40a9ef749f2a6735b418d7564",
-	vaa.ChainIDAlgorand:  "25e716e0618d9f38b603a97cc42db659069c0f5185230e5e61679fa876191ec4",
+	vaa.ChainIDAlgorand:  "67e93fa6c8ac5c819990aa7340c0c16b508abb1178be9b30d024b8ac25193d45",
 	vaa.ChainIDAurora:    "00000000000000000000000051b5123a7b0F9b2bA265f9c4C8de7D78D52f510F",
 	vaa.ChainIDFantom:    "0000000000000000000000007C9Fc5741288cDFdD83CeB07f3ea7e22618D79D2",
 	vaa.ChainIDKarura:    "000000000000000000000000ae9d7fe007b3327AA64A32824Aaac52C42a6E624",
@@ -114,6 +112,7 @@ var knownTokenbridgeEmitters = map[vaa.ChainID]string{
 	vaa.ChainIDKlaytn:    "0000000000000000000000005b08ac39EAED75c0439FC750d9FE7E1F9dD0193F",
 	vaa.ChainIDCelo:      "000000000000000000000000796Dff6D74F3E27060B71255Fe517BFb23C93eed",
 	vaa.ChainIDNear:      "148410499d3fcda4dcfd68a1ebfcdddda16ab28326448d4aae4d2f0465cdfcb7",
+	vaa.ChainIDMoonbeam:  "000000000000000000000000B1731c586ca89a23809861c6103F0b96B3F57D92",
 }
 
 // KnownNFTBridgeEmitters is a list of well-known mainnet emitters for the NFT bridge.
@@ -131,6 +130,7 @@ var knownNFTBridgeEmitters = map[vaa.ChainID]string{
 	vaa.ChainIDAcala:     "000000000000000000000000b91e3638F82A1fACb28690b37e3aAE45d2c33808",
 	vaa.ChainIDKlaytn:    "0000000000000000000000003c3c561757BAa0b78c5C025CdEAa4ee24C1dFfEf",
 	vaa.ChainIDCelo:      "000000000000000000000000A6A377d75ca5c9052c9a77ED1e865Cc25Bd97bf3",
+	vaa.ChainIDMoonbeam:  "000000000000000000000000453cfBe096C0f8D763E8C5F24B441097d577bdE2",
 }
 
 func GetEmitterAddressForChain(chainID vaa.ChainID, emitterType EmitterType) (vaa.Address, error) {

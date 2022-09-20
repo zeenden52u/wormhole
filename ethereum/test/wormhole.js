@@ -19,9 +19,15 @@ const actionContractUpgrade = "01"
 const actionGuardianSetUpgrade = "02"
 const actionMessageFee = "03"
 const actionTransferFee = "04"
+const actionRecoverChainId = "05"
 
 
 const ImplementationFullABI = jsonfile.readFileSync("build/contracts/Implementation.json").abi
+
+const fakeChainId = 1337;
+const fakeEvmChainId = 10001;
+
+let lastDeployed;
 
 // Taken from https://medium.com/fluidity/standing-the-time-of-test-b906fcc374a9
 advanceTimeAndBlock = async (time) => {
@@ -69,6 +75,7 @@ contract("Wormhole", function () {
     const testSigner2 = web3.eth.accounts.privateKeyToAccount(testSigner2PK);
     const testSigner3 = web3.eth.accounts.privateKeyToAccount(testSigner3PK);
     const testChainId = "2";
+    const testEvmChainId = "1";
     const testGovernanceChainId = "1";
     const testGovernanceContract = "0x0000000000000000000000000000000000000000000000000000000000000004";
 
@@ -88,6 +95,10 @@ contract("Wormhole", function () {
         // chain id
         const chainId = await initialized.methods.chainId().call();
         assert.equal(chainId, testChainId);
+
+        // evm chain id
+        const evmChainId = await initialized.methods.evmChainId().call();
+        assert.equal(evmChainId, testEvmChainId);
 
         // governance
         const governanceChainId = await initialized.methods.governanceChainId().call();
@@ -495,6 +506,61 @@ contract("Wormhole", function () {
         assert.equal(receiverAfter - receiverBefore, 11);
     })
 
+    it("should revert when submitting a new guardian set with the zero address", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+
+        const timestamp = 1000;
+        const nonce = 1001;
+        const emitterChainId = testGovernanceChainId;
+        const emitterAddress = testGovernanceContract;
+        const zeroAddress = "0x0000000000000000000000000000000000000000";
+
+        let oldIndex = Number(await initialized.methods.getCurrentGuardianSetIndex().call());
+
+        data = [
+            // Core
+            core,
+            // Action 2 (Guardian Set Upgrade)
+            actionGuardianSetUpgrade,
+            web3.eth.abi.encodeParameter("uint16", testChainId).substring(2 + (64 - 4)),
+            web3.eth.abi.encodeParameter("uint32", oldIndex + 1).substring(2 + (64 - 8)),
+            web3.eth.abi.encodeParameter("uint8", 3).substring(2 + (64 - 2)),
+            web3.eth.abi.encodeParameter("address", testSigner1.address).substring(2 + (64 - 40)),
+            web3.eth.abi.encodeParameter("address", testSigner2.address).substring(2 + (64 - 40)),
+            web3.eth.abi.encodeParameter("address", zeroAddress).substring(2 + (64 - 40)),
+        ].join('')
+
+        const vm = await signAndEncodeVM(
+            timestamp,
+            nonce,
+            emitterChainId,
+            emitterAddress,
+            0,
+            data,
+            [
+                testSigner1PK
+            ],
+            0,
+            2
+        );
+
+        // try to submit a new guardian set including the zero address
+        failed = false;
+        try {
+            await initialized.methods.submitNewGuardianSet("0x" + vm).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 1000000
+            });
+        } catch (e) {
+            assert.equal(e.message, "Returned error: VM Exception while processing transaction: revert Invalid key");
+            failed = true;
+        }
+
+        assert.ok(failed);
+    })
+
     it("should accept a new guardian set", async function () {
         const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
         const accounts = await web3.eth.getAccounts();
@@ -622,6 +688,55 @@ contract("Wormhole", function () {
         let isUpgraded = await mockImpl.methods.testNewImplementationActive().call();
 
         assert.ok(isUpgraded);
+        lastDeployed = mock;
+    })
+
+    it("should revert recover chain ID governance packets on canonical chains (non-fork)", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+
+        const timestamp = 1000;
+        const nonce = 1001;
+        const emitterChainId = testGovernanceChainId;
+        const emitterAddress = testGovernanceContract
+
+        data = [
+            // Core
+            core,
+            // Action 5 (Recover Chain ID)
+            actionRecoverChainId,
+            // EvmChainID
+            web3.eth.abi.encodeParameter("uint256", 1).substring(2),
+            // NewChainID
+            web3.eth.abi.encodeParameter("uint16", testChainId).substring(2 + (64 - 4)),
+        ].join('')
+
+        const vm = await signAndEncodeVM(
+            timestamp,
+            nonce,
+            emitterChainId,
+            emitterAddress,
+            0,
+            data,
+            [
+                testSigner1PK,
+                testSigner2PK,
+                testSigner3PK
+            ],
+            1,
+            2
+        );
+
+        try {
+            await initialized.methods.submitRecoverChainId("0x" + vm).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 1000000
+            });
+            assert.fail("recover chain ID governance packet on supported chain accepted")
+        } catch (e) {
+            assert.equal(e.data[Object.keys(e.data)[0]].reason, "not a fork")
+        }
     })
 
     it("should revert governance packets from old guardian set", async function () {
@@ -668,7 +783,7 @@ contract("Wormhole", function () {
         }
     })
 
-    it("should time out old gardians", async function () {
+    it("should time out old guardians", async function () {
         const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
 
         const timestamp = 1000;
@@ -1308,6 +1423,625 @@ contract("Wormhole VM2 & VM3s", function () {
                 }
             }
 
+    it("should reject smart contract upgrades on forks", async function () {
+        const mockInitialized = new web3.eth.Contract(MockImplementation.abi, Wormhole.address);
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+
+        const mock = await MockImplementation.new();
+
+        const timestamp = 1000;
+        const nonce = 1001;
+        const emitterChainId = testGovernanceChainId;
+        const emitterAddress = testGovernanceContract
+
+        // simulate a fork
+        await mockInitialized.methods.testOverwriteEVMChainId(fakeChainId, fakeEvmChainId).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 1000000
+        });
+
+        const chainId = await initialized.methods.chainId().call();
+        assert.equal(chainId, fakeChainId);
+
+        const evmChainId = await initialized.methods.evmChainId().call();
+        assert.equal(evmChainId, fakeEvmChainId);
+
+        data = [
+            // Core
+            core,
+            // Action 1 (Contract Upgrade)
+            actionContractUpgrade,
+            // ChainID
+            web3.eth.abi.encodeParameter("uint16", testChainId).substring(2 + (64 - 4)),
+            // New Contract Address
+            web3.eth.abi.encodeParameter("address", mock.address).substring(2),
+        ].join('')
+
+        const vm = await signAndEncodeVM(
+            timestamp,
+            nonce,
+            emitterChainId,
+            emitterAddress,
+            0,
+            data,
+            [
+                testSigner1PK,
+                testSigner2PK,
+                testSigner3PK
+            ],
+            1,
+            2
+        );
+
+        try {
+            await initialized.methods.submitContractUpgrade("0x" + vm).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 1000000
+            });
+
+            assert.fail("governance packet accepted")
+        } catch (e) {
+            assert.equal(e.data[Object.keys(e.data)[0]].reason, "invalid fork")
+        }
+    })
+
+    it("should allow recover chain ID governance packets forks", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+
+        const timestamp = 1000;
+        const nonce = 1001;
+        const emitterChainId = testGovernanceChainId;
+        const emitterAddress = testGovernanceContract;
+
+        data = [
+            // Core
+            core,
+            // Action 5 (Recover Chain ID)
+            actionRecoverChainId,
+            // EvmChainID
+            web3.eth.abi.encodeParameter("uint256", testEvmChainId).substring(2),
+            // NewChainID
+            web3.eth.abi.encodeParameter("uint16", testChainId).substring(2 + (64 - 4)),
+        ].join('')
+
+        const vm = await signAndEncodeVM(
+            timestamp,
+            nonce,
+            emitterChainId,
+            emitterAddress,
+            0,
+            data,
+            [
+                testSigner1PK,
+                testSigner2PK,
+                testSigner3PK
+            ],
+            1,
+            2
+        );
+
+        await initialized.methods.submitRecoverChainId("0x" + vm).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 1000000
+        });
+
+        const newChainId = await initialized.methods.chainId().call();
+        assert.equal(newChainId, testChainId);
+
+        const newEvmChainId = await initialized.methods.evmChainId().call();
+        assert.equal(newEvmChainId, testEvmChainId);
+    })
+
+    it("should accept smart contract upgrades after chain ID has been recovered", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+
+        const mock = await MockImplementation.new();
+
+        const timestamp = 1000;
+        const nonce = 1001;
+        const emitterChainId = testGovernanceChainId;
+        const emitterAddress = testGovernanceContract
+
+        data = [
+            // Core
+            core,
+            // Action 1 (Contract Upgrade)
+            actionContractUpgrade,
+            // ChainID
+            web3.eth.abi.encodeParameter("uint16", testChainId).substring(2 + (64 - 4)),
+            // New Contract Address
+            web3.eth.abi.encodeParameter("address", mock.address).substring(2),
+        ].join('')
+
+        const vm = await signAndEncodeVM(
+            timestamp,
+            nonce,
+            emitterChainId,
+            emitterAddress,
+            0,
+            data,
+            [
+                testSigner1PK,
+                testSigner2PK,
+                testSigner3PK
+            ],
+            1,
+            2
+        );
+
+        let before = await web3.eth.getStorageAt(Wormhole.address, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
+
+        assert.equal(before.toLowerCase(), lastDeployed.address.toLowerCase());
+
+        let set = await initialized.methods.submitContractUpgrade("0x" + vm).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 1000000
+        });
+
+        let after = await web3.eth.getStorageAt(Wormhole.address, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
+
+        assert.equal(after.toLowerCase(), mock.address.toLowerCase());
+
+        const mockImpl = new web3.eth.Contract(MockImplementation.abi, Wormhole.address);
+
+        let isUpgraded = await mockImpl.methods.testNewImplementationActive().call();
+
+        assert.ok(isUpgraded);
+    })
+});
+
+contract("Wormhole VM2 & VM3s", function () {
+    // The following tests rely on the observations in TEST_OBSERVATIONS.
+    // Be cautious when making changes to the observations in the TEST_OBSERVATIONS array.
+    // Adding or removing observations will impact the results the of tests.
+
+    // observation data
+    const vaaNonce = 1;
+    const emitterChainId = 11;
+    const emitterAddress = "0x0000000000000000000000000000000000000000000000000000000000000eee";
+    const consistencyLevel = 15;
+
+    let TEST_OBSERVATIONS = [];
+
+    // create the first observation
+    TEST_OBSERVATIONS.push({
+        timestamp: 1000,
+        nonce: vaaNonce,
+        emitterChainId: emitterChainId,
+        emitterAddress: emitterAddress,
+        sequence: 1337,
+        consistencyLevel: consistencyLevel,
+        payload: "0xaaaa"
+    });
+
+    // create a second observation with the same nonce
+    TEST_OBSERVATIONS.push({
+        timestamp: 1001,
+        nonce: vaaNonce,
+        emitterChainId: emitterChainId,
+        emitterAddress: emitterAddress,
+        sequence: 1338,
+        consistencyLevel: consistencyLevel,
+        payload: "0xbbbbbb"
+    });
+
+    // create a third observation with the same nonce
+    TEST_OBSERVATIONS.push({
+        timestamp: 1002,
+        nonce: vaaNonce,
+        emitterChainId: emitterChainId,
+        emitterAddress: emitterAddress,
+        sequence: 1339,
+        consistencyLevel: consistencyLevel,
+        payload: "0xcccccccccc"
+    });
+
+    it("parses VM2s (Batch VAAs) and associated VM3s correctly", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const vaaVersion = 3;
+
+        // simulate signing the batch VAA
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK,
+                testSigner2PK
+            ],
+            0
+        );
+
+        // parse the batch VAA (parseAndVerifyBatchVM should only be called from a contract)
+        let result;
+        try {
+            result = await initialized.methods.parseBatchVM("0x" + vm2).call();
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseBatchVM failed");
+        }
+
+        // confirm that the batch header was parsed correctly
+        assert.equal(result.version, 2);
+        assert.equal(result.guardianSetIndex, 0);
+
+        // confirm each observation was parsed correctly
+        for (let i = 0; i < TEST_OBSERVATIONS.length; i++) {
+            const testObservation = TEST_OBSERVATIONS[i];
+            const indexedObservation = result.indexedObservations[i];
+
+            // index of the observation
+            assert.equal(indexedObservation.index, i);
+
+            // version
+            assert.equal(indexedObservation.vm3.version, vaaVersion);
+
+            // timestamp
+            assert.equal(indexedObservation.vm3.timestamp, testObservation.timestamp);
+
+            // nonce
+            assert.equal(indexedObservation.vm3.nonce, testObservation.nonce);
+
+            // emitterChainId
+            assert.equal(indexedObservation.vm3.emitterChainId, testObservation.emitterChainId);
+
+            // emitterAddress
+            assert.equal(indexedObservation.vm3.emitterAddress, testObservation.emitterAddress);
+
+            // sequence
+            assert.equal(indexedObservation.vm3.sequence, testObservation.sequence);
+
+            // consistencyLevel
+            assert.equal(indexedObservation.vm3.consistencyLevel, testObservation.consistencyLevel);
+
+            // payload
+            assert.equal(indexedObservation.vm3.payload, testObservation.payload);
+        }
+    })
+
+    it("parses partial VM2s (Paritial Batch VAAs) and associated VM3s correctly", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const vaaVersion = 3;
+        const removedIndex = 1;
+
+        // simulate signing the batch VAA
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK,
+                testSigner2PK
+            ],
+            0
+        );
+
+        // remove the specified observation and create a partial batch
+        const partialVm2 = removeObservationFromBatch(removedIndex, vm2);
+        assert(partialVm2.length < vm2.length, "failed to remove observation");
+
+        // parse the batch VAA (parseAndVerifyBatchVM should only be called from a contract)
+        let result;
+        try {
+            result = await initialized.methods.parseBatchVM("0x" + partialVm2).call();
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseBatchVM failed");
+        }
+
+        // confirm that the batch header was parsed correctly
+        assert.equal(result.version, 2);
+        assert.equal(result.guardianSetIndex, 0);
+
+        // confirm that the expected number of observations was parsed
+        assert.equal(result.indexedObservations.length, TEST_OBSERVATIONS.length - 1);
+
+        // confirm that the indices for the observations are correct
+        assert.equal(result.indexedObservations[0].index, 0);
+        assert.equal(result.indexedObservations[1].index, 2); // index 1 was removed
+
+        // confirm each observation was parsed correctly
+        index = 0;
+        for (let i = 0; i < TEST_OBSERVATIONS.length - 1; i++) {
+            // skip the observation that was removed
+            if (i == removedIndex) { continue; }
+
+            const testObservation = TEST_OBSERVATIONS[i];
+            const indexedObservation = result.indexedObservations[i];
+
+            // index of the observation
+            assert.equal(indexedObservation.index, i);
+
+            // version
+            assert.equal(indexedObservation.vm3.version, vaaVersion);
+
+            // timestamp
+            assert.equal(indexedObservation.vm3.timestamp, testObservation.timestamp);
+
+            // nonce
+            assert.equal(indexedObservation.vm3.nonce, testObservation.nonce);
+
+            // emitterChainId
+            assert.equal(indexedObservation.vm3.emitterChainId, testObservation.emitterChainId);
+
+            // emitterAddress
+            assert.equal(indexedObservation.vm3.emitterAddress, testObservation.emitterAddress);
+
+            // sequence
+            assert.equal(indexedObservation.vm3.sequence, testObservation.sequence);
+
+            // consistencyLevel
+            assert.equal(indexedObservation.vm3.consistencyLevel, testObservation.consistencyLevel);
+
+            // payload
+            assert.equal(indexedObservation.vm3.payload, testObservation.payload);
+        }
+    })
+
+    it("should verify VM2s from a contract correctly", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+        const cacheObservations = false;
+
+        // create the mock integration contract instance
+        const mockIntegration = new web3.eth.Contract(MockBatchedVAASender.abi, MockBatchedVAASender.address);
+
+        // simulate signing the VM2
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK
+            ],
+            0
+        );
+
+        // We need to call this from a contract to verify that the batch has been verified
+        // properly. parseAndVerifyBatchVM modifies state, so the valid status (and parsed VM2) is not returned
+        // when calling from JS.
+        try {
+            await mockIntegration.methods.parseAndVerifyBatchVM("0x" + vm2, cacheObservations).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            });
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseAndVerifyBatchVM failed");
+        }
+
+        // Compute the hash of each observation and confirm
+        // that it is not stored in the batch cache, since
+        // the cacheObservations flag is set to false.
+        for (const observation of TEST_OBSERVATIONS) {
+            const observationHash = doubleKeccak256(encodeObservation(observation));
+
+            // query the contract using the hash
+            const hashIsCached = await initialized.methods.verifiedHashCached(observationHash).call();
+            assert.ok(!hashIsCached);
+        }
+    })
+
+    it("should verify partial VM2s from a contract correctly", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+        const cacheObservations = false;
+        const removedIndex = 1;
+
+        // create the mock integration contract instance
+        const mockIntegration = new web3.eth.Contract(MockBatchedVAASender.abi, MockBatchedVAASender.address);
+
+        // simulate signing the VM2
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK
+            ],
+            0
+        );
+
+        // remove the specified observation and create a partial batch
+        const partialVm2 = removeObservationFromBatch(removedIndex, vm2);
+        assert(partialVm2.length < vm2.length, "failed to remove observation");
+
+        // We need to call this from a contract to verify that the batch has been verified
+        // properly. parseAndVerifyBatchVM modifies state, so the valid status (and parsed VM2) is not returned
+        // when calling from JS.
+        try {
+            await mockIntegration.methods.parseAndVerifyBatchVM("0x" + partialVm2, cacheObservations).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            });
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseAndVerifyBatchVM failed");
+        }
+
+        // Compute the hash of each observation and confirm
+        // that it is not stored in the batch cache, since
+        // the cacheObservations flag is set to false.
+        for (let i = 0; i < TEST_OBSERVATIONS.length - 1; i++) {
+            const observation = TEST_OBSERVATIONS[i];
+            const observationHash = doubleKeccak256(encodeObservation(observation));
+
+            // query the contract using the hash
+            const hashIsCached = await initialized.methods.verifiedHashCached(observationHash).call();
+            assert.ok(!hashIsCached);
+        }
+    })
+
+    it("should store the hash of each observation in a batch cache", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+        const cacheObservations = true;
+
+        // create the mock integration contract instance
+        const mockIntegration = new web3.eth.Contract(MockBatchedVAASender.abi, MockBatchedVAASender.address);
+
+        // simulate signing the VM2
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK
+            ],
+            0
+        );
+
+        // parse and store the VM2
+        const parsedVM2 = await initialized.methods.parseBatchVM("0x" + vm2).call();
+
+        // We need to call this from a contract to verify that the batch has been verified
+        // properly. parseAndVerifyBatchVM modifies state, so the valid status (and parsed VM2) is not returned
+        // when calling from JS.
+        try {
+            await mockIntegration.methods.parseAndVerifyBatchVM("0x" + vm2, cacheObservations).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            });
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseAndVerifyBatchVM failed");
+        }
+
+        // Compute the hash of each observation and confirm
+        // that it is correctly stored in the contract's cache.
+        for (const observation of TEST_OBSERVATIONS) {
+            const observationHash = doubleKeccak256(encodeObservation(observation));
+
+            // query the contract using the hash
+            const hashIsCached = await initialized.methods.verifiedHashCached(observationHash).call();
+            assert.ok(hashIsCached);
+        }
+
+        // clear the batch cache
+        await initialized.methods.clearBatchCache(parsedVM2.hashes).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 2000000
+        });
+    })
+
+    it("should only store hashes in a batch cache when the corresponding observation exists", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+        const cacheObservations = true;
+        const removedIndex = 2;
+
+        // deploy the mock integration contract
+        const mockIntegration = new web3.eth.Contract(MockBatchedVAASender.abi, MockBatchedVAASender.address);
+
+        // simulate signing the VM2
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK
+            ],
+            0
+        );
+
+        // remove the last observation and create a partial batch
+        const partialVm2 = removeObservationFromBatch(removedIndex, vm2);
+        assert(partialVm2.length < vm2.length, "failed to remove observation");
+
+        // parse and store the VM2
+        const parsedPartialVm2 = await initialized.methods.parseBatchVM("0x" + partialVm2).call();
+
+        // We need to call this from a contract to verify that the batch has been verified
+        // properly. parseAndVerifyBatchVM modifies state, so the valid status (and parsed VM2) is not returned
+        // when calling from JS.
+        try {
+            await mockIntegration.methods.parseAndVerifyBatchVM("0x" + partialVm2, cacheObservations).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            });
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseAndVerifyBatchVM failed");
+        }
+
+        // Compute the hash of each observation and confirm
+        // that it is correctly stored in the contract's cache.
+        for (let i = 0; i < TEST_OBSERVATIONS.length; i++) {
+            const observationHash = doubleKeccak256(encodeObservation(TEST_OBSERVATIONS[i]));
+
+            // Query the contract using the hash. Make sure that
+            // the indexed obsevation that was removed from the batch is not cached.
+            const hashIsCached = await initialized.methods.verifiedHashCached(observationHash).call();
+            if (i == removedIndex) {
+                assert.ok(!hashIsCached)
+            } else {
+                assert.ok(hashIsCached);
+            }
+        }
+
+        // clear the batch cache (only provide hashes in the parital VM2)
+        let hashesToRemove = [];
+        for (const indexedObservation of parsedPartialVm2.indexedObservations) {
+            hashesToRemove.push(parsedPartialVm2.hashes[indexedObservation.index])
+        }
+        await initialized.methods.clearBatchCache(hashesToRemove).send({
+            value: 0,
+            from: accounts[0],
+            gasLimit: 2000000
+        });
+    })
+
+    it("should remove the hash of each observation from the batch cache", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+        const cacheObservations = true;
+
+        // deploy the mock integration contract
+        const mockIntegration = new web3.eth.Contract(MockBatchedVAASender.abi, MockBatchedVAASender.address);
+
+        // simulate signing the VM2
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            [
+                testSigner1PK
+            ],
+            0
+        );
+
+        // parse and store the VM2
+        const parsedVM2 = await initialized.methods.parseBatchVM("0x" + vm2).call();
+
+        // We need to call this from a contract to verify that the batch has been verified
+        // properly. parseAndVerifyBatchVM modifies state, so the valid status (and parsed VM2) is not returned
+        // when calling from JS.
+        try {
+            await mockIntegration.methods.parseAndVerifyBatchVM("0x" + vm2, cacheObservations).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            });
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseAndVerifyBatchVM failed");
+        }
+
+        // Loop through the list of observations twice. In the first loop
+        // check that each observation is cached. Then clear the cache,
+        // and confirm that each hash was removed.
+        for (let i = 0; i < 2; i++) {
+            for (const observation of TEST_OBSERVATIONS) {
+                const observationHash = doubleKeccak256(encodeObservation(observation));
+
+                // query the contract using the hash
+                const hashIsCached = await initialized.methods.verifiedHashCached(observationHash).call();
+
+                if (i == 0) {
+                    assert.ok(hashIsCached);
+                } else {
+                    assert.ok(!hashIsCached);
+                }
+            }
+
             // clear the batch cache after completing the first loop
             if (i == 0) {
                 await initialized.methods.clearBatchCache(parsedVM2.hashes).send({
@@ -1554,7 +2288,7 @@ contract("Wormhole VM2 & VM3s", function () {
         assert.ok(failed);
     })
 
-    it("parses and verifies VM3s (Headless VAAs) correctly", async function () {
+    it("verifies VM3s (Headless VAAs) correctly", async function () {
         const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
         const accounts = await web3.eth.getAccounts();
         const cacheObservations = true;
@@ -1589,37 +2323,36 @@ contract("Wormhole VM2 & VM3s", function () {
             assert.fail("parseAndVerifyBatchVM failed");
         }
 
-        // confirm that each observation is parsed and verified correctly by parseAndVerifyVM
+        // verify the VM3 and confirm the values parsed in the parsedVM2
         for (let i = 0; i < parsedVM2.indexedObservations.length; i++) {
-            let verifiedVm;
             try {
-                verifiedVm = await initialized.methods.parseAndVerifyVM(
-                    parsedVM2.indexedObservations[i].observation
+                const result = await initialized.methods.verifyVM(
+                    parsedVM2.indexedObservations[i].vm3
                 ).call();
+
+                // confirm that the VM3 is valid
+                assert.ok(result.valid);
+                assert.equal(result.reason, "");
             } catch (err) {
                 console.log(err);
                 assert.fail("parseAndVerifyVM failed");
             }
 
+            // store the verifiedVM
+            const verifiedVm = parsedVM2.indexedObservations[i].vm3;
+
             // confirm signatures array is empty and the guardianSetIndex is zero
-            assert.equal(verifiedVm.vm.signatures.length, 0);
-            assert.equal(verifiedVm.vm.guardianSetIndex, 0);
+            assert.equal(verifiedVm.signatures.length, 0);
+            assert.equal(verifiedVm.guardianSetIndex, 0);
 
-            // compare the test observation with the parsed output from parseAndVerifyVM
-            assert.equal(verifiedVm.vm.timestamp, TEST_OBSERVATIONS[i].timestamp);
-            assert.equal(verifiedVm.vm.nonce, TEST_OBSERVATIONS[i].nonce);
-            assert.equal(verifiedVm.vm.emitterChainId, TEST_OBSERVATIONS[i].emitterChainId);
-            assert.equal(verifiedVm.vm.emitterAddress, TEST_OBSERVATIONS[i].emitterAddress);
-            assert.equal(verifiedVm.vm.sequence, TEST_OBSERVATIONS[i].sequence);
-            assert.equal(verifiedVm.vm.consistencyLevel, TEST_OBSERVATIONS[i].consistencyLevel);
-            assert.equal(verifiedVm.vm.payload, TEST_OBSERVATIONS[i].payload);
-
-            // compare hash
-            assert.equal(verifiedVm.vm.hash, parsedVM2.hashes[i]);
-
-            // confirm the VM3 was verified
-            assert.ok(verifiedVm.valid);
-            assert.equal(verifiedVm.reason, "");
+            // compare the test observation with the parsed output from the parsedVM2
+            assert.equal(verifiedVm.timestamp, TEST_OBSERVATIONS[i].timestamp);
+            assert.equal(verifiedVm.nonce, TEST_OBSERVATIONS[i].nonce);
+            assert.equal(verifiedVm.emitterChainId, TEST_OBSERVATIONS[i].emitterChainId);
+            assert.equal(verifiedVm.emitterAddress, TEST_OBSERVATIONS[i].emitterAddress);
+            assert.equal(verifiedVm.sequence, TEST_OBSERVATIONS[i].sequence);
+            assert.equal(verifiedVm.consistencyLevel, TEST_OBSERVATIONS[i].consistencyLevel);
+            assert.equal(verifiedVm.payload, TEST_OBSERVATIONS[i].payload);
         }
 
         // clear the batch cache
@@ -1668,9 +2401,13 @@ contract("Wormhole VM2 & VM3s", function () {
         // verify the first two VM3s
         for (let i = 0; i < parsedVM2.indexedObservations.length - 1; i++) {
             try {
-                await initialized.methods.parseAndVerifyVM(
-                    parsedVM2.indexedObservations[i].observation
+                const result = await initialized.methods.verifyVM(
+                    parsedVM2.indexedObservations[i].vm3
                 ).call();
+
+                // confirm that the VM3 is valid
+                assert.ok(result.valid);
+                assert.equal(result.reason, "");
             } catch (err) {
                 console.log(err);
                 assert.fail("parseAndVerifyVM failed");
@@ -1684,8 +2421,8 @@ contract("Wormhole VM2 & VM3s", function () {
             gasLimit: 2000000
         });
 
-        const result = await initialized.methods.parseAndVerifyVM(
-            parsedVM2.indexedObservations[parsedVM2.indexedObservations.length - 1].observation
+        const result = await initialized.methods.verifyVM(
+            parsedVM2.indexedObservations[parsedVM2.indexedObservations.length - 1].vm3
         ).call();
 
         assert.equal(result.reason, "Could not find hash in cache");
@@ -1785,12 +2522,14 @@ contract("Wormhole VM2 & VM3s", function () {
             assert.fail("parseAndVerifyBatchVM failed");
         }
 
-        // parse and verify the first VM3
-        let parsedVM3;
+        // verify the first VM3
+        const parsedVM3 = parsedVM2.indexedObservations[0].vm3;
         try {
-            parsedVM3 = await initialized.methods.parseAndVerifyVM(
-                parsedVM2.indexedObservations[0].observation
-            ).call();
+            const result = await initialized.methods.verifyVM(parsedVM3).call();
+
+            // confirm that the VM3 is valid
+            assert.ok(result.valid);
+            assert.equal(result.reason, "");
         } catch (err) {
             console.log(err);
             assert.fail("parseAndVerifyVM failed");
@@ -1816,16 +2555,80 @@ contract("Wormhole VM2 & VM3s", function () {
 
         // confirm that the VM1 and VM3 are the same observation and both were verified
         assert.ok(parsedVM1.valid);
-        assert.ok(parsedVM3.valid);
-        assert.equal(parsedVM1.vm.hash, parsedVM3.vm.hash);
+        assert.equal(parsedVM1.vm.hash, parsedVM3.hash);
 
-        assert.equal(parsedVM1.vm.timestamp, parsedVM3.vm.timestamp);
-        assert.equal(parsedVM1.vm.nonce, parsedVM3.vm.nonce);
-        assert.equal(parsedVM1.vm.emitterChainId, parsedVM3.vm.emitterChainId);
-        assert.equal(parsedVM1.vm.emitterAddress, parsedVM3.vm.emitterAddress);
-        assert.equal(parsedVM1.vm.sequence, parsedVM3.vm.sequence);
-        assert.equal(parsedVM1.vm.consistencyLevel, parsedVM3.vm.consistencyLevel);
-        assert.equal(parsedVM1.vm.payload, parsedVM3.vm.payload);
+        assert.equal(parsedVM1.vm.timestamp, parsedVM3.timestamp);
+        assert.equal(parsedVM1.vm.nonce, parsedVM3.nonce);
+        assert.equal(parsedVM1.vm.emitterChainId, parsedVM3.emitterChainId);
+        assert.equal(parsedVM1.vm.emitterAddress, parsedVM3.emitterAddress);
+        assert.equal(parsedVM1.vm.sequence, parsedVM3.sequence);
+        assert.equal(parsedVM1.vm.consistencyLevel, parsedVM3.consistencyLevel);
+        assert.equal(parsedVM1.vm.payload, parsedVM3.payload);
+    })
+
+    it("should not verify a VM3 with spoofed version", async function () {
+        const initialized = new web3.eth.Contract(ImplementationFullABI, Wormhole.address);
+        const accounts = await web3.eth.getAccounts();
+        const signers = [testSigner1PK];
+        const cacheObservations = false;
+
+        // deploy the mock integration contract
+        const mockIntegration = new web3.eth.Contract(MockBatchedVAASender.abi, MockBatchedVAASender.address);
+
+        // simulate signing the VM2
+        const vm2 = await signAndEncodeVM2(
+            TEST_OBSERVATIONS,
+            signers,
+            0
+        );
+
+        // Parse and verify the batch header so the observation hashes are stored
+        // and VM3s can be verified.
+        const parsedVM2 = await initialized.methods.parseBatchVM("0x" + vm2).call();
+
+        // We need to call this from a contract to verify that the batch has been verified
+        // properly. parseAndVerifyBatchVM modifies state, so the valid status (and parsed VM2) is not returned
+        // when calling from JS.
+        try {
+            await mockIntegration.methods.parseAndVerifyBatchVM("0x" + vm2, cacheObservations).send({
+                value: 0,
+                from: accounts[0],
+                gasLimit: 2000000
+            });
+        } catch (err) {
+            console.log(err);
+            assert.fail("parseAndVerifyBatchVM failed");
+        }
+
+        // parse and verify the first VM3
+        const parsedVM3 = parsedVM2.indexedObservations[0].vm3;
+
+        // create a spoofed version of the VM1
+        const spoofedVM3 = {
+            version: "1",
+            timestamp: parsedVM3.timestamp,
+            nonce: parsedVM3.timestamp,
+            emitterChainId: parsedVM3.emitterChainId,
+            emitterAddress: parsedVM3.emitterAddress,
+            sequence: parsedVM3.sequence,
+            consistencyLevel: parsedVM3.consistencyLevel,
+            payload: parsedVM3.payload,
+            guardianSetIndex: parsedVM3.guardianSetIndex,
+            signatures: parsedVM3.signatures,
+            hash: parsedVM3.hash
+        }
+
+        // try to verify the spoofed VM3
+        let result;
+        try {
+            result = await initialized.methods.verifyVM(spoofedVM3).call();
+        } catch (err) {
+            console.log(err);
+            assert.fail("verifyVM failed");
+        }
+
+        assert.ok(!result.valid);
+        assert.equal(result.reason, "no quorum");
     })
 });
 
@@ -2009,7 +2812,7 @@ const signAndEncodeVM = async function (
     for (let i in signers) {
         const ec = new elliptic.ec("secp256k1");
         const key = ec.keyFromPrivate(signers[i]);
-        const signature = key.sign(hash.substr(2), {canonical: true});
+        const signature = key.sign(hash.substr(2), { canonical: true });
 
         const packSig = [
             web3.eth.abi.encodeParameter("uint8", i).substring(2 + (64 - 2)),
@@ -2061,7 +2864,7 @@ const signAndEncodeVMFixedIndex = async function (
     for (let i in signers) {
         const ec = new elliptic.ec("secp256k1");
         const key = ec.keyFromPrivate(signers[i]);
-        const signature = key.sign(hash.substr(2), {canonical: true});
+        const signature = key.sign(hash.substr(2), { canonical: true });
 
         const packSig = [
             // Fixing the index to be zero to product a non-monotonic VM

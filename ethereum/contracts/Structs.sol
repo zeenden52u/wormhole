@@ -31,7 +31,8 @@ interface Structs {
 	struct IndexedObservation {
 		// Index of the observation in the batch
 		uint8 index;
-		bytes observation;
+		// Headless VM3 parsed into the VM struct
+		VM vm3;
 	}
 
 	struct Observation {
@@ -61,19 +62,24 @@ interface Structs {
 		// reasons we keep the representation inlined.
 		uint32 guardianSetIndex;
 		Signature[] signatures;
-		// computed value
+		// Computed value
 		bytes32 hash;
 	}
 
 	struct VM2 {
 		uint8 version; // version = 2
+
+		// Inlined Header
 		uint32 guardianSetIndex;
 		Signature[] signatures;
+
+		// Array of Observation hashes
 		bytes32[] hashes;
 
-		// computed value - hash(hashes)
+		// Computed batch hash - hash(hash(Observation1), hash(Observation2), ...)
 		bytes32 hash;
 
+		// Array of IndexedObservations
 		IndexedObservation[] indexedObservations;
 	}
 }

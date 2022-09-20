@@ -14,13 +14,13 @@ import (
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	spyv1 "github.com/certusone/wormhole/node/pkg/proto/spy/v1"
 	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ipfslog "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
+	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -250,6 +250,9 @@ func runSpy(cmd *cobra.Command, args []string) {
 	// Inbound observations
 	obsvC := make(chan *gossipv1.SignedObservation, 50)
 
+	// Inbound observation requests
+	obsvReqC := make(chan *gossipv1.ObservationRequest, 50)
+
 	// Inbound signed VAAs
 	signedInC := make(chan *gossipv1.SignedVAAWithQuorum, 50)
 
@@ -276,6 +279,18 @@ func runSpy(cmd *cobra.Command, args []string) {
 			case <-rootCtx.Done():
 				return
 			case <-obsvC:
+			}
+		}
+	}()
+
+	// Ignore observation requests
+	// Note: without this, the whole program hangs on observation requests
+	go func() {
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case <-obsvReqC:
 			}
 		}
 	}()

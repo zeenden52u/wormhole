@@ -79,7 +79,10 @@ import {
 
 const wh = require("@certusone/wormhole-sdk");
 
-import { parseSequenceFromLogAlgorand, parseSequenceFromLogNear } from "@certusone/wormhole-sdk/lib/cjs/bridge";
+import {
+  parseSequenceFromLogAlgorand,
+  parseSequenceFromLogNear,
+} from "@certusone/wormhole-sdk/lib/cjs/bridge";
 
 import {
   getMessageFee,
@@ -520,15 +523,27 @@ async function testNearSDK() {
     wrappedTransfer = signedVAA;
   }
 
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: userAccount.accountId,
+    })
+  );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: token_bridge,
+    })
+  );
+
   let randoTransfer;
   {
-    console.log("transfer rando token from near to algorand");
+    console.log("YYY transfer rando token from near to algorand");
     let s = await transferTokenFromNear(
       userAccount,
       core_bridge,
       token_bridge,
       randoToken,
-      BigInt(10000000),
+      BigInt(21) * BigInt("1000000000") * BigInt("1000000000000000000"),
       decodeAddress(algoWallet.addr).publicKey,
       8,
       BigInt(0)
@@ -547,11 +562,30 @@ async function testNearSDK() {
     console.log("vaa: " + Buffer.from(signedVAA).toString("hex"));
     randoTransfer = signedVAA;
 
+    console.log(_parseVAAAlgorand(randoTransfer));
+
     if (s[1] != getEmitterAddressNear(token_bridge)) {
-        console.log("Unexpected emitter address: " + s[1] + "!=" + getEmitterAddressNear(token_bridge));
-        process.exit(1);
+      console.log(
+        "Unexpected emitter address: " +
+          s[1] +
+          "!=" +
+          getEmitterAddressNear(token_bridge)
+      );
+      process.exit(1);
     }
   }
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: userAccount.accountId,
+    })
+  );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: token_bridge,
+    })
+  );
 
   let nearTransfer;
   {
@@ -604,7 +638,7 @@ async function testNearSDK() {
 
   let randoAssetId;
   {
-    console.log("redeeming our near native asset on Algorand");
+    console.log("YYY redeeming our near native asset on Algorand");
     const tx = await redeemOnAlgorand(
       algoClient,
       algoToken,
@@ -686,18 +720,17 @@ async function testNearSDK() {
     ).vaaBytes;
   }
 
-  console.log("transfering rando from Algo To Near... getting the vaa");
+  console.log("YYY transfering rando from Algo To Near... getting the vaa");
   let transferAlgoToNearRando;
   {
-    const AmountToTransfer: number = 100;
-    const Fee: number = 20;
+    const Fee: number = 0;
     const transferTxs = await transferFromAlgorand(
       algoClient,
       algoToken,
       algoCore,
       algoWallet.addr,
       randoAssetId,
-      BigInt(AmountToTransfer),
+      BigInt(20) * BigInt("1000000000") * BigInt("100000000"),
       myAddress,
       CHAIN_ID_NEAR,
       BigInt(Fee)
@@ -758,10 +791,35 @@ async function testNearSDK() {
   );
 
   console.log(
-    "redeeming Rando on Near: " + uint8ArrayToHex(transferAlgoToNearRando)
+    "YYY redeeming Rando on Near: " + uint8ArrayToHex(transferAlgoToNearRando)
   );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: userAccount.accountId,
+    })
+  );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: token_bridge,
+    })
+  );
+
   console.log(
     await redeemOnNear(user2Account, token_bridge, transferAlgoToNearRando)
+  );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: userAccount.accountId,
+    })
+  );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: token_bridge,
+    })
   );
 
   console.log("redeeming NEAR on Near");
@@ -819,21 +877,20 @@ async function testNearSDK() {
       await redeemOnNear(user2Account, token_bridge, transferAlgoToNearP3)
     );
 
-    console.log("transfering rando from Algo To Near... getting the vaa");
+    console.log("YYY P3 transfering rando from Algo To Near... getting the vaa");
     let transferAlgoToNearRandoP3;
     {
-      const AmountToTransfer: number = 100;
-      const Fee: number = 20;
+      const Fee: number = 0;
       const transferTxs = await transferFromAlgorand(
         algoClient,
         algoToken,
         algoCore,
         algoWallet.addr,
         randoAssetId,
-        BigInt(AmountToTransfer),
+        BigInt(1) * BigInt("1000000000") * BigInt("100000000"),
         userAccount2Address,
         CHAIN_ID_NEAR,
-        BigInt(Fee),
+        BigInt(Fee) * BigInt("100000000"),
         hexToUint8Array("ff")
       );
       const transferResult = await signSendAndConfirmAlgorand(
@@ -853,11 +910,23 @@ async function testNearSDK() {
       ).vaaBytes;
     }
 
-    console.log("redeeming P3 random on Near");
+    console.log("YYY redeeming P3 random on Near");
     console.log(
       await redeemOnNear(user2Account, token_bridge, transferAlgoToNearRandoP3)
     );
   }
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: userAccount.accountId,
+    })
+  );
+
+  console.log(
+    await userAccount.viewFunction(randoToken, "ft_balance_of", {
+      account_id: token_bridge,
+    })
+  );
 
   console.log("What next?");
 }
