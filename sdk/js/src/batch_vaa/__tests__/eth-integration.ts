@@ -1,22 +1,16 @@
-import { ethers } from "ethers";
-import { describe, expect, test } from "@jest/globals";
-import { NodeHttpTransport } from "@improbable-eng/grpc-web-node-http-transport";
-import { CHAIN_ID_ETH, CHAIN_ID_BSC, getSignedBatchVAAWithRetry } from "../..";
+import {ethers} from "ethers";
+import {describe, expect, test} from "@jest/globals";
+import {NodeHttpTransport} from "@improbable-eng/grpc-web-node-http-transport";
+import {CHAIN_ID_ETH, CHAIN_ID_BSC, getSignedBatchVAAWithRetry} from "../..";
 import {
   ETH_NODE_URL,
   BSC_NODE_URL,
   ETH_PRIVATE_KEY,
   MOCK_BATCH_VAA_SENDER_ABI,
   MOCK_BATCH_VAA_SENDER_ADDRESS,
-  MOCK_BATCH_VAA_SENDER_ADDRESS_BYTES,
   WORMHOLE_RPC_HOSTS,
 } from "./consts";
-import {
-  parseWormholeEventsFromReceipt,
-  getSignedBatchVaaFromReceiptOnEth,
-  getSignedVaaFromReceiptOnEth,
-  removeObservationFromBatch,
-} from "./utils";
+import {parseWormholeEventsFromReceipt, getSignedVaaFromReceiptOnEth, removeObservationFromBatch} from "./utils";
 
 describe("Batch VAAs", () => {
   // The following tests rely on the payloads in batchVAAPayloads.
@@ -73,6 +67,7 @@ describe("Batch VAAs", () => {
           expect(messageEvents[i].args.consistencyLevel).toEqual(batchVAAConsistencyLevels[i]);
         }
 
+        // fetch the batch VAA from the guardian
         const batchVaaRes = await getSignedBatchVAAWithRetry(
           WORMHOLE_RPC_HOSTS,
           CHAIN_ID_ETH,
@@ -168,6 +163,7 @@ describe("Batch VAAs", () => {
         expect(messageEvents[0].args.payload).toEqual(singleVAAPayload);
         expect(messageEvents[0].args.consistencyLevel).toEqual(consistencyLevel);
 
+        // fetch the batch VAA from the guardian
         const batchVaaRes = await getSignedBatchVAAWithRetry(
           WORMHOLE_RPC_HOSTS,
           CHAIN_ID_BSC,
@@ -259,7 +255,7 @@ describe("Batch VAAs", () => {
         const legacyVAAHash = parsedLegacyVAA.hash;
 
         // verify the legacy VAA and confirm that the payload was saved in the contract
-        await contractWithSigner.consumeSingleVAA(legacyVAAFromBSC);
+        await contractWithSigner.consumeSingleVAA(parsedLegacyVAA);
         const payloadFromContract = await contractWithSigner.getPayload(legacyVAAHash);
         expect(payloadFromContract).toEqual(parsedLegacyVAA.payload);
 
@@ -306,8 +302,8 @@ describe("Batch VAAs", () => {
         expect(parsedPartialBatchVAAForBSC.hashes.length).toEqual(parsedBatchVAAFromEth.hashes.length);
 
         for (let i = 0; i < parsedPartialBatchVAAForBSC.indexedObservations.length; i++) {
-          expect(parsedPartialBatchVAAForBSC.indexedObservations[i].observation).toEqual(
-            parsedBatchVAAFromEth.indexedObservations[i].observation
+          expect(parsedPartialBatchVAAForBSC.indexedObservations[i].vm3).toEqual(
+            parsedBatchVAAFromEth.indexedObservations[i].vm3
           );
         }
 
@@ -330,8 +326,8 @@ describe("Batch VAAs", () => {
 
         // Check to see if the remaining observation is the same as the
         // last observation in the orignal batch VAA.
-        expect(parsedPartialBatchVAAForEth.indexedObservations[0].observation).toEqual(
-          parsedBatchVAAFromEth.indexedObservations[parsedBatchVAAFromEth.indexedObservations.length - 1].observation
+        expect(parsedPartialBatchVAAForEth.indexedObservations[0].vm3).toEqual(
+          parsedBatchVAAFromEth.indexedObservations[parsedBatchVAAFromEth.indexedObservations.length - 1].vm3
         );
 
         // destory the provider and end the test
@@ -448,49 +444,6 @@ describe("Batch VAAs", () => {
         // were removed from the batch VAA.
         const payloadFromContract = await contractWithSigner.getPayload(partialBatchHashes[0]);
         expect(payloadFromContract).toEqual(batchVAAPayloads[batchVAAPayloads.length - 1]);
-
-        // destory the provider and end the test
-        provider.destroy();
-        done();
-      } catch (e) {
-        console.error(e);
-        done("An error occurred while trying to generate a batch VAA on ethereum");
-      }
-    })();
-  });
-
-  test("Should Verify a Legacy VAA From a Contract on Ethereum Using parseAndVerifyVAA", (done) => {
-    (async () => {
-      try {
-        // create a signer for ETH
-        const provider = new ethers.providers.WebSocketProvider(ETH_NODE_URL);
-        const signer = new ethers.Wallet(ETH_PRIVATE_KEY, provider);
-
-        // create a contract instance for the mock batch VAA sender contract
-        const mockBatchSenderContractOnEth = new ethers.Contract(
-          MOCK_BATCH_VAA_SENDER_ADDRESS,
-          MOCK_BATCH_VAA_SENDER_ABI,
-          provider
-        );
-        const contractWithSigner = mockBatchSenderContractOnEth.connect(signer);
-
-        // Invoke the ETH contract to parse the encoded batch VAA. Grab the hash
-        // and clear the verifiedPayloads map.
-        const parsedBatchVAAFromBsc = await contractWithSigner.parseBatchVAA(encodedBatchVAAFromBsc);
-        await contractWithSigner.clearPayload(parsedBatchVAAFromBsc.header.hashes[0]);
-
-        // confirm that the payload was removed from the verifiedPayloads map
-        const emptyPayloadFromContract = await contractWithSigner.getPayload(parsedBatchVAAFromBsc.header.hashes[0]);
-        expect(emptyPayloadFromContract).toEqual("0x");
-
-        // invoke the ETH contract to parse the legacy VAA and save the hash
-        const parsedLegacyVAA = await contractWithSigner.parseLegacyVAA(legacyVAAFromBSC);
-        const legacyVAAHash = parsedLegacyVAA.hash;
-
-        // verify the legacy VAA and confirm that the payload was saved in the contract
-        await contractWithSigner.consumeSingleVAA(legacyVAAFromBSC);
-        const payloadFromContract = await contractWithSigner.getPayload(legacyVAAHash);
-        expect(payloadFromContract).toEqual(parsedLegacyVAA.payload);
 
         // destory the provider and end the test
         provider.destroy();
