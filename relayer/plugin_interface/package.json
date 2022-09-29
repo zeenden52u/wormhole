@@ -1,5 +1,5 @@
 {
-  "name": "plugin_interface",
+  "name": "@certusone/plugin-relayer-interface",
   "version": "0.1.0",
   "description": "Plugin interfaces used in plugin_relayer",
   "types": "lib/index.d.ts",
