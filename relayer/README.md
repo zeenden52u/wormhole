@@ -41,8 +41,15 @@ There are four main components to a relayer:
 3. Redis database that VAAs are enqueued on by the Listener.
 4. Executor that pops off VAAs from the Redis database, processes it, and optionally generate subsequent actions.
 
-The Plug-in relayer modularizes the Listener and Executor component through a Plug-in Interface to enable custom filtering of VAAs and off-chain processing of VAAs respectively.
+The Plug-in relayer modularizes the Listener and Executor component through a Plug-in Interface to enable custom filtering and off-chain processing of VAAs respectively.
 
+The Listener portion of the Plug-in component defines 
+- type of connection to the Guardian Network (Spy connection or REST API)
+- VAA filter by `emitterAddress` and `emitterChainID`
+- process for consuming a VAA
 
+The Executor portion of the Plug-in component defines, for each blockchain ecosystem that the relayer needs to support (i.e. EVM, Solana, Cosmos) the
+- wallet tool box
+- action(s) to take based on a consumed VAA 
 
 The key interfaces to provide in a plug-in can be found [here](https://github.com/wormhole-foundation/wormhole/blob/feat/plugin_relayer/relayer/plugin_interface/src/index.ts)
