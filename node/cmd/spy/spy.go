@@ -121,7 +121,9 @@ func (s *spyServer) Publish(vaaBytes []byte) error {
 				var err error
 				v, err = vaa.Unmarshal(vaaBytes)
 				if err != nil {
-					return err
+					// continue rather than returning an error, so
+					// we don't stop iterating through subs.
+					continue
 				}
 			}
 
@@ -283,6 +285,17 @@ func runSpy(cmd *cobra.Command, args []string) {
 		}
 	}()
 
+	// Ignore batch observations
+	go func() {
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case <-batchObsvC:
+			}
+		}
+	}()
+
 	// Ignore observation requests
 	// Note: without this, the whole program hangs on observation requests
 	go func() {
@@ -306,6 +319,22 @@ func runSpy(cmd *cobra.Command, args []string) {
 					zap.Any("vaa", v.Vaa))
 				if err := s.Publish(v.Vaa); err != nil {
 					logger.Error("failed to publish signed VAA", zap.Error(err))
+				}
+			}
+		}
+	}()
+	
+	// Publish batch VAAs
+	go func() {
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case v := <-batchSignedInC:
+				logger.Info("Received signed BatchVAA",
+					zap.Any("vaa", v.BatchVaa))
+				if err := s.Publish(v.BatchVaa); err != nil {
+					logger.Error("failed to publish signed BatchVAA", zap.Error(err))
 				}
 			}
 		}
