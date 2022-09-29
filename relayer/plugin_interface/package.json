@@ -1,6 +1,6 @@
 {
   "name": "plugin_interface",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Plugin interfaces used in plugin_relayer",
   "types": "lib/index.d.ts",
   "main": "lib/index.js",
