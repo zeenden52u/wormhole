@@ -1,12 +1,12 @@
 import {
+  ActionId,
   ActionQueueUpdate,
   CommonPluginEnv,
   ContractFilter,
-  CosmWallet,
   EVMWallet,
   Plugin,
   PluginFactory,
-  SolanaWallet,
+  Providers,
   StagingArea,
   WorkerAction,
 } from "plugin_interface";
@@ -18,34 +18,66 @@ import {
 import { Logger, loggers } from "winston";
 import { WalletToolBox } from "plugin_interface";
 
-// todo: do we need this in the plugin or just the relayer??
-setDefaultWasm("node");
-
 function create(
   commonConfig: CommonPluginEnv,
   pluginConfig: any,
   logger: Logger
 ): Plugin {
-  console.log("Creating da plugin...");
-  return new DummyPlugin(commonConfig, pluginConfig, logger);
+  return new AttestationPlugin(commonConfig, pluginConfig, logger);
 }
 
-interface DummyPluginConfig {
-  hi?: string;
+interface AttestationPluginConfig {
   spyServiceFilters?: { chainId: ChainId; emitterAddress: string }[];
   shouldRest: boolean;
   shouldSpy: boolean;
   demoteInProgress: boolean;
 }
 
-class DummyPlugin implements Plugin {
-  shouldSpy: boolean;
-  shouldRest: boolean;
-  static readonly pluginName: string = "DummyPlugin";
-  readonly pluginName = DummyPlugin.pluginName;
-  readonly pluginConfig: DummyPluginConfig;
-  readonly demoteInProgress;
-  readonly dependentPluginNames: string[] = ["AttestationPlugin"]
+interface CreateAttestation {
+  mint: string;
+  chainId: ChainId;
+}
+
+interface CreateWrappedAssetAction {
+  attestationVaa: Uint8Array;
+}
+
+/*
+
+
+createAttestation -> fetchVAA{ seq, emitter } -> craeateWrapped { vaa, chainId }
+
+*/
+
+function fetch(seq, emitter): WorkerAction;
+
+async function attestationWorkflow(
+  execute: (action: WorkerAction) => Promise<any>
+  // ..
+): Promise<void> {
+  const craeatAttestation = {}; // ...
+  const { seq, emitter } = await execute(craeatAttestation);
+  const vaa = await execute(fetch(seq, emitter));
+
+  await Promise.all(
+    allTheChains.map(c => execute(createWrappedAssetAction(vaa, c)))
+  );
+}
+
+async function xRaydiumWorkflow(
+  execute: (action: WorkerAction) => Promise<any>
+  //...
+): Promise<void> {
+  await attestationWorkflow(execute);
+}
+
+class AttestationPlugin implements Plugin {
+  readonly shouldSpy: boolean;
+  readonly shouldRest: boolean;
+  static readonly pluginName: string = "AttestationPlugin";
+  readonly pluginName = AttestationPlugin.pluginName;
+  readonly pluginConfig: AttestationPluginConfig;
+  readonly demoteInProgress: boolean;
 
   constructor(
     readonly config: CommonPluginEnv,
@@ -56,7 +88,6 @@ class DummyPlugin implements Plugin {
     console.log(`Plugin Env: ${JSON.stringify(env, undefined, 2)}`);
 
     this.pluginConfig = {
-      hi: env.hi,
       spyServiceFilters:
         env.spyServiceFilters &&
         assertArray(env.spyServiceFilters, "spyServiceFilters"),
@@ -90,20 +121,11 @@ class DummyPlugin implements Plugin {
     };
   }
 
-  // async relaySolanaAction(
-  //   walletToolbox: WalletToolBox<SolanaWallet>,
-  //   action: WorkerAction,
-  //   queuedActions: WorkerAction[]
-  // ): Promise<ActionQueueUpdate> {
-  //   this.logger.info("Executing relaySolanaAction");
-  //   return {
-  //     enqueueActions: [],
-  //   };
-  // }
-
   async consumeEvent(
     vaa: Uint8Array,
-    stagingArea: { counter?: number }
+    stagingArea: { counter?: number },
+    providers: Providers,
+    actionIdCreator: () => ActionId
   ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }> {
     this.logger.debug("Parsing VAA...");
     try {
@@ -134,8 +156,10 @@ class DummyPlugin implements Plugin {
   }
 }
 
-const factory: PluginFactory = { create, pluginName: DummyPlugin.pluginName };
-console.log(factory.pluginName);
+const factory: PluginFactory = {
+  create,
+  pluginName: AttestationPlugin.pluginName,
+};
 
 export default factory;
 

@@ -53,3 +53,32 @@ Each plugin receives two of the sandboxed tables:
   - which env (to look up in default map)
   - optionally override configs
   - common config (cannot know whether it's running in executor or listener process)
+
+
+
+  ------------
+# New Design
+
+# Listener
+
+Queue workflow storage objects in redis 
+
+# Executor 
+
+- Consumes workflow storage objects and begins executing workflows
+- Workflow handler can
+  - schedule, await worker actions and get output from actions
+- worker scheduler uses in-memory queue instead of redis, otherwise stays the same
+- workflow scheduler:
+  - watches redis for new worlfow storage objects
+  - updates redis with history of actions 
+  - manage long-running workflows
+  - recover on startup 
+
+
+# Plugin Interface
+- workflow handler 
+- action executor (same as before, one for each blockchain environment)
+
+# Builtin FetchVAA, FetchBatch Action
+`execute(fetchVAA(seq, emitter))`

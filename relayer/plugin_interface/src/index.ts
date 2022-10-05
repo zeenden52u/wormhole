@@ -1,4 +1,3 @@
-import { Metric } from "prom-client";
 import * as ethers from "ethers";
 import * as solana from "@solana/web3.js";
 import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
@@ -31,7 +30,7 @@ export interface WorkerAction {
   id: ActionId;
   data: Object;
   description?: string;
-  depedencies?: ActionId[];
+  dependencies?: ActionId[];
   delayTimestamp?: Date;
 }
 
@@ -46,7 +45,7 @@ export type StagingArea = Object;
  * Wallets and Providers
  */
 
-export type EVMWallet = ethers.Signer;
+export type EVMWallet = ethers.Signer & {address: string};
 export type Wallet = EVMWallet | SolanaWallet | CosmWallet;
 
 export interface WalletToolBox<T extends Wallet> extends Providers {
@@ -72,23 +71,28 @@ export interface Providers {
 interface PluginCommonFields {
   pluginName: string;
   pluginConfig: any;
+  // plugins that must be loaded for this plugin to work
+  dependentPluginNames: string[]
 }
 export interface Executor extends PluginCommonFields {
   demoteInProgress?: boolean;
   relayEvmAction?: (
     walletToolbox: WalletToolBox<EVMWallet>,
     action: WorkerAction,
-    queuedActions: WorkerAction[]
+    queuedActions: WorkerAction[],
+    plugins: Map<string, Plugin>
   ) => Promise<ActionQueueUpdate>;
   relaySolanaAction?: (
     walletToolbox: WalletToolBox<SolanaWallet>,
     action: WorkerAction,
-    queuedActions: WorkerAction[]
+    queuedActions: WorkerAction[],
+    plugins: Map<string, Plugin>
   ) => Promise<ActionQueueUpdate>;
   relayCosmAction?: (
     walletToolbox: WalletToolBox<CosmWallet>,
     action: WorkerAction,
-    queuedActions: WorkerAction[]
+    queuedActions: WorkerAction[],
+    plugins: Map<string, Plugin>
   ) => Promise<ActionQueueUpdate>;
 }
 
@@ -98,7 +102,9 @@ export interface Listener extends PluginCommonFields {
   getFilters(): ContractFilter[];
   consumeEvent(
     vaa: Uint8Array,
-    stagingArea: StagingArea
+    stagingArea: StagingArea,
+    providers: Providers,
+    actionIdCreator: () => ActionId,
   ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }>;
 }
 
@@ -118,37 +124,3 @@ export type ContractFilter = {
   emitterAddress: string;
   chainId: ChainId;
 };
-
-/*
-export abstract class DefaultPlugin implements Plugin {
-  defaultConfigs: Map<EnvTypes | string, any> = new Map([]);
-  env: any;
-  name: string;
-  shouldSpy: boolean;
-  shouldRest: boolean;
-
-  constructor(config: CommonEnvironment, overrides?: any) {
-    const env = {
-      ...this.defaultConfigs.get(config.envType),
-      ...overrides,
-    } as any | undefined;
-
-    if (!env) {
-      throw new Error("Plugin config must be defined");
-    }
-    this.env = env;
-  }
-  getFilters(): ContractFilter[] {
-    throw new Error("Method not implemented.");
-  }
-  consumeEvent(
-    vaa: Uint8Array,
-    stagingArea: Object
-  ): Promise<ActionQueueUpdate> {
-    throw new Error("Method not implemented.");
-  }
-
-  abstract defineMetrics<T extends string>(): Metric<T>[];
-}
-
-*/

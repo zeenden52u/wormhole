@@ -95,6 +95,7 @@ async function spawnWalletWorker(
   logger.info(`Spawned`);
   const workerIntervalMS =
     getExecutorEnv().actionInterval || DEFAULT_WORKER_INTERVAL_MS;
+  const pluginMap = new Map(plugins.map(p => [p.pluginName, p]))
   // todo: add metrics
   while (true) {
     // always sleep between loop iterations
@@ -122,6 +123,7 @@ async function spawnWalletWorker(
           pluginStorage.plugin,
           workerInfo,
           providers,
+          pluginMap,
           logger
         );
         pluginStorage.applyActionUpdate(update.enqueueActions, action);
@@ -147,6 +149,7 @@ async function relayDispatcher(
   plugin: Plugin,
   workerInfo: WorkerInfo,
   providers: Providers,
+  plugins: Map<string, Plugin>,
   logger: ScopedLogger
 ): Promise<ActionQueueUpdate> {
   const errTempplate = (chainName: string) =>
@@ -163,7 +166,7 @@ async function relayDispatcher(
     if (!plugin.relayEvmAction) {
       throw errTempplate(workerInfo.targetChainName);
     }
-    return await plugin.relayEvmAction(wallet, action, queuedActions);
+    return await plugin.relayEvmAction(wallet, action, queuedActions, plugins,);
   }
   switch (workerInfo.targetChainId) {
     case wh.CHAIN_ID_SOLANA:
@@ -174,7 +177,7 @@ async function relayDispatcher(
       if (!plugin.relaySolanaAction) {
         throw errTempplate(workerInfo.targetChainName);
       }
-      return await plugin.relaySolanaAction(wallet, action, queuedActions);
+      return await plugin.relaySolanaAction(wallet, action, queuedActions, plugins);
     // case wh.CHAIN_ID_TERRA:
     // ...
   }
