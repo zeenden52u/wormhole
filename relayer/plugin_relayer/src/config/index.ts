@@ -19,6 +19,7 @@ export type CommonEnv = {
   pluginURIs: NodeURI[];
   envType: EnvTypes;
   mode: Mode
+  supportedChains: ChainConfigInfo[];
 };
 
 export type ListenerEnv = {
@@ -28,7 +29,7 @@ export type ListenerEnv = {
 };
 
 export type ExecutorEnv = {
-  supportedChains: ChainConfigInfo[];
+  privateKeys: {[id in ChainId]: string[]}
   actionInterval?: number // milliseconds between attempting to process actions
 };
 
@@ -38,8 +39,6 @@ export type ChainConfigInfo = {
   nativeCurrencySymbol: string;
   nodeUrl: string;
   tokenBridgeAddress: string;
-  walletPrivateKey?: string[];
-  solanaPrivateKey?: Uint8Array[];
   bridgeAddress?: string;
   terraName?: string;
   terraChainId?: string;

@@ -1,5 +1,5 @@
 import { ChainId } from "@certusone/wormhole-sdk";
-import { Plugin, StagingArea, WorkerAction } from "plugin_interface";
+import { Plugin, StagingArea, WorkerAction, Workflow } from "plugin_interface";
 import { ExecutorEnv } from "../config";
 
 export interface PluginStorageFactory {
@@ -17,6 +17,10 @@ export interface Storage extends PluginStorageFactory {
     queuedActions: WorkerAction[];
     pluginStorage: PluginStorage;
   } | null>;
+
+  getNextWorkflow(
+    plugins: Plugin[]
+  ): Promise<{ workflow: Workflow; plugin: PluginStorage }>;
 
   handleStorageStartupConfig(
     plugins: Plugin[],

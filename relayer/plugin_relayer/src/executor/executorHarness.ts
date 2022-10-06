@@ -1,90 +1,131 @@
-import { getCommonEnv, getExecutorEnv, ExecutorEnv } from "../config";
+import { getExecutorEnv } from "../config";
+import { getLogger, getScopedLogger } from "../helpers/logHelper";
 import {
-  dbg,
-  getLogger,
-  getScopedLogger,
-  ScopedLogger,
-} from "../helpers/logHelper";
-import {
-  ActionQueueUpdate,
+  Action,
   EVMWallet,
   Plugin,
   Providers,
   SolanaWallet,
   WalletToolBox,
-  WorkerAction,
+  ActionExecutor,
+  Workflow,
+  WorkflowId,
+  Wallet,
+  ActionId,
 } from "plugin_interface";
 import * as solana from "@solana/web3.js";
 import { sleep } from "../helpers/utils";
 import { Storage } from "../storage/storage";
 import * as wh from "@certusone/wormhole-sdk";
 import * as ethers from "ethers";
-import { providersFromChainConfig } from "../utils/providers";
-import {
-  CHAIN_ID_SOLANA,
-  EVMChainId,
-  isEVMChain,
-  isTerraChain,
-} from "@certusone/wormhole-sdk";
+import { ChainId, EVMChainId } from "@certusone/wormhole-sdk";
+import { Queue } from "@datastructures-js/queue";
+import { createWalletToolbox } from "./walletToolBox";
 
+// todo: add to config
 const DEFAULT_WORKER_RESTART_MS = 10 * 1000;
 const DEFAULT_WORKER_INTERVAL_MS = 500;
+const MAX_ACTIVE_WORKFLOWS = 10;
+const SPAWN_WORKFLOW_INTERNAL = 500;
 
-/*
- * 1. Grab logger & commonEnv
- * 2. Instantiate executorEnv
- * 3. Demote in-progress actions and/or clear storage based off config
- * 5. For each wallet, spawn worker
- */
-export async function run(plugins: Plugin[], storage: Storage) {
-  const executorEnv = getExecutorEnv();
-  const logger = getScopedLogger(["executorHarness"], getLogger());
+let actionIdCounter = 0;
 
-  await storage.handleStorageStartupConfig(plugins, executorEnv);
-  const providers = providersFromChainConfig(executorEnv.supportedChains);
-
-  logger.info("Spawning chain workers...");
-  dbg(executorEnv.supportedChains);
-  executorEnv.supportedChains.forEach(chain => {
-    let id = 0;
-    const privatekeys = maybeConcat<WalletPrivateKey>(
-      chain.solanaPrivateKey,
-      chain.walletPrivateKey
-    );
-    //TODO update for all ecosystems
-    const filteredPlugins = plugins.filter(x => {
-      return (
-        (isEVMChain(chain.chainId) && x.relayEvmAction) ||
-        (chain.chainId === CHAIN_ID_SOLANA && x.relaySolanaAction) ||
-        (isTerraChain(chain.chainId) && x.relayCosmAction)
-      );
-    });
-    if (filteredPlugins.length === 0) {
-      logger.warn(
-        `No plugins support chain, not starting workers. ChainName: ${chain.chainName} ChainId: ${chain.chainId}`
-      );
-      return;
-    }
-    privatekeys.forEach(key => {
-      spawnWalletWorker(storage, filteredPlugins, providers, {
-        id: id++,
-        targetChainId: chain.chainId,
-        targetChainName: chain.chainName,
-        walletPrivateKey: key,
-      });
-    });
-  });
+export interface ActionWithCont<T, W extends Wallet> {
+  action: Action<T, W>;
+  id: ActionId;
+  resolve: (t: T) => void;
+  reject: (reason: any) => void;
 }
 
-/* Worker:
- *  - Writes wallet metrics
- *  - Gets next action
- *  - Plugin executes action
- *  - Appliess action updates
- */
-async function spawnWalletWorker(
+async function spawnExecutor(
   storage: Storage,
   plugins: Plugin[],
+  providers: Providers,
+  workerInfoMap: Map<ChainId, WorkerInfo[]>
+): Promise<void> {
+  const executorEnv = getExecutorEnv();
+
+  const actionQueues = spawnWalletWorkers(
+    storage,
+    plugins,
+    providers,
+    workerInfoMap
+  );
+  const activeWorkflows = new Map<WorkflowId, Workflow>();
+
+  while (true) {
+    try {
+      if (activeWorkflows.size < MAX_ACTIVE_WORKFLOWS) {
+        await spawnWorkflow(
+          storage,
+          plugins,
+          providers,
+          activeWorkflows,
+          makeExecuteFunc(actionQueues)
+        );
+      }
+    } catch (e) {
+      getLogger().error("Ooops");
+      getLogger().error(e);
+    }
+    await sleep(SPAWN_WORKFLOW_INTERNAL);
+  }
+}
+
+function spawnWalletWorkers(
+  storage: Storage,
+  plugins: Plugin[],
+  providers: Providers,
+  workerInfoMap: Map<ChainId, WorkerInfo[]>
+): Map<ChainId, Queue<ActionWithCont<any, any>>> {
+  const actionQueues = new Map<ChainId, Queue<ActionWithCont<any, any>>>();
+  // spawn worker for each wallet
+  for (const [chain, workerInfos] of workerInfoMap.entries()) {
+    const actionQueue = new Queue<ActionWithCont<any, any>>();
+    actionQueues.set(chain, actionQueue);
+    workerInfos.forEach(info =>
+      spawnWalletWorker(actionQueue, providers, info)
+    );
+  }
+  return actionQueues;
+}
+
+async function spawnWorkflow(
+  storage: Storage,
+  plugins: Plugin[],
+  providers: Providers,
+  activeWorkflows: Map<WorkflowId, Workflow>,
+  execute: ActionExecutor
+): Promise<void> {
+  const { workflow, plugin } = await storage.getNextWorkflow(plugins);
+  activeWorkflows.set(workflow.id, workflow);
+  plugin.plugin
+    .handleWorkflow(workflow, providers, execute)
+    .then(() => activeWorkflows.delete(workflow.id));
+}
+
+function makeExecuteFunc(
+  actionQueues: Map<ChainId, Queue<ActionWithCont<any, any>>>
+): ActionExecutor {
+  // push action onto actionQueue and have worker reject or resolve promise
+  return action => {
+    return new Promise((resolve, reject) => {
+      actionQueues
+        .get(action.chainId)
+        ?.push({ action, resolve, reject, id: actionIdCounter++ });
+    });
+  };
+}
+
+export interface WorkerInfo {
+  id: number;
+  targetChainId: wh.ChainId;
+  targetChainName: string;
+  walletPrivateKey: string;
+}
+
+async function spawnWalletWorker(
+  actionQueue: Queue<ActionWithCont<any, any>>,
   providers: Providers,
   workerInfo: WorkerInfo
 ): Promise<void> {
@@ -95,129 +136,42 @@ async function spawnWalletWorker(
   logger.info(`Spawned`);
   const workerIntervalMS =
     getExecutorEnv().actionInterval || DEFAULT_WORKER_INTERVAL_MS;
-  const pluginMap = new Map(plugins.map(p => [p.pluginName, p]))
+  const walletToolBox = createWalletToolbox(
+    providers,
+    workerInfo.walletPrivateKey,
+    workerInfo.targetChainId
+  );
   // todo: add metrics
   while (true) {
     // always sleep between loop iterations
     await sleep(workerIntervalMS);
 
     try {
-      const maybeAction = await storage.getNextAction(
-        workerInfo.targetChainId,
-        plugins
-      );
-      if (!maybeAction) {
+      if (actionQueue.isEmpty()) {
         logger.debug("No action found, sleeping...");
         continue;
       }
-      const { pluginStorage, action, queuedActions } = maybeAction;
-
+      const actionWithCont = actionQueue.dequeue();
       logger.info(
-        `Relaying action ${action.id} with plugin ${pluginStorage.plugin.pluginName}...`
+        `Relaying action ${actionWithCont.id} with plugin ${actionWithCont.action.pluginName}...`
       );
 
       try {
-        const update = await relayDispatcher(
-          action,
-          queuedActions,
-          pluginStorage.plugin,
-          workerInfo,
-          providers,
-          pluginMap,
-          logger
-        );
-        pluginStorage.applyActionUpdate(update.enqueueActions, action);
-        logger.info(`Action ${action.id} relayed`);
+        await actionWithCont.action
+          .f(walletToolBox, workerInfo.targetChainId)
+          .then(actionWithCont.resolve);
+        logger.info(`Action ${actionWithCont.id} completed`);
       } catch (e) {
         logger.error(e);
         logger.warn(
-          "Unexpected error while relaying, demoting action " + action.id
+          "Unexpected error while executing chain action. Id: " +
+            actionWithCont.id
         );
-        await pluginStorage.demoteInProgress(action);
+        actionWithCont.reject(e);
       }
     } catch (e) {
       logger.error(e);
       await sleep(DEFAULT_WORKER_RESTART_MS);
     }
   }
-}
-
-// dispatch action to plugin relay method by chainId
-async function relayDispatcher(
-  action: WorkerAction,
-  queuedActions: WorkerAction[],
-  plugin: Plugin,
-  workerInfo: WorkerInfo,
-  providers: Providers,
-  plugins: Map<string, Plugin>,
-  logger: ScopedLogger
-): Promise<ActionQueueUpdate> {
-  const errTempplate = (chainName: string) =>
-    new Error(
-      `${chainName} action scheduled for plugin that does not support ${chainName}`
-    );
-
-  if (wh.isEVMChain(workerInfo.targetChainId)) {
-    const wallet = createEVMWalletToolBox(
-      providers,
-      workerInfo.walletPrivateKey as string,
-      workerInfo.targetChainId
-    );
-    if (!plugin.relayEvmAction) {
-      throw errTempplate(workerInfo.targetChainName);
-    }
-    return await plugin.relayEvmAction(wallet, action, queuedActions, plugins,);
-  }
-  switch (workerInfo.targetChainId) {
-    case wh.CHAIN_ID_SOLANA:
-      const wallet = createSolanaWalletToolBox(
-        providers,
-        workerInfo.walletPrivateKey as Uint8Array
-      );
-      if (!plugin.relaySolanaAction) {
-        throw errTempplate(workerInfo.targetChainName);
-      }
-      return await plugin.relaySolanaAction(wallet, action, queuedActions, plugins);
-    // case wh.CHAIN_ID_TERRA:
-    // ...
-  }
-  throw new Error(
-    `Spawned worker for unknown chainId ${workerInfo.targetChainId} with name ${workerInfo.targetChainName}`
-  );
-}
-
-type WalletPrivateKey = string | Uint8Array;
-interface WorkerInfo {
-  id: number;
-  targetChainId: wh.ChainId;
-  targetChainName: string;
-  walletPrivateKey: WalletPrivateKey;
-}
-
-function createEVMWalletToolBox(
-  providers: Providers,
-  privateKey: string,
-  chainId: EVMChainId
-): WalletToolBox<EVMWallet> {
-  return {
-    ...providers,
-    wallet: new ethers.Wallet(privateKey, providers.evm[chainId]),
-  };
-}
-
-function createSolanaWalletToolBox(
-  providers: Providers,
-  privateKey: Uint8Array
-): WalletToolBox<SolanaWallet> {
-  return {
-    ...providers,
-    wallet: {
-      conn: providers.solana,
-      payer: solana.Keypair.fromSecretKey(privateKey),
-    },
-  };
-}
-
-function maybeConcat<T>(...arrs: (T[] | undefined)[]): T[] {
-  return arrs.flatMap(arr => (arr ? arr : []));
 }

@@ -10,7 +10,7 @@
 import { getCommonEnv, getListenerEnv } from "../config";
 import { dbg, getLogger, getScopedLogger } from "../helpers/logHelper";
 import * as redisHelper from "../storage/redisHelper";
-import { ContractFilter, Plugin } from "plugin_interface";
+import { ContractFilter, Plugin, Providers } from "plugin_interface";
 import {
   createSpyRPCServiceClient,
   subscribeSignedVAA,
@@ -27,11 +27,13 @@ import {
   isTerraChain,
 } from "@certusone/wormhole-sdk";
 import { encode } from "punycode";
+import { providersFromChainConfig } from "../utils/providers";
 
 const logger = () => getScopedLogger(["listenerHarness"], getLogger());
 
 export async function run(plugins: Plugin[], storage: Storage) {
   const listnerEnv = getListenerEnv();
+  const providers = providersFromChainConfig(executorEnv.supportedChains);
 
   //if spy is enabled, instantiate spy with filters
   if (shouldSpy(plugins)) {
@@ -44,7 +46,7 @@ export async function run(plugins: Plugin[], storage: Storage) {
         logger().info(
           `Initializing spy listener for plugin ${plugin.pluginName}...`
         );
-        runPluginSpyListener(storage.getPluginStorage(plugin), spyClient);
+        runPluginSpyListener(storage.getPluginStorage(plugin), spyClient, providers);
       }
     });
   }
@@ -69,15 +71,17 @@ function shouldSpy(plugins: Plugin[]): boolean {
 // 3. applies ActionUpdate produced by plugin
 async function consumeEventHarness(
   vaa: Buffer,
-  storage: PluginStorage
+  storage: PluginStorage,
+  providers: Providers,
 ): Promise<void> {
   try {
     const stagingArea = await storage.getStagingArea();
-    const { actions, nextStagingArea } = await storage.plugin.consumeEvent(
+    const { workflowData, nextStagingArea } = await storage.plugin.consumeEvent(
       new Uint8Array(vaa),
-      stagingArea
+      stagingArea,
+      providers,
     );
-    await storage.addActions(actions);
+    await storage.addWorkflow(workflowData);
     await storage.saveStagingArea(nextStagingArea);
   } catch (e) {
     const l = logger()
@@ -116,7 +120,8 @@ async function encodeEmitterAddress(
 //used for both rest & spy relayer for now
 async function runPluginSpyListener(
   pluginStorage: PluginStorage,
-  client: SpyRPCServiceClient
+  client: SpyRPCServiceClient,
+  providers: Providers
 ) {
   const plugin = pluginStorage.plugin;
   while (true) {
@@ -145,7 +150,7 @@ async function runPluginSpyListener(
       });
 
       stream.on("data", (vaa: {vaaBytes: Buffer}) =>
-        consumeEventHarness(vaa.vaaBytes, pluginStorage)
+        consumeEventHarness(vaa.vaaBytes, pluginStorage, providers)
       );
 
       let connected = true;
