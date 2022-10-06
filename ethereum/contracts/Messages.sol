@@ -178,10 +178,13 @@ contract Messages is Getters, Setters {
         if (valid) {
             uint256 observationsLen = vm2.observations.length;
             for (uint i = 0; i < observationsLen;) {
-                // Verify that the observations are still ordered correctly
+                // Verify the hash of the observation against parsed array of hashes. This confirms
+                // that the observation wasn't tampered with, and that order was preserved.
+
+                // SECURITY: This is a necessary security check, and should not be removed.
                 require(
                     vm2.hashes[i] == doubleKeccak256(vm2.observations[i].slice(1, vm2.observations[i].length - 1)),
-                    "observation out of order"
+                    "invalid observation"
                 );
 
                 // Cache the hash of the observation if `cache` is set to true
