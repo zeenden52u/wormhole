@@ -31,3 +31,19 @@ Enough tiltnet support that developer can build and run their application in til
   - Executor 
   - Rest interface
 
+
+-- 
+New Relayer 
+
+Core 
+- Make execute push based instead of pull
+- Make config easier to use 
+- Write install plugin script (or cmd line arg??)
+
+Attestation Plugin
+- write it 
+- test it
+
+xMint plugin 
+- get xMint working locally
+- define what needs to happen

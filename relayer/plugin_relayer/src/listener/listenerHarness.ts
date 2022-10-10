@@ -1,39 +1,30 @@
-/*
-1. Grab Logger & Common Env
-2. Instantiate Listener Env
-3. Instantiate Redis Connection
-4. Optionally Instantiate Spy Connection
-5. Optionally Instantiate REST Connection
-6.  
-*/
-
 import { getCommonEnv, getListenerEnv } from "../config";
-import { dbg, getLogger, getScopedLogger } from "../helpers/logHelper";
-import * as redisHelper from "../storage/redisHelper";
+import { getLogger, getScopedLogger } from "../helpers/logHelper";
 import { ContractFilter, Plugin, Providers } from "plugin_interface";
 import {
   createSpyRPCServiceClient,
   subscribeSignedVAA,
 } from "@certusone/wormhole-spydk";
-import { sleep } from "../helpers/utils";
+import { sleep } from "../utils/utils";
 import { SpyRPCServiceClient } from "@certusone/wormhole-spydk/lib/cjs/proto/spy/v1/spy";
-import { PluginStorage, Storage } from "../storage/storage";
+import { PluginStorage, Storage } from "../storage";
 import {
   ChainId,
   CHAIN_ID_SOLANA,
   getEmitterAddressEth,
+  isEVMChain,
   getEmitterAddressSolana,
   getEmitterAddressTerra,
   isTerraChain,
 } from "@certusone/wormhole-sdk";
-import { encode } from "punycode";
 import { providersFromChainConfig } from "../utils/providers";
 
 const logger = () => getScopedLogger(["listenerHarness"], getLogger());
 
 export async function run(plugins: Plugin[], storage: Storage) {
   const listnerEnv = getListenerEnv();
-  const providers = providersFromChainConfig(executorEnv.supportedChains);
+  const commonEnv = getCommonEnv();
+  const providers = providersFromChainConfig(commonEnv.supportedChains);
 
   //if spy is enabled, instantiate spy with filters
   if (shouldSpy(plugins)) {
@@ -46,7 +37,11 @@ export async function run(plugins: Plugin[], storage: Storage) {
         logger().info(
           `Initializing spy listener for plugin ${plugin.pluginName}...`
         );
-        runPluginSpyListener(storage.getPluginStorage(plugin), spyClient, providers);
+        runPluginSpyListener(
+          storage.getPluginStorage(plugin),
+          spyClient,
+          providers
+        );
       }
     });
   }
@@ -72,20 +67,24 @@ function shouldSpy(plugins: Plugin[]): boolean {
 async function consumeEventHarness(
   vaa: Buffer,
   storage: PluginStorage,
-  providers: Providers,
+  providers: Providers
 ): Promise<void> {
   try {
     const stagingArea = await storage.getStagingArea();
     const { workflowData, nextStagingArea } = await storage.plugin.consumeEvent(
       new Uint8Array(vaa),
       stagingArea,
-      providers,
+      providers
     );
-    await storage.addWorkflow(workflowData);
+    if (workflowData) {
+      await storage.addWorkflow(workflowData);
+    }
     await storage.saveStagingArea(nextStagingArea);
   } catch (e) {
-    const l = logger()
-    l.error(`Encountered error consumingEvent for plugin ${storage.plugin.pluginName}`)
+    const l = logger();
+    l.error(
+      `Encountered error consumingEvent for plugin ${storage.plugin.pluginName}`
+    );
     l.error(e);
     // metric onError
   }
@@ -94,11 +93,9 @@ async function consumeEventHarness(
 async function transformEmitterFilter(
   x: ContractFilter
 ): Promise<ContractFilter> {
-  const newEmitter = await encodeEmitterAddress(x.chainId, x.emitterAddress);
-
   return {
     chainId: x.chainId,
-    emitterAddress: newEmitter,
+    emitterAddress: await encodeEmitterAddress(x.chainId, x.emitterAddress),
   };
 }
 
@@ -109,12 +106,13 @@ async function encodeEmitterAddress(
   if (myChainId === CHAIN_ID_SOLANA) {
     return await getEmitterAddressSolana(emitterAddressStr);
   }
-
   if (isTerraChain(myChainId)) {
     return await getEmitterAddressTerra(emitterAddressStr);
   }
-
-  return getEmitterAddressEth(emitterAddressStr);
+  if (isEVMChain(myChainId)) {
+    return getEmitterAddressEth(emitterAddressStr);
+  }
+  throw new Error(`Unrecognized wormhole chainId ${myChainId}`);
 }
 
 //used for both rest & spy relayer for now
@@ -149,7 +147,7 @@ async function runPluginSpyListener(
         filters,
       });
 
-      stream.on("data", (vaa: {vaaBytes: Buffer}) =>
+      stream.on("data", (vaa: { vaaBytes: Buffer }) =>
         consumeEventHarness(vaa.vaaBytes, pluginStorage, providers)
       );
 

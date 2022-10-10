@@ -1,44 +1,21 @@
 /*
  * Takes in untyped, resolved config objects and sets typed config objects
  */
-import { EnvTypes } from "plugin_interface";
+import { ChainConfigInfo, EnvTypes } from "plugin_interface";
 import {
   ChainId,
   CHAIN_ID_SOLANA,
+  isEVMChain,
   isTerraChain,
 } from "@certusone/wormhole-sdk";
-import { CommonEnv, ExecutorEnv, ListenerEnv, ChainConfigInfo } from ".";
+import { CommonEnv, ExecutorEnv, ListenerEnv} from ".";
 import { Mode } from "./loadConfig";
+import { assertArray, assertInt, nnull } from "../utils/utils";
 
 type ConfigPrivateKey = {
   chainId: ChainId;
   privateKeys: string[] | number[][];
 };
-
-function assertInt(x: any, fieldName?: string): number {
-  if (!Number.isInteger(x)) {
-    const e = new Error(`Expected field to be integer, found ${x}`) as any;
-    e.fieldName = fieldName;
-    throw e;
-  }
-  return x as number;
-}
-
-function assertArray<T>(x: any, fieldName?: string): T[] {
-  if (!Array.isArray(x)) {
-    const e = new Error(`Expected field to be array, found ${x}`) as any;
-    e.fieldName = fieldName;
-    throw e;
-  }
-  return x as T[];
-}
-
-function nnull<T>(x: T | undefined | null, errMsg?: string): T {
-  if (x === undefined || x === null) {
-    throw new Error("Found unexpected undefined or null. " + errMsg);
-  }
-  return x;
-}
 
 export function validateCommonEnv(raw: Keys<CommonEnv>): CommonEnv {
   return {
@@ -52,6 +29,10 @@ export function validateCommonEnv(raw: Keys<CommonEnv>): CommonEnv {
     readinessPort:
       raw.readinessPort && assertInt(raw.readinessPort, "readinessPort"),
     logDir: raw.logDir,
+    supportedChains: assertArray<Keys<ChainConfigInfo>>(
+      raw.supportedChains,
+      "supportedChains"
+    ).map(validateChainConfig),
   };
 }
 
@@ -68,12 +49,8 @@ export function validateListenerEnv(raw: Keys<ListenerEnv>): ListenerEnv {
 export function validateExecutorEnv(
   raw: Keys<ExecutorEnv & { privateKeys: ConfigPrivateKey[] }>
 ): ExecutorEnv {
-  const supportedChains = validateChainConfig(
-    raw.supportedChains,
-    raw.privateKeys
-  );
   return {
-    supportedChains,
+    privateKeys: validatePrivateKeys(raw.privateKeys),
     actionInterval:
       raw.actionInterval && assertInt(raw.actionInterval, "actionInterval"),
   };
@@ -81,73 +58,44 @@ export function validateExecutorEnv(
 
 //Polygon is not supported on local Tilt network atm.
 export function validateChainConfig(
-  supportedChainsRaw: Keys<ChainConfigInfo>,
-  privateKeysRaw: Keys<ConfigPrivateKey[]>
-): ChainConfigInfo[] {
-  if (!supportedChainsRaw || !Array.isArray(supportedChainsRaw)) {
-    throw new Error("Missing required environment variable: supportedChains");
+  supportedChainRaw: Keys<ChainConfigInfo>
+): ChainConfigInfo {
+  if (!supportedChainRaw.chainId) {
+    throw new Error("Invalid chain config: " + supportedChainRaw);
   }
-  if (!privateKeysRaw || !Array.isArray(privateKeysRaw)) {
-    throw new Error("Missing required environment variable: privateKeys");
-  }
-  const privateKeys: ConfigPrivateKey[] = privateKeysRaw.map((k: any) => {
-    if (!(k.chainId && k.privateKeys && Number.isInteger(k.chainId))) {
-      throw new Error("Invalid private key record from config");
-    }
-    return k as ConfigPrivateKey;
-  });
-
-  let supportedChains: ChainConfigInfo[] = supportedChainsRaw.map((element: any) => {
-    if (!element.chainId) {
-      throw new Error("Invalid chain config: " + element);
-    }
-
-    const privateKeyObj = privateKeys.find(
-      (x: ConfigPrivateKey) => x.chainId === element.chainId
+  if (supportedChainRaw.chainId === CHAIN_ID_SOLANA) {
+    return createSolanaChainConfig(supportedChainRaw);
+  } else if (isTerraChain(supportedChainRaw.chainId)) {
+    return createTerraChainConfig(supportedChainRaw);
+  } else if (isEVMChain(supportedChainRaw.chainId)) {
+    return createEvmChainConfig(supportedChainRaw);
+  } else {
+    throw new Error(
+      `Unrecognized chain ${supportedChainRaw.chainId} ${supportedChainRaw.chainName}`
     );
-    if (!privateKeyObj) {
-      throw new Error(
-        "Failed to find private key object for configured chain ID: " +
-          element.chainId
-      );
-    }
+  }
+}
 
-    if (element.chainId === CHAIN_ID_SOLANA) {
-        return createSolanaChainConfig(element, privateKeyObj.privateKeys)
-    } else if (isTerraChain(element.chainId)) {
-        return createTerraChainConfig(element, privateKeyObj.privateKeys)
-    } else {
-        return createEvmChainConfig(element, privateKeyObj.privateKeys)
-    }
-  });
-
-  return supportedChains;
+function validatePrivateKeys(privateKeys: any): {
+  [chainId in ChainId]: string[];
+} {
+  return Object.fromEntries(
+    assertArray(privateKeys, "privateKeys").map((obj: any) => {
+      const { chainId, privateKeys } = obj;
+      assertInt(chainId, "chainId");
+      assertArray(privateKeys, "privateKeys");
+      return [chainId, privateKeys];
+    })
+  );
 }
 
 function createSolanaChainConfig(
-  config: Keys<ChainConfigInfo>,
-  privateKeys: any[]
+  config: Keys<ChainConfigInfo>
 ): ChainConfigInfo {
   const msg = (fieldName: string) =>
     `Missing required field in chain config: ${fieldName}`;
-  if (!(privateKeys && privateKeys.length && privateKeys.forEach)) {
-    throw new Error(
-      "Ill formatted object received as private keys for Solana."
-    );
-  }
-
-  const solanaPrivateKey = privateKeys.map((item: any) => {
-    try {
-      return Uint8Array.from(item);
-    } catch (e) {
-      throw new Error(
-        "Failed to coerce Solana private keys into a uint array. ENV JSON is possibly incorrect."
-      );
-    }
-  });
 
   return {
-    solanaPrivateKey,
     chainId: nnull(config.chainId, msg("chainId")),
     chainName: nnull(config.chainName, msg("chainName")),
     nativeCurrencySymbol: nnull(
@@ -164,22 +112,12 @@ function createSolanaChainConfig(
   };
 }
 
-function createTerraChainConfig(
-  config: any,
-  privateKeys: any[]
-): ChainConfigInfo {
+function createTerraChainConfig(config: any): ChainConfigInfo {
   const msg = (fieldName: string) =>
     `Missing required field in chain config: ${fieldName}`;
   let walletPrivateKey: string[];
 
-  if (!(privateKeys && privateKeys.length && privateKeys.forEach)) {
-    throw new Error("Private keys for Terra are length zero or not an array.");
-  }
-
-  walletPrivateKey = privateKeys;
-
   return {
-    walletPrivateKey,
     isTerraClassic: config.isTerraClassic || false,
     chainId: nnull(config.chainId, msg("chainId")),
     chainName: nnull(config.chainName, msg("chainName")),
@@ -199,25 +137,10 @@ function createTerraChainConfig(
   };
 }
 
-function createEvmChainConfig(
-  config: any,
-  privateKeys: any[]
-): ChainConfigInfo {
-  if (!(privateKeys && privateKeys.length && privateKeys.forEach)) {
-    throw new Error(
-      `Private keys for chain id ${config.chainId} are length zero or not an array.`
-    );
-  }
-  if (privateKeys.some(k => typeof k !== "string")) {
-    throw new Error(
-      `Private keys for chain id ${config.chainId} are not strings. Make sure to put hex values in quotes in yaml.`
-    )
-  }
-
+function createEvmChainConfig(config: any): ChainConfigInfo {
   const msg = (fieldName: string) =>
     `Missing required field in chain config: ${fieldName}`;
   return {
-    walletPrivateKey: privateKeys,
     chainId: nnull(config.chainId, msg("chainId")),
     chainName: nnull(config.chainName, msg("chainName")),
     nativeCurrencySymbol: nnull(

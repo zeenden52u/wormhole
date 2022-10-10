@@ -18,6 +18,7 @@ import { NodeURI } from ".";
 export enum Mode {
   LISTENER = "LISTENER",
   EXECUTOR = "EXECUTOR",
+  BOTH = "BOTH",
 }
 
 export function envTypeToPath(envType: EnvType): string {
@@ -27,7 +28,8 @@ export function envTypeToPath(envType: EnvType): string {
 export async function loadUntypedEnvs(): Promise<{
   mode: Mode;
   rawCommonEnv: any;
-  rawListenerOrExecutorEnv: any;
+  rawListenerEnv: any;
+  rawExecutorEnv: any;
 }> {
   const modeString = process.env.MODE && process.env.MODE.toUpperCase();
   const envTypeString =
@@ -48,12 +50,14 @@ export async function loadUntypedEnvs(): Promise<{
   rawCommonEnv.mode = mode;
   console.log("Successfully loaded the common config file.");
 
-  const listenerOrExecutor = await loadListenerOrExecutor(envType, mode);
+  const rawListenerEnv = await loadListener(envType, mode);
+  const rawExecutorEnv = await loadExecutor(envType, mode);
   console.log("Successfully loaded the mode config file.");
 
   return {
     rawCommonEnv: rawCommonEnv,
-    rawListenerOrExecutorEnv: listenerOrExecutor,
+    rawListenerEnv,
+    rawExecutorEnv,
     mode,
   };
 }
@@ -66,13 +70,22 @@ async function loadCommon(envType: EnvType, mode: Mode): Promise<any> {
   return obj;
 }
 
-async function loadListenerOrExecutor(
-  envType: EnvType,
-  mode: Mode
-): Promise<any> {
-  return await loadFileAndParseToObject(
-    `./config/${envTypeToPath(envType)}/${mode.toLowerCase()}.yml`
-  );
+async function loadExecutor(envType: EnvType, mode: Mode): Promise<any> {
+  if (mode == Mode.EXECUTOR || mode == Mode.BOTH) {
+    return await loadFileAndParseToObject(
+      `./config/${envTypeToPath(envType)}/${Mode.EXECUTOR.toLowerCase()}.yml`
+    );
+  }
+  return undefined;
+}
+
+async function loadListener(envType: EnvType, mode: Mode): Promise<any> {
+  if (mode == Mode.LISTENER || mode == Mode.BOTH) {
+    return await loadFileAndParseToObject(
+      `./config/${envTypeToPath(envType)}/${Mode.LISTENER.toLowerCase()}.yml`
+    );
+  }
+  return undefined;
 }
 
 export async function loadPluginConfig(
@@ -115,8 +128,3 @@ async function loadFileAndParseToObject(
       throw err;
   }
 }
-
-// async function loadPluginEnvs<T>(
-//   envType: EnvType,
-//   pluginUris: NodeURI[]
-// ): Promise<Record<string, any>[]> {}

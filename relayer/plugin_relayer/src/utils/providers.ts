@@ -6,8 +6,7 @@ import {
 } from "@certusone/wormhole-sdk";
 import { Connection } from "@solana/web3.js";
 import { ethers } from "ethers";
-import { Providers } from "plugin_interface";
-import { ChainConfigInfo } from "../config";
+import { ChainConfigInfo, Providers } from "plugin_interface";
 
 export function providersFromChainConfig(
   chainConfigs: ChainConfigInfo[]

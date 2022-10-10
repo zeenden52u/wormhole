@@ -11,6 +11,7 @@ import * as winston from "winston";
 // subset of common env that plugins should have access to
 export interface CommonPluginEnv {
   envType: EnvTypes;
+  supportedChains: ChainConfigInfo[];
 }
 
 export enum EnvTypes {
@@ -21,19 +22,45 @@ export enum EnvTypes {
   OTHER = "OTHER",
 }
 
+export type ChainConfigInfo = {
+  chainId: ChainId;
+  chainName: string;
+  nativeCurrencySymbol: string;
+  nodeUrl: string;
+  tokenBridgeAddress: string;
+  bridgeAddress?: string;
+  terraName?: string;
+  terraChainId?: string;
+  terraCoin?: string;
+  terraGasPriceUrl?: string;
+  wrappedAsset?: string | null;
+  isTerraClassic?: boolean;
+};
+
 /*
  * Storage
  */
 
-export interface Workflow {
+export interface Workflow<D = any> {
   id: ActionId;
-  data: Object;
+  pluginName: string;
+  data: D;
 }
 
+export interface ActionExecutor {
+  <T, W extends Wallet>(action: Action<T, W>): Promise<T>;
+  onSolana<T>(f: ActionFunc<T, SolanaWallet>): Promise<T>;
+  onEVM<T>(action: Action<T, EVMWallet>): Promise<T>;
+}
+
+export type ActionFunc<T, W extends Wallet> = (
+  walletToolBox: WalletToolBox<W>,
+  chaidId: ChainId
+) => Promise<T>;
+
 export interface Action<T, W extends Wallet> {
-  pluginName: string,
   chainId: ChainId;
-  f(walletToolBox: WalletToolBox<W>, chaidId: ChainId): Promise<T>;
+  f: ActionFunc<T, W>;
 }
 
 export interface WorkerAction {
@@ -77,32 +104,29 @@ export interface Providers {
   // todo: rest of supported chain providers
 }
 
-export type ActionExecutor = <T, W extends Wallet>(action: Action<T, W>) => Promise<T>;
-
 /*
  *  Plugin interfaces
  */
-interface PluginCommonFields {
+
+export interface Plugin {
   pluginName: string; // String identifier for plug-in
   pluginConfig: any; // Configuration settings for plug-in
-}
-export interface Executor extends PluginCommonFields {
-  demoteInProgress?: boolean;
-  handleWorkflow(workflow: Workflow, providers: Providers, execute: ActionExecutor): Promise<void>;
-}
-
-export interface Listener extends PluginCommonFields {
   shouldSpy: boolean; // Boolean toggle if relayer should connect to Guardian Network via non-validation guardiand node
   shouldRest: boolean; // Boolean toggle if relayer should connect to Guardian Network via REST API
+  demoteInProgress?: boolean;
   getFilters(): ContractFilter[]; // List of emitter addresses and emiiter chain ID to filter for
   consumeEvent( // Function to be defined in plug-in that takes as input a VAA and outputs a list of actions
     vaa: Uint8Array,
     stagingArea: StagingArea,
     providers: Providers
-  ): Promise<{ workflowData: Object; nextStagingArea: StagingArea }>;
+  ): Promise<{ workflowData?: Object; nextStagingArea: StagingArea }>;
+  handleWorkflow(
+    workflow: Workflow,
+    providers: Providers,
+    execute: ActionExecutor
+  ): Promise<void>;
 }
 
-export type Plugin = Listener & Executor;
 export interface PluginFactory {
   // validate untyped config and exception out if invalid
   create(

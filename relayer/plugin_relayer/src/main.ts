@@ -15,14 +15,13 @@ Execute
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as executorHarness from "./executor/executorHarness";
 import { getLogger } from "./helpers/logHelper";
-import { PromHelper, PromMode } from "./helpers/promHelpers";
-// import * as redisHelper from "./helpers/redisHelper";
 import * as listenerHarness from "./listener/listenerHarness";
 import { loadPlugins } from "./loadPlugins";
-import { CommonEnv, getCommonEnv, validateEnvs } from "./config";
+import { CommonEnv, getCommonEnv } from "./config";
 import { loadAndValidateConfig } from "./config";
 import { Mode } from "./config/loadConfig";
-import { createRedisStorage } from "./storage/redisStorage";
+import { createStorage } from "./storage/storage";
+import { InMemoryStore } from "./storage/inMemoryStore";
 
 setDefaultWasm("node");
 
@@ -33,7 +32,7 @@ async function main() {
   const commonEnv = getCommonEnv();
   const logger = getLogger();
   const plugins = await loadPlugins(commonEnv);
-  const storage = await createRedisStorage(commonEnv);
+  const storage = await createStorage(new InMemoryStore(), plugins);
 
   launchReadinessPortTask(commonEnv);
   // todo: init prometheus
@@ -45,8 +44,15 @@ async function main() {
       return;
     case Mode.EXECUTOR:
       logger.info("Running in executor mode");
-      executorHarness.run(plugins, storage);
+      await executorHarness.run(plugins, storage);
       return;
+    case Mode.BOTH:
+      logger.info("Running as both executor and listener");
+      await Promise.all([
+        executorHarness.run(plugins, storage),
+        listenerHarness.run(plugins, storage),
+      ]);
+      return
     default:
       throw new Error(
         "Expected MODE env var to be listener or executor, instead got: " +

@@ -18,9 +18,10 @@ export function createWalletToolbox(
   }
   switch (chainId) {
     case wh.CHAIN_ID_SOLANA:
+      console.log(privateKey, "pkey")
       return createSolanaWalletToolBox(
         providers,
-        new Uint8Array(JSON.parse(privateKey))
+        new Uint8Array(privateKey as unknown as number[])
       );
   }
   throw new Error(`Spawned worker for unknown chainId ${chainId}`);
