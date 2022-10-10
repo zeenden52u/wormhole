@@ -1,4 +1,5 @@
 import {
+  ActionExecutor,
   ActionId,
   ActionQueueUpdate,
   CommonPluginEnv,
@@ -9,14 +10,13 @@ import {
   Providers,
   StagingArea,
   WorkerAction,
+  Workflow,
 } from "plugin_interface";
-import {
-  ChainId,
-  importCoreWasm,
-  setDefaultWasm,
-} from "@certusone/wormhole-sdk";
+import * as wh from "@certusone/wormhole-sdk";
 import { Logger, loggers } from "winston";
 import { WalletToolBox } from "plugin_interface";
+import { BigNumber } from "ethers";
+import { sendAndConfirmTransaction, Transaction } from "@solana/web3.js";
 
 function create(
   commonConfig: CommonPluginEnv,
@@ -27,49 +27,33 @@ function create(
 }
 
 interface AttestationPluginConfig {
-  spyServiceFilters?: { chainId: ChainId; emitterAddress: string }[];
+  spyServiceFilters?: { chainId: wh.ChainId; emitterAddress: string }[];
   shouldRest: boolean;
   shouldSpy: boolean;
   demoteInProgress: boolean;
+
+  // Chains to createWrapped on when finding a attestation VAA
+  createWrappedOnChains: wh.ChainId[];
 }
 
-interface CreateAttestation {
-  mint: string;
-  chainId: ChainId;
+interface AttestationWorkflowData {
+  attest: AttestPayload;
+  base: BaseVAA;
+  bytes: Uint8Array;
 }
 
-interface CreateWrappedAssetAction {
-  attestationVaa: Uint8Array;
-}
+// async function attestationWorkflow(
+//   execute: (action: WorkerAction) => Promise<any>
+//   // ..
+// ): Promise<void> {
+//   const craeatAttestation = {}; // ...
+//   const { seq, emitter } = await execute(craeatAttestation);
+//   const vaa = await execute(fetch(seq, emitter));
 
-/*
-
-
-createAttestation -> fetchVAA{ seq, emitter } -> craeateWrapped { vaa, chainId }
-
-*/
-
-function fetch(seq, emitter): WorkerAction;
-
-async function attestationWorkflow(
-  execute: (action: WorkerAction) => Promise<any>
-  // ..
-): Promise<void> {
-  const craeatAttestation = {}; // ...
-  const { seq, emitter } = await execute(craeatAttestation);
-  const vaa = await execute(fetch(seq, emitter));
-
-  await Promise.all(
-    allTheChains.map(c => execute(createWrappedAssetAction(vaa, c)))
-  );
-}
-
-async function xRaydiumWorkflow(
-  execute: (action: WorkerAction) => Promise<any>
-  //...
-): Promise<void> {
-  await attestationWorkflow(execute);
-}
+//   await Promise.all(
+//     allTheChains.map(c => execute(createWrappedAssetAction(vaa, c)))
+//   );
+// }
 
 class AttestationPlugin implements Plugin {
   readonly shouldSpy: boolean;
@@ -96,6 +80,9 @@ class AttestationPlugin implements Plugin {
       demoteInProgress:
         env.demoteInProgress &&
         assertBool(env.demoteInProgress, "demoteInProgress"),
+      createWrappedOnChains:
+        env.createWrappedOnChains &&
+        assertArray(env.createWrappedOnChains, "createWrappedChainsOn"),
     };
     this.shouldRest = this.pluginConfig.shouldRest;
     this.shouldSpy = this.pluginConfig.shouldSpy;
@@ -110,49 +97,139 @@ class AttestationPlugin implements Plugin {
     throw new Error("Contract filters not specified in config");
   }
 
-  async relayEvmAction(
-    walletToolbox: WalletToolBox<EVMWallet>,
-    action: WorkerAction,
-    queuedActions: WorkerAction[]
-  ): Promise<ActionQueueUpdate> {
-    this.logger.info("Executing relayEVMAction");
+  async consumeEvent(
+    vaa: Uint8Array,
+    stagingArea: StagingArea
+  ): Promise<{
+    workflowData?: AttestationWorkflowData;
+    nextStagingArea: StagingArea;
+  }> {
+    const base = await this.parseVAA(vaa);
+    const attest = parseAttestPayload(Buffer.from(base.payload));
+    if (!attest || this.pluginConfig.createWrappedOnChains.length === 0) {
+      // not a attestation portal message
+      return { nextStagingArea: stagingArea };
+    }
     return {
-      enqueueActions: [],
+      workflowData: { attest, base, bytes: vaa },
+      nextStagingArea: stagingArea,
     };
   }
 
-  async consumeEvent(
-    vaa: Uint8Array,
-    stagingArea: { counter?: number },
+  async handleWorkflow(
+    workflow: Workflow<AttestationWorkflowData>,
     providers: Providers,
-    actionIdCreator: () => ActionId
-  ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }> {
-    this.logger.debug("Parsing VAA...");
+    execute: ActionExecutor
+  ): Promise<void> {
+    if (this.pluginConfig.createWrappedOnChains.length === 0) {
+      this.logger.warn(
+        "Found attestation workflow, but no chains listed in 'createWrappedOnChains'"
+      );
+      return;
+    }
+    await Promise.all(
+      this.pluginConfig.createWrappedOnChains.map(c =>
+        this.createWrapped(workflow.data, c, providers, execute)
+      )
+    );
+    this.logger.info(
+      `Done attesting token '${workflow.data.attest.name}' on configured chains`
+    );
+  }
+
+  async createWrapped(
+    { attest, bytes }: AttestationWorkflowData,
+    chain: wh.ChainId,
+    providers: Providers,
+    execute: ActionExecutor
+  ): Promise<void> {
+    const chainConfig = this.config.supportedChains.find(
+      c => c.chainId === chain
+    );
+    if (!chainConfig) {
+      throw new Error("unsupportedChainSpecified: " + chain);
+    }
+    if (chain === wh.CHAIN_ID_SOLANA) {
+      await execute.onSolana(async wallet => {
+        this.logger.info("Posting VAA on Solana...");
+        await wh.postVaaSolanaWithRetry(
+          wallet.wallet.conn,
+          async transaction => {
+            transaction.partialSign(wallet.wallet.payer);
+            return transaction;
+          },
+          nnull(chainConfig.bridgeAddress),
+          wallet.wallet.payer.publicKey.toString(),
+          Buffer.from(bytes),
+          10
+        );
+
+        this.logger.info("Creating wrapped asset on Solana...");
+        const tx = await wh.createWrappedOnSolana(
+          wallet.wallet.conn,
+          nnull(chainConfig.bridgeAddress),
+          chainConfig.tokenBridgeAddress,
+          wallet.wallet.payer.publicKey.toBase58(),
+          bytes
+        );
+        await sendAndConfirmTransaction(
+          wallet.wallet.conn,
+          tx,
+          [wallet.wallet.payer],
+          { commitment: "confirmed" }
+        );
+        this.logger.info("Wrapped asset created on Solana");
+      });
+      await new Promise(r => setTimeout(r, 5000));
+      await execute.onSolana(async ({ wallet }) => {});
+      const foreignAddress = await wh.getForeignAssetSolana(
+        providers.solana,
+        chainConfig.tokenBridgeAddress,
+        attest.tokenChain,
+        attest.tokenAddress
+      );
+      console.log(
+        `${attest.tokenChain} Network has new PortalWrappedToken for ${chain} network at ${foreignAddress}`
+      );
+    } else if (wh.isEVMChain(chain)) {
+      await execute.onEVM({
+        chainId: chain,
+        f: async ({ wallet }, _c) => {
+          const tx = await wh.createWrappedOnEth(
+            chainConfig.tokenBridgeAddress,
+            wallet,
+            Buffer.from(bytes),
+            {
+              gasLimit: 1000000,
+            }
+          );
+        },
+      });
+      await new Promise(r => setTimeout(r, 5000));
+      const foreignAddress = await wh.getForeignAssetEth(
+        chainConfig.tokenBridgeAddress,
+        providers.evm[chain],
+        chain,
+        attest.tokenAddress
+      );
+      console.log(
+        `${attest.tokenChain} Network has new PortalWrappedToken for ${chain} network at ${foreignAddress}`
+      );
+    } else {
+      this.logger.error(
+        `Unsupported chain ${chain}. Only EVM and Solana supported`
+      );
+    }
+  }
+
+  async parseVAA(vaa: number[] | Uint8Array): Promise<BaseVAA> {
     try {
-      const { parse_vaa } = await importCoreWasm();
-      var parsed = parse_vaa(vaa) as BaseVAA;
+      const { parse_vaa } = await wh.importCoreWasm();
+      return parse_vaa(new Uint8Array(vaa)) as BaseVAA;
     } catch (e) {
       this.logger.error("Failed to parse vaa");
       throw e;
     }
-    this.logger.info(
-      `DummyPlugin consumed an event. Staging area: ${JSON.stringify(
-        stagingArea
-      )}`
-    );
-    this.logger.debug(`Parsed VAA: ${parsed}`);
-    return {
-      actions: [
-        {
-          chainId: parsed.emitter_chain,
-          id: Math.floor(Math.random() * 1000),
-          data: Math.random(),
-        },
-      ],
-      nextStagingArea: {
-        counter: stagingArea?.counter ? stagingArea.counter + 1 : 0,
-      },
-    };
   }
 }
 
@@ -202,9 +279,41 @@ export interface BaseVAA {
   guardianSetIndex: number;
   timestamp: number;
   nonce: number;
-  emitter_chain: ChainId;
+  emitter_chain: wh.ChainId;
   emitter_address: Uint8Array; // 32 bytes
   sequence: number;
   consistency_level: number;
   payload: Uint8Array;
+}
+
+interface AttestPayload {
+  tokenAddress: Buffer;
+  tokenChain: wh.ChainId;
+  decimals: number;
+  symbol: string;
+  name: string;
+}
+
+function parseTransferPayload(arr: Buffer) {
+  return {
+    amount: BigNumber.from(arr.subarray(1, 1 + 32)).toBigInt(),
+    originAddress: arr.subarray(33, 33 + 32).toString("hex"),
+    originChain: arr.readUInt16BE(65) as wh.ChainId,
+    targetAddress: arr.subarray(67, 67 + 32).toString("hex"),
+    targetChain: arr.readUInt16BE(99) as wh.ChainId,
+    fee: BigNumber.from(arr.subarray(101, 101 + 32)).toBigInt(),
+  };
+}
+
+function parseAttestPayload(arr: Buffer): AttestPayload | null {
+  if (arr.readUint8(0) !== 2) {
+    return null;
+  }
+  return {
+    tokenAddress: arr.subarray(1, 1 + 32),
+    tokenChain: arr.readUInt16BE(33) as wh.ChainId,
+    decimals: arr.readUint8(35),
+    symbol: arr.subarray(36, 36 + 32).toString("utf-8"),
+    name: arr.subarray(69, 69 + 32).toString("utf-8"),
+  };
 }

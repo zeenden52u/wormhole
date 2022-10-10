@@ -1,4 +1,5 @@
 import {
+  ActionExecutor,
   ActionQueueUpdate,
   CommonPluginEnv,
   ContractFilter,
@@ -6,20 +7,18 @@ import {
   EVMWallet,
   Plugin,
   PluginFactory,
+  Providers,
   SolanaWallet,
   StagingArea,
   WorkerAction,
+  Workflow,
 } from "plugin_interface";
-import {
-  ChainId,
-  importCoreWasm,
-  setDefaultWasm,
-} from "@certusone/wormhole-sdk";
+import * as wh from "@certusone/wormhole-sdk";
 import { Logger, loggers } from "winston";
 import { WalletToolBox } from "plugin_interface";
 
 // todo: do we need this in the plugin or just the relayer??
-setDefaultWasm("node");
+wh.setDefaultWasm("node");
 
 function create(
   commonConfig: CommonPluginEnv,
@@ -32,10 +31,15 @@ function create(
 
 interface DummyPluginConfig {
   hi?: string;
-  spyServiceFilters?: { chainId: ChainId; emitterAddress: string }[];
+  spyServiceFilters?: { chainId: wh.ChainId; emitterAddress: string }[];
   shouldRest: boolean;
   shouldSpy: boolean;
   demoteInProgress: boolean;
+}
+
+interface WorkflowPayload {
+  vaa: Uint8Array;
+  data: number;
 }
 
 class DummyPlugin implements Plugin {
@@ -45,7 +49,7 @@ class DummyPlugin implements Plugin {
   readonly pluginName = DummyPlugin.pluginName;
   readonly pluginConfig: DummyPluginConfig;
   readonly demoteInProgress;
-  readonly dependentPluginNames: string[] = ["AttestationPlugin"]
+  readonly dependentPluginNames: string[] = ["AttestationPlugin"];
 
   constructor(
     readonly config: CommonPluginEnv,
@@ -71,6 +75,29 @@ class DummyPlugin implements Plugin {
     this.demoteInProgress = this.pluginConfig.demoteInProgress;
   }
 
+  async handleWorkflow(
+    workflow: Workflow,
+    providers: Providers,
+    execute: ActionExecutor
+  ): Promise<void> {
+    this.logger.info("Got workflow");
+    this.logger.debug(JSON.stringify(workflow, undefined, 2));
+
+    const payload = this.parseWorkflowPayload(workflow);
+    const parsed = await this.parseVAA(payload.vaa);
+
+    const pubkey = await execute.onSolana(async (wallet, chainId) => {
+      const pubkey = wallet.wallet.payer.publicKey.toBase58();
+      this.logger.info(
+        `We got dat wallet pubkey ${pubkey} on chain ${chainId}`
+      );
+      this.logger.info(`Also have parsed vaa. seq: ${parsed.sequence}`);
+      return pubkey;
+    });
+
+    this.logger.info(`Result of action on solana ${pubkey}`);
+  }
+
   getFilters(): ContractFilter[] {
     if (this.pluginConfig.spyServiceFilters) {
       return this.pluginConfig.spyServiceFilters;
@@ -79,58 +106,44 @@ class DummyPlugin implements Plugin {
     throw new Error("Contract filters not specified in config");
   }
 
-  async relayEvmAction(
-    walletToolbox: WalletToolBox<EVMWallet>,
-    action: WorkerAction,
-    queuedActions: WorkerAction[]
-  ): Promise<ActionQueueUpdate> {
-    this.logger.info("Executing relayEVMAction");
-    return {
-      enqueueActions: [],
-    };
-  }
-
-  // async relaySolanaAction(
-  //   walletToolbox: WalletToolBox<SolanaWallet>,
-  //   action: WorkerAction,
-  //   queuedActions: WorkerAction[]
-  // ): Promise<ActionQueueUpdate> {
-  //   this.logger.info("Executing relaySolanaAction");
-  //   return {
-  //     enqueueActions: [],
-  //   };
-  // }
-
   async consumeEvent(
     vaa: Uint8Array,
     stagingArea: { counter?: number }
-  ): Promise<{ actions: WorkerAction[]; nextStagingArea: StagingArea }> {
+  ): Promise<{ workflowData: Object; nextStagingArea: StagingArea }> {
     this.logger.debug("Parsing VAA...");
-    try {
-      const { parse_vaa } = await importCoreWasm();
-      var parsed = parse_vaa(vaa) as BaseVAA;
-    } catch (e) {
-      this.logger.error("Failed to parse vaa");
-      throw e;
-    }
+    const parsed = await this.parseVAA(vaa);
     this.logger.info(
       `DummyPlugin consumed an event. Staging area: ${JSON.stringify(
         stagingArea
       )}`
     );
-    this.logger.debug(`Parsed VAA: ${parsed}`);
+    this.logger.debug(`Parsed VAA: ${JSON.stringify(parsed)}`);
     return {
-      actions: [
-        {
-          chainId: parsed.emitter_chain,
-          id: Math.floor(Math.random() * 1000),
-          data: Math.random(),
-        },
-      ],
+      workflowData: {
+        data: Math.random() * 1000,
+        vaa: Array.from(vaa),
+      },
       nextStagingArea: {
         counter: stagingArea?.counter ? stagingArea.counter + 1 : 0,
       },
     };
+  }
+
+  parseWorkflowPayload(workflow: Workflow): WorkflowPayload {
+    return {
+      vaa: new Uint8Array(assertArray<number>(workflow.data.vaa)),
+      data: workflow.data.data as number,
+    };
+  }
+
+  async parseVAA(vaa: number[] | Uint8Array): Promise<BaseVAA> {
+    try {
+      const { parse_vaa } = await wh.importCoreWasm();
+      return parse_vaa(new Uint8Array(vaa)) as BaseVAA;
+    } catch (e) {
+      this.logger.error("Failed to parse vaa");
+      throw e;
+    }
   }
 }
 
@@ -178,7 +191,7 @@ export interface BaseVAA {
   guardianSetIndex: number;
   timestamp: number;
   nonce: number;
-  emitter_chain: ChainId;
+  emitter_chain: wh.ChainId;
   emitter_address: Uint8Array; // 32 bytes
   sequence: number;
   consistency_level: number;
