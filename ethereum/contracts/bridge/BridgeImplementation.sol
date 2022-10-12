@@ -15,6 +15,7 @@ contract BridgeImplementation is Bridge {
         return tokenImplementation();
     }
 
+    // NOTE: Be sure to reverify the contract after deploying this!
     function initialize() initializer public virtual {
         // this function needs to be exposed for an upgrade to pass
         uint16 chain = chainId();

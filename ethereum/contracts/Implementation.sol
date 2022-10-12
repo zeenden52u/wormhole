@@ -30,6 +30,7 @@ contract Implementation is Governance {
         setNextSequence(emitter, sequence + 1);
     }
 
+    // NOTE: Be sure to reverify the contract after deploying this!
     function initialize() initializer public virtual {
         // this function needs to be exposed for an upgrade to pass
         uint256 evmChainId;
