@@ -364,7 +364,7 @@ export async function redeemFromAptos(
   tokenAddress: string,
   vaa: Uint8Array,
   feeRecipientAddress: string,
-): Promise<Types.Transaction> {
+): Promise<Types.UserTransaction> {
   const api = new WormholeAptosApi(client, undefined, tokenBridgeAddress);
   return api.tokenBridge.completeTransfer(
     sender,

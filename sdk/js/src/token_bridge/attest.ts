@@ -296,7 +296,7 @@ export async function attestFromAptos(
   tokenBridgeAddress: string,
   tokenChain: ChainId,
   tokenAddress: string
-): Promise<Types.Transaction> {
+): Promise<Types.UserTransaction> {
   const api = new WormholeAptosApi(client, undefined, tokenBridgeAddress);
   return api.tokenBridge.attestToken(sender, tokenChain, tokenAddress);
 }

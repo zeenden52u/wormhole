@@ -11,7 +11,7 @@ export class WormholeAptosCoreBridgeApi extends WormholeAptosBaseApi {
 
   // Guardian set upgrade
 
-  upgradeGuardianSet = (sender: AptosAccount, vaa: Uint8Array): Promise<Types.Transaction> => {
+  upgradeGuardianSet = (sender: AptosAccount, vaa: Uint8Array): Promise<Types.UserTransaction> => {
     if (!this.address) throw "Need core bridge address.";
     const payload = {
       function: `${this.address}::guardian_set_upgrade::submit_vaa`,
@@ -29,7 +29,7 @@ export class WormholeAptosCoreBridgeApi extends WormholeAptosBaseApi {
     governanceChainId: number,
     governanceContract: Uint8Array,
     initialGuardian: Uint8Array,
-  ): Promise<Types.Transaction> => {
+  ): Promise<Types.UserTransaction> => {
     if (!this.address) throw "Need core bridge address.";
     const payload = {
       function: `${this.address}::wormhole::init`,

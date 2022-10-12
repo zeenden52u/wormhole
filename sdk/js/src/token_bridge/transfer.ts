@@ -796,7 +796,7 @@ export async function transferFromAptos(
   relayerFee: bigint | number=0,
   wormholeFee: bigint | number,
   payload: string = ""
-): Promise<Types.Transaction> {
+): Promise<Types.UserTransaction> {
   const api = new WormholeAptosApi(client, undefined, tokenBridgeAddress);
   return api.tokenBridge.transferTokens(
     sender,

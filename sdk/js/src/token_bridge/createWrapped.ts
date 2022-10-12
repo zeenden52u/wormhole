@@ -101,7 +101,7 @@ export async function createWrappedOnAptos(
   tokenChain: ChainId,
   tokenAddress: string,
   signedVAA: Uint8Array
-): Promise<Types.Transaction> {
+): Promise<Types.UserTransaction> {
   const api = new WormholeAptosApi(client, undefined, tokenBridgeAddress);
   return api.tokenBridge.createWrappedCoin(sender, tokenChain, tokenAddress, signedVAA);
 }
