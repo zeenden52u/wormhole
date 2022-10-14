@@ -18,7 +18,6 @@ import {
   CHAIN_ID_NEAR,
   CHAIN_ID_SOLANA,
   ChainId,
-  ChainName,
   MAX_VAA_DECIMALS,
   WSOL_ADDRESS,
   WSOL_DECIMALS,
@@ -38,7 +37,7 @@ import { parseTransferPayload } from "../utils/parseVaa";
 import { Account as nearAccount } from "near-api-js";
 import BN from "bn.js";
 import { providers as nearProviders } from "near-api-js";
-import { AptosAccount, AptosClient, Types } from "aptos";
+import { AptosClient, TxnBuilderTypes } from "aptos";
 import { WormholeAptosApi } from "../aptos";
 
 export async function redeemOnEth(
@@ -358,16 +357,16 @@ export async function redeemOnNear(
 
 export async function redeemFromAptos(
   client: AptosClient,
-  sender: AptosAccount,
+  senderAddress: string,
   tokenBridgeAddress: string,
   tokenChain: ChainId,
   tokenAddress: string,
   vaa: Uint8Array,
   feeRecipientAddress: string,
-): Promise<Types.UserTransaction> {
+): Promise<TxnBuilderTypes.RawTransaction> {
   const api = new WormholeAptosApi(client, undefined, tokenBridgeAddress);
   return api.tokenBridge.completeTransfer(
-    sender,
+    senderAddress,
     tokenChain,
     tokenAddress,
     vaa,

@@ -29,7 +29,7 @@ import { createNonce } from "../utils/createNonce";
 import { parseSequenceFromLogNear } from "../bridge/parseSequenceFromLog";
 
 import { getIsWrappedAssetNear } from ".";
-import { AptosClient, AptosAccount, Types } from "aptos";
+import { AptosClient, TxnBuilderTypes } from "aptos";
 import { WormholeAptosApi } from "../aptos";
 
 export async function attestFromEth(
@@ -292,11 +292,11 @@ export async function attestNearFromNear(
 // with other APIs above and let user derive the wrapped asset address themselves?
 export async function attestFromAptos(
   client: AptosClient,
-  sender: AptosAccount,
+  senderAddress: string,
   tokenBridgeAddress: string,
   tokenChain: ChainId,
   tokenAddress: string
-): Promise<Types.UserTransaction> {
+): Promise<TxnBuilderTypes.RawTransaction> {
   const api = new WormholeAptosApi(client, undefined, tokenBridgeAddress);
-  return api.tokenBridge.attestToken(sender, tokenChain, tokenAddress);
+  return api.tokenBridge.attestToken(senderAddress, tokenChain, tokenAddress);
 }
