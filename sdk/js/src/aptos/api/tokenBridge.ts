@@ -17,16 +17,17 @@ export class AptosTokenBridgeApi extends WormholeAptosBaseApi {
     tokenAddress: string,
   ): Promise<Types.UserTransaction> => {
     if (!this.address) throw "Need token bridge address.";
-    const assetContract = getAssetFullyQualifiedType(
+    const assetType = getAssetFullyQualifiedType(
       this.address,
       coalesceChainId(tokenChain),
       tokenAddress,
     );
     const payload = {
       function: `${this.address}::attest_token::attest_token_with_signer`,
-      type_arguments: [`${assetContract}::coin::T`],
+      type_arguments: assetType ? [assetType] : [],
       arguments: [],
     };
+    console.log({assetType, payload})
     return this.client.executeEntryFunction(sender, payload);
   };
 
