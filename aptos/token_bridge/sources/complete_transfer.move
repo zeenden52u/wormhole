@@ -29,6 +29,13 @@ module token_bridge::complete_transfer {
         submit_vaa<CoinType>(vaa, signer::address_of(&fee_recipient));
     }
 
+    public entry fun submit_vaa_and_register_entry_2<CoinType>(fee_recipient: &signer, vaa: vector<u8>) {
+        if (!coin::is_account_registered<CoinType>(signer::address_of(fee_recipient))) {
+            coin::register<CoinType>(fee_recipient);
+        };
+        submit_vaa<CoinType>(vaa, signer::address_of(fee_recipient));
+    }
+
     #[test_only]
     public fun test<CoinType>(transfer: &Transfer, fee_recipient: address) {
         complete_transfer<CoinType>(transfer, fee_recipient)
