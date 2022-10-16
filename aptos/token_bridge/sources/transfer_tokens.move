@@ -36,6 +36,27 @@ module token_bridge::transfer_tokens {
         )
     }
 
+    public entry fun transfer_tokens_entry<CoinType>(
+        sender: &signer,
+        amount: u64,
+        recipient_chain: u64,
+        recipient: vector<u8>,
+        relayer_fee: u64,
+        wormhole_fee: u64,
+        nonce: u64
+        ) {
+        let coins = coin::withdraw<CoinType>(sender, amount);
+        let wormhole_fee_coins = coin::withdraw<AptosCoin>(sender, wormhole_fee);
+        transfer_tokens<CoinType>(
+            coins,
+            wormhole_fee_coins,
+            u16::from_u64(recipient_chain),
+            external_address::from_bytes(recipient),
+            relayer_fee,
+            nonce
+        );
+    }
+
     public fun transfer_tokens<CoinType>(
         coins: Coin<CoinType>,
         wormhole_fee_coins: Coin<AptosCoin>,

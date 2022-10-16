@@ -1,4 +1,5 @@
 module token_bridge::complete_transfer {
+    use std::signer;
     use aptos_std::from_bcs;
     use aptos_framework::coin::{Self, Coin};
 
@@ -17,6 +18,15 @@ module token_bridge::complete_transfer {
         let transfer = transfer::parse(wormhole::vaa::destroy(vaa));
         complete_transfer<CoinType>(&transfer, fee_recipient);
         transfer
+    }
+
+    /// Submits the complete transfer VAA and registers the coin for the fee
+    /// recipient if not already registered.
+    public entry fun submit_vaa_and_register_entry<CoinType>(vaa: vector<u8>, fee_recipient: signer) {
+        if (!coin::is_account_registered<CoinType>(signer::address_of(&fee_recipient))) {
+            coin::register<CoinType>(&fee_recipient);
+        };
+        submit_vaa<CoinType>(vaa, signer::address_of(&fee_recipient));
     }
 
     #[test_only]
