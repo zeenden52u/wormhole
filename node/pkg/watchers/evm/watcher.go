@@ -229,11 +229,17 @@ func (w *Watcher) Run(ctx context.Context) error {
 			return fmt.Errorf("dialing eth client failed: %w", err)
 		}
 		finalizer := finalizers.NewArbitrumFinalizer(logger, baseConnector, baseConnector.Client())
-		w.ethConn, err = connectors.NewBlockPollConnector(ctx, baseConnector, finalizer, 250*time.Millisecond, false)
+		pollConnector, err := connectors.NewBlockPollConnector(ctx, baseConnector, finalizer, 250*time.Millisecond, false)
 		if err != nil {
 			ethConnectionErrors.WithLabelValues(w.networkName, "dial_error").Inc()
 			p2p.DefaultRegistry.AddErrorCount(w.chainID, 1)
 			return fmt.Errorf("creating block poll connector failed: %w", err)
+		}
+		w.ethConn, err = connectors.NewArbitrumConnector(ctx, pollConnector)
+		if err != nil {
+			ethConnectionErrors.WithLabelValues(w.networkName, "dial_error").Inc()
+			p2p.DefaultRegistry.AddErrorCount(w.chainID, 1)
+			return fmt.Errorf("creating arbitrum connector failed: %w", err)
 		}
 	} else {
 		w.ethConn, err = connectors.NewEthereumConnector(timeout, w.networkName, w.url, w.contract, logger)
@@ -244,19 +250,16 @@ func (w *Watcher) Run(ctx context.Context) error {
 		}
 	}
 
-	// Timeout for initializing subscriptions
-	timeout, cancel = context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	// Subscribe to new message publications
+	// Subscribe to new message publications. We don't use a timeout here because the LogPollConnector
+	// will keep running. Other connectors will use a timeout internally if appropriate.
 	messageC := make(chan *ethabi.AbiLogMessagePublished, 2)
-	messageSub, err := w.ethConn.WatchLogMessagePublished(timeout, messageC)
-	defer messageSub.Unsubscribe()
+	messageSub, err := w.ethConn.WatchLogMessagePublished(ctx, messageC)
 	if err != nil {
 		ethConnectionErrors.WithLabelValues(w.networkName, "subscribe_error").Inc()
 		p2p.DefaultRegistry.AddErrorCount(w.chainID, 1)
 		return fmt.Errorf("failed to subscribe to message publication events: %w", err)
 	}
+	defer messageSub.Unsubscribe()
 
 	// Fetch initial guardian set
 	if err := w.fetchAndUpdateGuardianSet(logger, ctx, w.ethConn); err != nil {
@@ -633,6 +636,10 @@ func (w *Watcher) Run(ctx context.Context) error {
 			}
 		}
 	}()
+
+	// Now that the init is complete, peg readiness. That will also happen when we process a new head, but chains
+	// that wait for finality may take a while to receive the first block and we don't want to hold up the init.
+	readiness.SetReady(w.readiness)
 
 	select {
 	case <-ctx.Done():
