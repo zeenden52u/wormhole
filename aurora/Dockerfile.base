@@ -1,0 +1,29 @@
+FROM rust:1.60@sha256:48d3b5baf199dc7c378e775c47b0c40aaf7d8b23eaf67e15b095bbdaaecd1f10
+
+WORKDIR /tmp
+
+RUN rustup install nightly-2021-03-25 && rustup target add wasm32-unknown-unknown --toolchain nightly-2021-03-25 && cargo install --force cargo-make
+
+RUN apt-get update && apt-get -y install npm postgresql --no-install-recommends
+
+RUN npm install -g n yarn typescript ts-node near-cli && n 16.18.0 
+
+RUN wget https://go.dev/dl/go1.19.2.linux-amd64.tar.gz && rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.2.linux-amd64.tar.gz
+
+RUN git clone https://github.com/aurora-is-near/aurora-relayer.git
+
+WORKDIR /tmp/aurora-relayer/util/indexer
+
+RUN /usr/local/go/bin/go build
+
+WORKDIR /tmp/aurora-relayer
+
+RUN npm ci
+
+WORKDIR /tmp
+
+RUN git clone https://github.com/jumpsiegel/aurora-engine.git
+
+WORKDIR /tmp/aurora-engine
+
+RUN git checkout deployment_fix && git pull && sed -i -e 's/CARGO_FEATURES_BUILD="testnet"/CARGO_FEATURES_BUILD="testnet,integration-test"/' .env/local.env && cargo make --profile development build

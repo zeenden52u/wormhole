@@ -9,6 +9,9 @@ spec:
     - name: node
       port: 3030
       targetPort: node
+    - name: webserver
+      port: 3031
+      targetPort: webserver
   selector:
     app: near
 ---

@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: aurora
+  name: aurora
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+      protocol: TCP
+    - name: aurora
+      port: 8547
+      targetPort: aurora
+  selector:
+    app: aurora
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: aurora
+  name: aurora
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aurora
+  serviceName: aurora
+  template:
+    metadata:
+      labels:
+        app: aurora
+    spec:
+      containers:
+        - image: postgres:13-alpine
+          name: aurora-postgres
+          ports:
+            - containerPort: 5432
+          resources: {}
+          env:
+            - name: POSTGRES_USER
+              value: aurora
+            - name: POSTGRES_PASSWORD
+              value: aurora
+            - name: POSTGRES_DB
+              value: aurora
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+        - name: aurora-node
+          image: aurora-node
+          command:
+            - /bin/sh
+            - -c
+            - "/tmp/runner.sh"
+          ports:
+            - containerPort: 8545
+              name: aurora
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 8545
+        - name: aurora-indexer
+          image: aurora-node
+          command:
+            - /bin/sh
+            - -c
+            - "/tmp/indexer.sh"
+        - name: eth-deploy
+          image: eth-node
+          stdin: true
+          command:
+            - /bin/sh
+            - -c
+            - "scripts/eth_waiter.sh localhost:8545 && sed -i 's/CHAIN_ID=0x2/CHAIN_ID=0x9/g;s/EVM_CHAIN_ID=1/EVM_CHAIN_ID=1313161556/g' .env && sleep infinity &&  npm_config_network=aurora_devnet npm run migrate-network && npx truffle exec scripts/deploy_test_token.js && nc -lkp 2000 0.0.0.0"
+#          readinessProbe:
+#            periodSeconds: 1
+#            failureThreshold: 300
+#            tcpSocket:
+#              port: 2000
+            
+      restartPolicy: Always

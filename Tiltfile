@@ -52,6 +52,7 @@ config.define_bool("node_metrics", False, "Enable Prometheus & Grafana for Guard
 config.define_bool("guardiand_governor", False, "Enable chain governor in guardiand")
 config.define_bool("wormchain", False, "Enable a wormchain node")
 config.define_bool("secondWormchain", False, "Enable a second wormchain node with different validator keys")
+config.define_bool("aurora", False, "Enable aurora component")
 
 cfg = config.parse()
 num_guardians = int(cfg.get("num", "1"))
@@ -74,6 +75,7 @@ guardiand_debug = cfg.get("guardiand_debug", False)
 node_metrics = cfg.get("node_metrics", False)
 guardiand_governor = cfg.get("guardiand_governor", False)
 secondWormchain = cfg.get("secondWormchain", False)
+aurora = cfg.get("aurora", ci)
 
 if cfg.get("manual", False):
     trigger_mode = TRIGGER_MODE_MANUAL
@@ -182,6 +184,12 @@ def build_node_yaml():
                     "ws://eth-devnet:8545",
                 ]
 
+            if aurora:
+                container["command"] += [
+                    "--auroraRPC",
+                    "ws://aurora:8545",
+                ]
+
             if solana:
                 container["command"] += [
                     "--solanaRPC",
@@ -264,6 +272,8 @@ if aptos:
     guardian_resource_deps = guardian_resource_deps + ["aptos"]
 if wormchain:
     guardian_resource_deps = guardian_resource_deps + ["guardian-validator"]
+if aurora:
+    guardian_resource_deps = guardian_resource_deps + ["aurora"]
 
 k8s_resource(
     "guardian",
@@ -728,5 +738,25 @@ if aptos:
         ],
         resource_deps = ["const-gen"],
         labels = ["aptos"],
+        trigger_mode = trigger_mode,
+    )
+
+if aurora:
+    k8s_yaml_with_ns("devnet/aurora-devnet.yaml")
+
+    docker_build(
+        ref = "aurora-node",
+        context = "aurora",
+        dockerfile = "aurora/Dockerfile",
+        target = "aurora-node",
+    )
+
+    k8s_resource(
+        "aurora",
+        port_forwards = [
+            port_forward(8547, name = "rpc [:8547]", host = webHost),
+        ],
+        labels = ["aurora"],
+        resource_deps = ["near"],
         trigger_mode = trigger_mode,
     )

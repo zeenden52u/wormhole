@@ -151,6 +151,33 @@ module.exports = {
       gas: 10000000,
       from: "0x3bC7f2e458aC4E55F941C458cfD8c6851a591B4F", // public key
     },
+    aurora_devnet: {
+      provider: () => {
+        return new HDWalletProvider(
+          "myth like bonus scare over problem client lizard pioneer submit female collect",
+          "http://localhost:8545"
+        );
+      },
+
+      host: "127.0.0.1",
+      port: 8545,
+      network_id: 0x4E454154,
+      gas: 10000000,
+      from: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1", // public key
+    },
+    aurora_tiltnet: {
+      provider: () => {
+        return new HDWalletProvider(
+          "myth like bonus scare over problem client lizard pioneer submit female collect",
+          "http://localhost:8547"
+        );
+      },
+      host: "127.0.0.1",
+      port: 8547,
+      network_id: 0x4E454154,
+      gas: 10000000,
+      from: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1", // public key
+    },
     fantom: {
       provider: () => {
         return new HDWalletProvider(
