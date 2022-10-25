@@ -1,3 +1,13 @@
+// Here are some slots that contained transaction unmarshal errors:
+// 2022-10-25T16:59:23.996Z	ERROR	guardian-0.root.solwatch-confirmed	failed to unmarshal transaction	{"slot": 171202046, "txNum": 39, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+// 2022-10-25T16:59:24.401Z	ERROR	guardian-0.root.solwatch-finalized	failed to unmarshal transaction	{"slot": 171202016, "txNum": 15, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+// 2022-10-25T16:59:26.447Z	ERROR	guardian-0.root.solwatch-confirmed	failed to unmarshal transaction	{"slot": 171202053, "txNum": 6, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+// 2022-10-25T16:59:29.168Z	ERROR	guardian-0.root.solwatch-confirmed	failed to unmarshal transaction	{"slot": 171202060, "txNum": 15, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+// 2022-10-25T16:59:29.398Z	ERROR	guardian-0.root.solwatch-finalized	failed to unmarshal transaction	{"slot": 171202028, "txNum": 16, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+// 2022-10-25T16:59:31.297Z	ERROR	guardian-0.root.solwatch-confirmed	failed to unmarshal transaction	{"slot": 171202066, "txNum": 39, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+// 2022-10-25T16:59:32.033Z	ERROR	guardian-0.root.solwatch-finalized	failed to unmarshal transaction	{"slot": 171202035, "txNum": 2, "dataLen": 709, "error": "not enough data: 249443522 bytes missing"}
+// 2022-10-25T16:59:35.220Z	ERROR	guardian-0.root.solwatch-finalized	failed to unmarshal transaction	{"slot": 171202046, "txNum": 39, "dataLen": 709, "error": "required [1] byte, remaining [0]"}
+
 package main
 
 import (
