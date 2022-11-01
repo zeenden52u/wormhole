@@ -9,7 +9,7 @@ import {
   utils as nearUtils,
   Account as nearAccount,
   providers as nearProviders,
-} from "@certusone/wormhole-sdk/node_modules/near-api-js";
+} from "near-api-js";
 
 const BN = require("bn.js");
 
@@ -19,7 +19,7 @@ import algosdk, {
   Account,
   decodeAddress,
   getApplicationAddress,
-} from "@certusone/wormhole-sdk/node_modules/algosdk";
+} from "algosdk";
 
 import {
   getAlgoClient,
@@ -51,12 +51,12 @@ import {
   transferFromAlgorand,
   transferNearFromNear,
   transferTokenFromNear,
-} from "@certusone/wormhole-sdk";
+} from "@certusone/wormhole-sdk/lib/cjs";
 
 import { parseSequenceFromLogAlgorand } from "@certusone/wormhole-sdk/lib/cjs/bridge";
 
 import { _parseVAAAlgorand } from "@certusone/wormhole-sdk/lib/cjs/algorand";
-import { parseSequenceFromLogNear } from "@certusone/wormhole-sdk/src";
+import { parseSequenceFromLogNear } from "@certusone/wormhole-sdk";
 
 export const uint8ArrayToHex = (a: Uint8Array): string =>
   Buffer.from(a).toString("hex");

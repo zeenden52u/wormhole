@@ -5,9 +5,9 @@ import algosdk, {
   makePaymentTxnWithSuggestedParamsFromObject,
   Transaction,
   waitForConfirmation,
-} from "@certusone/wormhole-sdk/node_modules/algosdk";
+} from "algosdk";
 
-import { getForeignAssetAlgorand } from "@certusone/wormhole-sdk/lib/cjs/token_bridge";
+import { getForeignAssetAlgorand } from "@certusone/wormhole-sdk";
 import { ChainId } from "@certusone/wormhole-sdk/lib/cjs/utils";
 import {
   TransactionSignerPair,
