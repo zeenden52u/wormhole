@@ -35,10 +35,10 @@ use crate::{
         QueryMsg, TransferInfoResponse, WrappedRegistryResponse,
     },
     state::{
-        bridge_contracts, bridge_contracts_read, bridge_deposit, config, config_read,
+        bridge_contracts, bridge_contracts_read, bridge_deposit, config, config_read, config_read_legacy,
         is_wrapped_asset, is_wrapped_asset_read, receive_native, send_native, wrapped_asset,
         wrapped_asset_read, wrapped_asset_seq, wrapped_asset_seq_read, wrapped_transfer_tmp,
-        Action, AssetMeta, ConfigInfo, RegisterChain, TokenBridgeMessage, TransferInfo,
+        Action, AssetMeta, ConfigInfo, ConfigInfoLegacy, RegisterChain, TokenBridgeMessage, TransferInfo,
         TransferState, TransferWithPayloadInfo, UpgradeContract,
     },
     token_address::{ContractId, ExternalTokenId, TokenId, WrappedCW20},
@@ -61,50 +61,50 @@ pub enum TransferType<A> {
 /// Ok(Response::default())
 /// ```
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    // // This migration adds a new field to the [`ConfigInfo`] struct. The
-    // // state stored on chain has the old version, so we first parse it as
-    // // [`ConfigInfoLegacy`], then add the new fields, and write it back as [`ConfigInfo`].
-    // // Since the only place the contract with the legacy state is deployed is
-    // // terra2, we just hardcode the new value here for that chain.
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    // This migration adds a new field to the [`ConfigInfo`] struct. The
+    // state stored on chain has the old version, so we first parse it as
+    // [`ConfigInfoLegacy`], then add the new fields, and write it back as [`ConfigInfo`].
+    // Since the only place the contract with the legacy state is deployed is
+    // terra2, we just hardcode the new value here for that chain.
 
-    // // 1. make sure this contract doesn't already have the new ConfigInfo struct
-    // // in storage. Note that this check is not strictly necessary, as the
-    // // upgrade will only be issued for terra2, and no new chains. However, it is
-    // // good practice to ensure that migration code cannot be run twice, which
-    // // this check achieves.
-    // if config_read(deps.storage).load().is_ok() {
-    //     return Err(StdError::generic_err(
-    //         "Can't migrate; this contract already has a new ConfigInfo struct",
-    //     ));
-    // }
+    // 1. make sure this contract doesn't already have the new ConfigInfo struct
+    // in storage. Note that this check is not strictly necessary, as the
+    // upgrade will only be issued for terra2, and no new chains. However, it is
+    // good practice to ensure that migration code cannot be run twice, which
+    // this check achieves.
+    if config_read(deps.storage).load().is_ok() {
+        return Err(StdError::generic_err(
+            "Can't migrate; this contract already has a new ConfigInfo struct",
+        ));
+    }
 
-    // // 2. parse old state
-    // let ConfigInfoLegacy {
-    //     gov_chain,
-    //     gov_address,
-    //     wormhole_contract,
-    //     wrapped_asset_code_id,
-    // } = config_read_legacy(deps.storage).load()?;
+    // 2. parse old state
+    let ConfigInfoLegacy {
+        gov_chain,
+        gov_address,
+        wormhole_contract,
+        wrapped_asset_code_id,
+    } = config_read_legacy(deps.storage).load()?;
 
-    // // 3. store new state with terra2 values hardcoded
-    // let chain_id = 18;
-    // let native_denom = "uluna".to_string();
-    // let native_symbol = "LUNA".to_string();
-    // let native_decimals = 6;
+    // 3. store new state with terra2 values hardcoded
+    let chain_id = 19;
+    let native_denom = "inj".to_string();
+    let native_symbol = "INJ".to_string();
+    let native_decimals = 18;
 
-    // let config_info = ConfigInfo {
-    //     gov_chain,
-    //     gov_address,
-    //     wormhole_contract,
-    //     wrapped_asset_code_id,
-    //     chain_id,
-    //     native_denom,
-    //     native_symbol,
-    //     native_decimals
-    // };
+    let config_info = ConfigInfo {
+        gov_chain,
+        gov_address,
+        wormhole_contract,
+        wrapped_asset_code_id,
+        chain_id,
+        native_denom,
+        native_symbol,
+        native_decimals
+    };
 
-    // config(deps.storage).save(&config_info)?;
+    config(deps.storage).save(&config_info)?;
     Ok(Response::default())
 }
 
