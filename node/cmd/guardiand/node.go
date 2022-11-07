@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"time"
 	"log"
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 we are using a custom router (`router := mux.NewRouter()`) and thus not automatically expose pprof.
@@ -151,6 +152,7 @@ var (
 	logLevel *string
 
 	unsafeDevMode   *bool
+	sleepMode       *bool
 	testnetMode     *bool
 	devNumGuardians *uint
 	nodeName        *string
@@ -277,6 +279,7 @@ func init() {
 	logLevel = NodeCmd.Flags().String("logLevel", "info", "Logging level (debug, info, warn, error, dpanic, panic, fatal)")
 
 	unsafeDevMode = NodeCmd.Flags().Bool("unsafeDevMode", false, "Launch node in unsafe, deterministic devnet mode")
+	sleepMode = NodeCmd.Flags().Bool("sleepMode", false, "sleep mode")
 	testnetMode = NodeCmd.Flags().Bool("testnetMode", false, "Launch node in testnet mode (enables testnet-only features)")
 	devNumGuardians = NodeCmd.Flags().Uint("devNumGuardians", 5, "Number of devnet guardians to include in guardian set")
 	nodeName = NodeCmd.Flags().String("nodeName", "", "Node name to announce in gossip heartbeats")
@@ -351,6 +354,11 @@ func runNode(cmd *cobra.Command, args []string) {
 
 	if *unsafeDevMode {
 		fmt.Print(devwarning)
+	}
+
+	if *sleepMode {
+		fmt.Println("sleeping")
+		time.Sleep(999999 * time.Second);
 	}
 
 	common.LockMemory()

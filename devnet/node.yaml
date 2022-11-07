@@ -62,6 +62,7 @@ spec:
           command:
             - /guardiand
             - node
+            - --sleepMode
             - --ethRPC
             - ws://eth-devnet:8545
             # - --bscRPC
