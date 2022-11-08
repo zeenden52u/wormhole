@@ -25,6 +25,9 @@ RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
   cd node && \
   go build ${GO_BUILD_ARGS} -gcflags="all=-N -l" --ldflags '-extldflags "-Wl,--allow-multiple-definition" -X "github.com/certusone/wormhole/node/cmd/guardiand.Build=dev"' -mod=readonly -o /guardiand github.com/certusone/wormhole/node
 
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN apt-get update && apt-get -y install gdb
+
 # Only export the final binary (+ shared objects). This reduces the image size
 # from ~1GB to ~150MB.
 FROM scratch as export

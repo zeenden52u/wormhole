@@ -95,8 +95,10 @@ func loadGuardianKey(filename string) (*ecdsa.PrivateKey, error) {
 
 // writeGuardianKey serializes a guardian key and writes it to disk.
 func writeGuardianKey(key *ecdsa.PrivateKey, description string, filename string, unsafe bool) error {
-	if _, err := os.Stat(filename); !os.IsNotExist(err) {
-		return errors.New("refusing to override existing key")
+	if !*unsafeDevMode {
+		if _, err := os.Stat(filename); !os.IsNotExist(err) {
+			return errors.New("refusing to override existing key")
+		}
 	}
 
 	m := &nodev1.GuardianKey{
