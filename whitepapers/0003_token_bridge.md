@@ -212,6 +212,8 @@ GuardianSetIndex uint32
 EmitterChainID uint16
 // Emitter address. Left-zero-padded if shorter than 32 bytes
 EmitterAddress [32]uint8
+// Sequence number of the message. Automatically set and
+Sequence uint64
 // Digest of the payload   (env::keccak256(env::keccak256(data right after signatures)))
 Digest [32]uint8
 ```
