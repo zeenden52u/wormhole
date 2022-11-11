@@ -199,6 +199,23 @@ Symbol [32]uint8
 Name [32]uint8
 ```
 
+TransferNotification:
+
+```
+PayloadID uint8 = 4
+// Protocol version of the entire VAA.
+Version uint8
+// GuardianSetIndex is the index of the guardian set that signed this VAA.
+// Signatures are verified against the public keys in the guardian set.
+GuardianSetIndex uint32
+// Emitter Chain ID
+EmitterChainID uint16
+// Emitter address. Left-zero-padded if shorter than 32 bytes
+EmitterAddress [32]uint8
+// Digest of the payload   (env::keccak256(env::keccak256(data right after signatures)))
+Digest [32]uint8
+```
+
 RegisterChain:
 
 ```
