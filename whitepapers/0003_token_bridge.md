@@ -208,14 +208,10 @@ Version uint8
 // GuardianSetIndex is the index of the guardian set that signed this VAA.
 // Signatures are verified against the public keys in the guardian set.
 GuardianSetIndex uint32
-// Emitter Chain ID
-EmitterChainID uint16
-// Emitter address. Left-zero-padded if shorter than 32 bytes
-EmitterAddress [32]uint8
-// Sequence number of the message. Automatically set and
-Sequence uint64
-// Digest of the payload   (env::keccak256(env::keccak256(data right after signatures)))
-Digest [32]uint8
+// Number of signatures included in this VAA
+LenSignatures uint8
+// Observation of vaa 
+Observation bytes
 ```
 
 RegisterChain:
