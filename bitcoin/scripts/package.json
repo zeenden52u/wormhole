@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "@wormhole-foundation/scripts-btc",
+  "version": "0.0.1",
+  "description": "Wormhole btc support code",
+  "keywords": [
+    "wormhole",
+    "smart-contract"
+  ],
+  "author": "Josh Siegel",
+  "devDependencies": {
+    "@types/node": "^18.11.9",
+    "ws": "^8.11.0"
+  },
+  "resolutions": {},
+  "scripts": {}
+}

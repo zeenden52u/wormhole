@@ -9,6 +9,8 @@ kubectl exec -it btc-0 -c btc-node -- /bin/bash
 
 kubectl exec -it btc-0 -c btc-node --  btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 getbalance
 
+https://github.com/btcsuite/btcd/blob/master/docs/json_rpc_api.md
+
 --
 
 == btc -> non-btc direction (btc outbound)
@@ -23,3 +25,5 @@ kubectl exec -it btc-0 -c btc-node --  btcctl --simnet --wallet --rpcuser=wormho
 ## Generates a observation/vaa
 # User goes back to magic website, enters the destination btc address.. and retrieves vaa
 # User goes to destination chain and redeems vaa
+
+
