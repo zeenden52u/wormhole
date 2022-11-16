@@ -186,12 +186,16 @@ func (c ChainID) String() string {
 		return "injective"
 	case ChainIDArbitrum:
 		return "arbitrum"
+	case ChainIDOptimism:
+		return "optimism"
 	case ChainIDPythNet:
 		return "pythnet"
 	case ChainIDWormchain:
 		return "wormchain"
 	case ChainIDXpla:
 		return "xpla"
+	case ChainIDBtc:
+		return "btc"
 	default:
 		return fmt.Sprintf("unknown chain ID: %d", c)
 	}
@@ -245,12 +249,16 @@ func ChainIDFromString(s string) (ChainID, error) {
 		return ChainIDInjective, nil
 	case "arbitrum":
 		return ChainIDArbitrum, nil
+	case "optimism":
+		return ChainIDOptimism, nil
 	case "pythnet":
 		return ChainIDPythNet, nil
 	case "wormchain":
 		return ChainIDWormchain, nil
 	case "xpla":
 		return ChainIDXpla, nil
+	case "btc":
+		return ChainIDBtc, nil
 	default:
 		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
 	}
@@ -302,10 +310,14 @@ const (
 	ChainIDAptos ChainID = 22
 	// ChainIDArbitrum is the ChainID of Arbitrum
 	ChainIDArbitrum ChainID = 23
+	// ChainIDOptimism is the ChainID of Optimism
+	ChainIDOptimism ChainID = 24
 	// ChainIDPythNet is the ChainID of PythNet
 	ChainIDPythNet ChainID = 26
 	// ChainIDXpla is the ChainID of Xpla
 	ChainIDXpla ChainID = 28
+	//ChainIDBtc is the ChainID of Bitcoin
+	ChainIDBtc ChainID = 29
 	//ChainIDWormchain is the ChainID of Wormchain
 	ChainIDWormchain ChainID = 3104
 

@@ -27,6 +27,7 @@ export const CHAINS = {
   gnosis: 25,
   pythnet: 26,
   xpla: 28,
+  btc: 29,
   wormchain: 3104,
 } as const;
 
@@ -202,8 +203,8 @@ const MAINNET = {
   },
   optimism: {
     core: "0xEe91C335eab126dF5fDB3797EA9d6aD93aeC9722",
-    token_bridge: undefined,
-    nft_bridge: undefined,
+    token_bridge: "0x1D68124e65faFC907325e3EDbF8c4d84499DAa8b",
+    nft_bridge: "0xfE8cD454b4A1CA468B57D79c0cc77Ef5B6f64585",
   },
   gnosis: {
     core: "0xa321448d90d4e5b0A732867c18eA198e75CAC48E",
@@ -219,6 +220,11 @@ const MAINNET = {
     core: "xpla1jn8qmdda5m6f6fqu9qv46rt7ajhklg40ukpqchkejcvy8x7w26cqxamv3w",
     token_bridge:
       "xpla137w0wfch2dfmz7jl2ap8pcmswasj8kg06ay4dtjzw7tzkn77ufxqfw7acv",
+    nft_bridge: undefined,
+  },
+  btc: {
+    core: undefined,
+    token_bridge: undefined,
     nft_bridge: undefined,
   },
   wormchain: {
@@ -372,6 +378,11 @@ const TESTNET = {
       "xpla1kek6zgdaxcsu35nqfsyvs2t9vs87dqkkq6hjdgczacysjn67vt8sern93x",
     nft_bridge: undefined,
   },
+  btc: {
+    core: undefined,
+    token_bridge: undefined,
+    nft_bridge: undefined,
+  },
   wormchain: {
     core: undefined,
     token_bridge: undefined,
@@ -522,6 +533,11 @@ const DEVNET = {
     token_bridge: undefined,
     nft_bridge: undefined,
   },
+  btc: {
+    core: undefined,
+    token_bridge: undefined,
+    nft_bridge: undefined,
+  },
   wormchain: {
     core: "wormhole1ap5vgur5zlgys8whugfegnn43emka567dtq0jl",
     token_bridge: "wormhole1zugu6cajc4z7ue29g9wnes9a5ep9cs7yu7rn3z",
@@ -595,6 +611,7 @@ export const CHAIN_ID_OPTIMISM = CHAINS["optimism"];
 export const CHAIN_ID_GNOSIS = CHAINS["gnosis"];
 export const CHAIN_ID_PYTHNET = CHAINS["pythnet"];
 export const CHAIN_ID_XPLA = CHAINS["xpla"];
+export const CHAIN_ID_BTC = CHAINS["btc"];
 export const CHAIN_ID_WORMCHAIN = CHAINS["wormchain"];
 
 // This inverts the [[CHAINS]] object so that we can look up a chain by id

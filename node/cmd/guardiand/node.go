@@ -76,8 +76,10 @@ var (
 	bscRPC      *string
 	bscContract *string
 
-	polygonRPC      *string
-	polygonContract *string
+	polygonRPC                      *string
+	polygonContract                 *string
+	polygonRootChainRpc             *string
+	polygonRootChainContractAddress *string
 
 	auroraRPC      *string
 	auroraContract *string
@@ -149,6 +151,9 @@ var (
 	arbitrumRPC      *string
 	arbitrumContract *string
 
+	optimismRPC      *string
+	optimismContract *string
+
 	logLevel *string
 
 	unsafeDevMode   *bool
@@ -205,6 +210,8 @@ func init() {
 
 	polygonRPC = NodeCmd.Flags().String("polygonRPC", "", "Polygon RPC URL")
 	polygonContract = NodeCmd.Flags().String("polygonContract", "", "Polygon contract address")
+	polygonRootChainRpc = NodeCmd.Flags().String("polygonRootChainRpc", "", "Polygon root chain RPC")
+	polygonRootChainContractAddress = NodeCmd.Flags().String("polygonRootChainContractAddress", "", "Polygon root chain contract address")
 
 	avalancheRPC = NodeCmd.Flags().String("avalancheRPC", "", "Avalanche RPC URL")
 	avalancheContract = NodeCmd.Flags().String("avalancheContract", "", "Avalanche contract address")
@@ -275,6 +282,9 @@ func init() {
 
 	arbitrumRPC = NodeCmd.Flags().String("arbitrumRPC", "", "Arbitrum RPC URL")
 	arbitrumContract = NodeCmd.Flags().String("arbitrumContract", "", "Arbitrum contract address")
+
+	optimismRPC = NodeCmd.Flags().String("optimismRPC", "", "Optimism RPC URL")
+	optimismContract = NodeCmd.Flags().String("optimismContract", "", "Optimism contract address")
 
 	logLevel = NodeCmd.Flags().String("logLevel", "info", "Logging level (debug, info, warn, error, dpanic, panic, fatal)")
 
@@ -437,22 +447,21 @@ func runNode(cmd *cobra.Command, args []string) {
 		*p2pBootstrap = fmt.Sprintf("/dns4/guardian-0.guardian/udp/%d/quic/p2p/%s", *p2pPort, g0key.String())
 
 		// Deterministic ganache ETH devnet address.
-		*ethContract = devnet.GanacheWormholeContractAddress.Hex()
-		*bscContract = devnet.GanacheWormholeContractAddress.Hex()
-		*polygonContract = devnet.GanacheWormholeContractAddress.Hex()
-		*avalancheContract = devnet.GanacheWormholeContractAddress.Hex()
-		*oasisContract = devnet.GanacheWormholeContractAddress.Hex()
-		*auroraContract = devnet.GanacheWormholeContractAddress.Hex()
-		*fantomContract = devnet.GanacheWormholeContractAddress.Hex()
-		*karuraContract = devnet.GanacheWormholeContractAddress.Hex()
-		*acalaContract = devnet.GanacheWormholeContractAddress.Hex()
-		*klaytnContract = devnet.GanacheWormholeContractAddress.Hex()
-		*celoContract = devnet.GanacheWormholeContractAddress.Hex()
-		*moonbeamContract = devnet.GanacheWormholeContractAddress.Hex()
-		*neonContract = devnet.GanacheWormholeContractAddress.Hex()
-		if *arbitrumContract == "" {
-			*arbitrumContract = devnet.GanacheWormholeContractAddress.Hex()
-		}
+		*ethContract = unsafeDevModeEvmContractAddress(*ethContract)
+		*bscContract = unsafeDevModeEvmContractAddress(*bscContract)
+		*polygonContract = unsafeDevModeEvmContractAddress(*polygonContract)
+		*avalancheContract = unsafeDevModeEvmContractAddress(*avalancheContract)
+		*oasisContract = unsafeDevModeEvmContractAddress(*oasisContract)
+		*auroraContract = unsafeDevModeEvmContractAddress(*auroraContract)
+		*fantomContract = unsafeDevModeEvmContractAddress(*fantomContract)
+		*karuraContract = unsafeDevModeEvmContractAddress(*karuraContract)
+		*acalaContract = unsafeDevModeEvmContractAddress(*acalaContract)
+		*klaytnContract = unsafeDevModeEvmContractAddress(*klaytnContract)
+		*celoContract = unsafeDevModeEvmContractAddress(*celoContract)
+		*moonbeamContract = unsafeDevModeEvmContractAddress(*moonbeamContract)
+		*neonContract = unsafeDevModeEvmContractAddress(*neonContract)
+		*arbitrumContract = unsafeDevModeEvmContractAddress(*arbitrumContract)
+		*optimismContract = unsafeDevModeEvmContractAddress(*optimismContract)
 	}
 
 	// Verify flags
@@ -570,6 +579,10 @@ func runNode(cmd *cobra.Command, args []string) {
 		if *aptosHandle == "" {
 			logger.Fatal("If --aptosRPC is specified, then --aptosHandle must be specified")
 		}
+	}
+
+	if (*optimismRPC == "") != (*optimismContract == "") {
+		logger.Fatal("Both --optimismContract and --optimismRPC must be set together or both unset")
 	}
 
 	if *testnetMode {
@@ -715,6 +728,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	moonbeamContractAddr := eth_common.HexToAddress(*moonbeamContract)
 	neonContractAddr := eth_common.HexToAddress(*neonContract)
 	arbitrumContractAddr := eth_common.HexToAddress(*arbitrumContract)
+	optimismContractAddr := eth_common.HexToAddress(*optimismContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -911,7 +925,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			logger.Info("Starting Ethereum watcher")
 			readiness.RegisterComponent(common.ReadinessEthSyncing)
 			chainObsvReqC[vaa.ChainIDEthereum] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
-			ethWatcher = evm.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC, 1, chainObsvReqC[vaa.ChainIDEthereum], *unsafeDevMode, nil)
+			ethWatcher = evm.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC, chainObsvReqC[vaa.ChainIDEthereum], *unsafeDevMode)
 			if err := supervisor.Run(ctx, "ethwatch",
 				ethWatcher.Run); err != nil {
 				return err
@@ -922,27 +936,28 @@ func runNode(cmd *cobra.Command, args []string) {
 			logger.Info("Starting BSC watcher")
 			readiness.RegisterComponent(common.ReadinessBSCSyncing)
 			chainObsvReqC[vaa.ChainIDBSC] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
-			if err := supervisor.Run(ctx, "bscwatch",
-				evm.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil, 1, chainObsvReqC[vaa.ChainIDBSC], *unsafeDevMode, nil).Run); err != nil {
+			bscWatcher := evm.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil, chainObsvReqC[vaa.ChainIDBSC], *unsafeDevMode)
+			bscWatcher.SetWaitForConfirmations(true)
+			if err := supervisor.Run(ctx, "bscwatch", bscWatcher.Run); err != nil {
 				return err
 			}
 		}
 
 		if shouldStart(polygonRPC) {
-			polygonMinConfirmations := uint64(512)
-			if *testnetMode {
-				polygonMinConfirmations = 64
+			// Checkpointing is required in mainnet, so we don't need to wait for confirmations.
+			waitForConfirmations := *unsafeDevMode || *testnetMode
+			if !waitForConfirmations && *polygonRootChainRpc == "" {
+				log.Fatal("Polygon checkpointing is required in mainnet")
 			}
 			logger.Info("Starting Polygon watcher")
 			readiness.RegisterComponent(common.ReadinessPolygonSyncing)
 			chainObsvReqC[vaa.ChainIDPolygon] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
-			if err := supervisor.Run(ctx, "polygonwatch",
-				evm.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil, polygonMinConfirmations, chainObsvReqC[vaa.ChainIDPolygon], *unsafeDevMode, nil).Run); err != nil {
-				// Special case: Polygon can fork like PoW Ethereum, and it's not clear what the safe number of blocks is
-				//
-				// Hardcode the minimum number of confirmations to 512 regardless of what the smart contract specifies to protect
-				// developers from accidentally specifying an unsafe number of confirmations. We can remove this restriction as soon
-				// as specific public guidance exists for Polygon developers.
+			polygonWatcher := evm.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil, chainObsvReqC[vaa.ChainIDPolygon], *unsafeDevMode)
+			polygonWatcher.SetWaitForConfirmations(waitForConfirmations)
+			if err := polygonWatcher.SetRootChainParams(*polygonRootChainRpc, *polygonRootChainContractAddress); err != nil {
+				return err
+			}
+			if err := supervisor.Run(ctx, "polygonwatch", polygonWatcher.Run); err != nil {
 				return err
 			}
 		}
@@ -951,7 +966,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessAvalancheSyncing)
 			chainObsvReqC[vaa.ChainIDAvalanche] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "avalanchewatch",
-				evm.NewEthWatcher(*avalancheRPC, avalancheContractAddr, "avalanche", common.ReadinessAvalancheSyncing, vaa.ChainIDAvalanche, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAvalanche], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*avalancheRPC, avalancheContractAddr, "avalanche", common.ReadinessAvalancheSyncing, vaa.ChainIDAvalanche, lockC, nil, chainObsvReqC[vaa.ChainIDAvalanche], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -959,7 +974,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			logger.Info("Starting Oasis watcher")
 			chainObsvReqC[vaa.ChainIDOasis] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "oasiswatch",
-				evm.NewEthWatcher(*oasisRPC, oasisContractAddr, "oasis", common.ReadinessOasisSyncing, vaa.ChainIDOasis, lockC, nil, 1, chainObsvReqC[vaa.ChainIDOasis], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*oasisRPC, oasisContractAddr, "oasis", common.ReadinessOasisSyncing, vaa.ChainIDOasis, lockC, nil, chainObsvReqC[vaa.ChainIDOasis], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -968,7 +983,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessAuroraSyncing)
 			chainObsvReqC[vaa.ChainIDAurora] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "aurorawatch",
-				evm.NewEthWatcher(*auroraRPC, auroraContractAddr, "aurora", common.ReadinessAuroraSyncing, vaa.ChainIDAurora, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAurora], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*auroraRPC, auroraContractAddr, "aurora", common.ReadinessAuroraSyncing, vaa.ChainIDAurora, lockC, nil, chainObsvReqC[vaa.ChainIDAurora], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -977,7 +992,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessFantomSyncing)
 			chainObsvReqC[vaa.ChainIDFantom] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "fantomwatch",
-				evm.NewEthWatcher(*fantomRPC, fantomContractAddr, "fantom", common.ReadinessFantomSyncing, vaa.ChainIDFantom, lockC, nil, 1, chainObsvReqC[vaa.ChainIDFantom], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*fantomRPC, fantomContractAddr, "fantom", common.ReadinessFantomSyncing, vaa.ChainIDFantom, lockC, nil, chainObsvReqC[vaa.ChainIDFantom], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -986,7 +1001,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessKaruraSyncing)
 			chainObsvReqC[vaa.ChainIDKarura] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "karurawatch",
-				evm.NewEthWatcher(*karuraRPC, karuraContractAddr, "karura", common.ReadinessKaruraSyncing, vaa.ChainIDKarura, lockC, nil, 1, chainObsvReqC[vaa.ChainIDKarura], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*karuraRPC, karuraContractAddr, "karura", common.ReadinessKaruraSyncing, vaa.ChainIDKarura, lockC, nil, chainObsvReqC[vaa.ChainIDKarura], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -995,7 +1010,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessAcalaSyncing)
 			chainObsvReqC[vaa.ChainIDAcala] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "acalawatch",
-				evm.NewEthWatcher(*acalaRPC, acalaContractAddr, "acala", common.ReadinessAcalaSyncing, vaa.ChainIDAcala, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAcala], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*acalaRPC, acalaContractAddr, "acala", common.ReadinessAcalaSyncing, vaa.ChainIDAcala, lockC, nil, chainObsvReqC[vaa.ChainIDAcala], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -1004,7 +1019,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessKlaytnSyncing)
 			chainObsvReqC[vaa.ChainIDKlaytn] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "klaytnwatch",
-				evm.NewEthWatcher(*klaytnRPC, klaytnContractAddr, "klaytn", common.ReadinessKlaytnSyncing, vaa.ChainIDKlaytn, lockC, nil, 1, chainObsvReqC[vaa.ChainIDKlaytn], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*klaytnRPC, klaytnContractAddr, "klaytn", common.ReadinessKlaytnSyncing, vaa.ChainIDKlaytn, lockC, nil, chainObsvReqC[vaa.ChainIDKlaytn], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -1013,7 +1028,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessCeloSyncing)
 			chainObsvReqC[vaa.ChainIDCelo] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "celowatch",
-				evm.NewEthWatcher(*celoRPC, celoContractAddr, "celo", common.ReadinessCeloSyncing, vaa.ChainIDCelo, lockC, nil, 1, chainObsvReqC[vaa.ChainIDCelo], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*celoRPC, celoContractAddr, "celo", common.ReadinessCeloSyncing, vaa.ChainIDCelo, lockC, nil, chainObsvReqC[vaa.ChainIDCelo], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -1022,7 +1037,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			readiness.RegisterComponent(common.ReadinessMoonbeamSyncing)
 			chainObsvReqC[vaa.ChainIDMoonbeam] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 			if err := supervisor.Run(ctx, "moonbeamwatch",
-				evm.NewEthWatcher(*moonbeamRPC, moonbeamContractAddr, "moonbeam", common.ReadinessMoonbeamSyncing, vaa.ChainIDMoonbeam, lockC, nil, 1, chainObsvReqC[vaa.ChainIDMoonbeam], *unsafeDevMode, nil).Run); err != nil {
+				evm.NewEthWatcher(*moonbeamRPC, moonbeamContractAddr, "moonbeam", common.ReadinessMoonbeamSyncing, vaa.ChainIDMoonbeam, lockC, nil, chainObsvReqC[vaa.ChainIDMoonbeam], *unsafeDevMode).Run); err != nil {
 				return err
 			}
 		}
@@ -1033,8 +1048,22 @@ func runNode(cmd *cobra.Command, args []string) {
 			logger.Info("Starting Arbitrum watcher")
 			readiness.RegisterComponent(common.ReadinessArbitrumSyncing)
 			chainObsvReqC[vaa.ChainIDArbitrum] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
-			if err := supervisor.Run(ctx, "arbitrumwatch",
-				evm.NewEthWatcher(*arbitrumRPC, arbitrumContractAddr, "arbitrum", common.ReadinessArbitrumSyncing, vaa.ChainIDArbitrum, lockC, nil, 1, chainObsvReqC[vaa.ChainIDArbitrum], *unsafeDevMode, ethWatcher).Run); err != nil {
+			arbitrumWatcher := evm.NewEthWatcher(*arbitrumRPC, arbitrumContractAddr, "arbitrum", common.ReadinessArbitrumSyncing, vaa.ChainIDArbitrum, lockC, nil, chainObsvReqC[vaa.ChainIDArbitrum], *unsafeDevMode)
+			arbitrumWatcher.SetL1Finalizer(ethWatcher)
+			if err := supervisor.Run(ctx, "arbitrumwatch", arbitrumWatcher.Run); err != nil {
+				return err
+			}
+		}
+		if shouldStart(optimismRPC) {
+			if ethWatcher == nil {
+				log.Fatalf("if optimism is enabled then ethereum must also be enabled.")
+			}
+			logger.Info("Starting Optimism watcher")
+			readiness.RegisterComponent(common.ReadinessOptimismSyncing)
+			chainObsvReqC[vaa.ChainIDOptimism] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
+			optimismWatcher := evm.NewEthWatcher(*optimismRPC, optimismContractAddr, "optimism", common.ReadinessOptimismSyncing, vaa.ChainIDOptimism, lockC, nil, chainObsvReqC[vaa.ChainIDOptimism], *unsafeDevMode)
+			optimismWatcher.SetL1Finalizer(ethWatcher)
+			if err := supervisor.Run(ctx, "optimismwatch", optimismWatcher.Run); err != nil {
 				return err
 			}
 		}
@@ -1108,6 +1137,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		var solanaFinalizedWatcher *solana.SolanaWatcher
 		if shouldStart(solanaRPC) {
 			logger.Info("Starting Solana watcher")
 			readiness.RegisterComponent(common.ReadinessSolanaSyncing)
@@ -1116,8 +1146,8 @@ func runNode(cmd *cobra.Command, args []string) {
 				solana.NewSolanaWatcher(*solanaRPC, solAddress, lockC, nil, rpc.CommitmentConfirmed, common.ReadinessSolanaSyncing, vaa.ChainIDSolana).Run); err != nil {
 				return err
 			}
-			if err := supervisor.Run(ctx, "solwatch-finalized",
-				solana.NewSolanaWatcher(*solanaRPC, solAddress, lockC, chainObsvReqC[vaa.ChainIDSolana], rpc.CommitmentFinalized, common.ReadinessSolanaSyncing, vaa.ChainIDSolana).Run); err != nil {
+			solanaFinalizedWatcher = solana.NewSolanaWatcher(*solanaRPC, solAddress, lockC, chainObsvReqC[vaa.ChainIDSolana], rpc.CommitmentFinalized, common.ReadinessSolanaSyncing, vaa.ChainIDSolana)
+			if err := supervisor.Run(ctx, "solwatch-finalized", solanaFinalizedWatcher.Run); err != nil {
 				return err
 			}
 		}
@@ -1138,11 +1168,15 @@ func runNode(cmd *cobra.Command, args []string) {
 
 		if *testnetMode {
 			if shouldStart(neonRPC) {
+				if solanaFinalizedWatcher == nil {
+					log.Fatalf("if neon is enabled then solana must also be enabled.")
+				}
 				logger.Info("Starting Neon watcher")
 				readiness.RegisterComponent(common.ReadinessNeonSyncing)
 				chainObsvReqC[vaa.ChainIDNeon] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
-				if err := supervisor.Run(ctx, "neonwatch",
-					evm.NewEthWatcher(*neonRPC, neonContractAddr, "neon", common.ReadinessNeonSyncing, vaa.ChainIDNeon, lockC, nil, 32, chainObsvReqC[vaa.ChainIDNeon], *unsafeDevMode, nil).Run); err != nil {
+				neonWatcher := evm.NewEthWatcher(*neonRPC, neonContractAddr, "neon", common.ReadinessNeonSyncing, vaa.ChainIDNeon, lockC, nil, chainObsvReqC[vaa.ChainIDNeon], *unsafeDevMode)
+				neonWatcher.SetL1Finalizer(solanaFinalizedWatcher)
+				if err := supervisor.Run(ctx, "neonwatch", neonWatcher.Run); err != nil {
 					return err
 				}
 			}
@@ -1251,4 +1285,12 @@ func decryptTelemetryServiceAccount() ([]byte, error) {
 
 func shouldStart(rpc *string) bool {
 	return *rpc != "" && *rpc != "none"
+}
+
+func unsafeDevModeEvmContractAddress(contractAddr string) string {
+	if contractAddr != "" {
+		return contractAddr
+	}
+
+	return devnet.GanacheWormholeContractAddress.Hex()
 }
