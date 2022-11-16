@@ -6,3 +6,20 @@ https://gist.github.com/davecgh/2992ed85d41307e794f6
 % docker run -it -v `pwd`:`pwd` -w `pwd` foo bash
 
 kubectl exec -it btc-0 -c btc-node -- /bin/bash
+
+kubectl exec -it btc-0 -c btc-node --  btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 getbalance
+
+--
+
+== btc -> non-btc direction (btc outbound)
+
+# User goes to magic website to generate a mapping between wormhole-address and btc address
+## When the user registers this mapping, give them the option of allocating a fee so that this txn can be relayed automatically?
+## mapping is stored somewhere in wormchain
+# Wormchain publishes an event that is observed by the guardian to update its map
+# User goes to CEX, whitelists the new address, and sends btc
+# Guardian observes the txn,
+## Makes a call onto wormchain to allocate a sequence number for this txn (which allocates space for every txn to hold this mapping)
+## Generates a observation/vaa
+# User goes back to magic website, enters the destination btc address.. and retrieves vaa
+# User goes to destination chain and redeems vaa

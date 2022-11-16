@@ -725,6 +725,7 @@ if btc:
         "btc",
         port_forwards = [
             port_forward(18556, name = "RPC [:18556]", host = webHost),
+            port_forward(18554, name = "Wallet [:18554]", host = webHost),
         ],
         labels = ["btc"],
         trigger_mode = trigger_mode,

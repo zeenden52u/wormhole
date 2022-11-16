@@ -9,6 +9,9 @@ spec:
     - name: node
       port: 18556
       targetPort: 18556
+    - name: wallet
+      port: 18554
+      targetPort: 18554
   selector:
     app: btc
 ---
@@ -39,6 +42,9 @@ spec:
           ports:
             - containerPort: 18556
               name: node
+              protocol: TCP
+            - containerPort: 18554
+              name: wallet
               protocol: TCP
           readinessProbe:
             tcpSocket:

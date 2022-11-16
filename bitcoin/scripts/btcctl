@@ -1,0 +1,13 @@
+#!/bin/bash -f
+
+# Anytime one or more transactions are sent you must call generate to mine a new block with that transaction included
+# scripts/btcctl --simnet --rpcuser=wormhole --rpcpass=w0rmh013 generate 1
+
+# to get the wallet balance
+# scripts/btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 getbalance
+
+# scripts/btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 getnewaddress
+# scripts/btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 sendfrom default SQznn6GTc1qcpjRQyZwev86aQTbAmAaSzY 10
+# scripts/btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 listaccounts
+
+kubectl exec -it btc-0 -c btc-node -- btcctl $*
