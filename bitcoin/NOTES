@@ -7,6 +7,8 @@ https://gist.github.com/davecgh/2992ed85d41307e794f6
 
 kubectl exec -it btc-0 -c btc-node -- /bin/bash
 
+kubectl exec -it btc-0 -c btc-node -- cat /root/.btcd/rpc.cert
+
 kubectl exec -it btc-0 -c btc-node --  btcctl --simnet --wallet --rpcuser=wormhole --rpcpass=w0rmh013 getbalance
 
 https://github.com/btcsuite/btcd/blob/master/docs/json_rpc_api.md
