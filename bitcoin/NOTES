@@ -13,6 +13,10 @@ kubectl exec -it btc-0 -c btc-node --  btcctl --simnet --wallet --rpcuser=wormho
 
 https://github.com/btcsuite/btcd/blob/master/docs/json_rpc_api.md
 
+https://github.com/btcsuite/btcd/blob/master/txscript/standard.go#L969
+
+import (                                                                                                                                                                                                                                                      "github.com/btcsuite/btcd/btcutil/hdkeychain"                                                                                                                                                                                                         "github.com/btcsuite/btcd/btcutil/psbt"                                                                                                                                                                                                               "github.com/btcsuite/btcd/txscript"                                                                                                                                                                                                                   "github.com/btcsuite/btcd/wire"                                                                                                                                                                                                                       "github.com/btcsuite/btcwallet/waddrmgr"                                                                                                                                                                                                              "github.com/btcsuite/btcwallet/walletdb"                                                                                                                                                                                                      )          
+
 --
 
 == btc -> non-btc direction (btc outbound)
