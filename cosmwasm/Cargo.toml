@@ -7,6 +7,7 @@ members = [
     "contracts/shutdown-token-bridge",
     "contracts/mock-bridge-integration",
     "packages/accounting",
+    "packages/wormhole-bindings",
 ]
 
 [profile.release]
@@ -24,6 +25,5 @@ overflow-checks = true
 accounting = { path = "packages/accounting" }
 cw20-wrapped-2 = { path = "contracts/cw20-wrapped" }
 token-bridge-terra-2 = { path = "contracts/token-bridge" }
+wormhole-bindings = { path = "packages/wormhole-bindings" }
 wormhole-bridge-terra-2 = { path = "contracts/wormhole" }
-
-
