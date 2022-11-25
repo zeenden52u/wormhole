@@ -58,6 +58,13 @@ pub enum CommitTransferError {
     MissingWrappedAccount,
 }
 
+/// Validates a transfer without committing it to the on-chain state.  If an error occurs that is
+/// not due to the underlying cosmwasm framework, the returned error will be downcastable to
+/// `CommitTransferErrror`.
+pub fn validate_transfer<C: CustomQuery>(deps: Deps<C>, t: &Transfer) -> anyhow::Result<()> {
+    transfer(deps, t).map(drop)
+}
+
 /// Commits a transfer to the on-chain state.  If an error occurs that is not due to the underlying
 /// cosmwasm framework, the returned error will be downcastable to `CommitTransferError`.
 ///
@@ -100,6 +107,32 @@ pub enum CommitTransferError {
 /// # example().unwrap();
 /// ```
 pub fn commit_transfer<C: CustomQuery>(deps: DepsMut<C>, t: Transfer) -> anyhow::Result<Event> {
+    let (src, dst) = transfer(deps.as_ref(), &t)?;
+
+    ACCOUNTS
+        .save(deps.storage, src.key, &src.balance)
+        .context("failed to save updated source account")?;
+    ACCOUNTS
+        .save(deps.storage, dst.key, &dst.balance)
+        .context("failed to save updated destination account")?;
+
+    let evt = Event::new("CommitTransfer")
+        .add_attribute("key", t.key.to_string())
+        .add_attribute("amount", t.data.amount.to_string())
+        .add_attribute("token_chain", t.data.token_chain.to_string())
+        .add_attribute("token_address", t.data.token_address.to_string())
+        .add_attribute("recipient_chain", t.data.recipient_chain.to_string());
+
+    TRANSFERS
+        .save(deps.storage, t.key, &t.data)
+        .context("failed to save `transfer::Data`")?;
+
+    Ok(evt)
+}
+
+// Carries out the transfer described by `t` and returns the updated source and destination
+// accounts.
+fn transfer<C: CustomQuery>(deps: Deps<C>, t: &Transfer) -> anyhow::Result<(Account, Account)> {
     if TRANSFERS.has(deps.storage, t.key.clone()) {
         bail!(CommitTransferError::DuplicateTransfer);
     }
@@ -155,25 +188,7 @@ pub fn commit_transfer<C: CustomQuery>(deps: DepsMut<C>, t: Transfer) -> anyhow:
     dst.unlock_or_mint(t.data.amount)
         .context(CommitTransferError::InsufficientDestinationBalance)?;
 
-    ACCOUNTS
-        .save(deps.storage, src.key, &src.balance)
-        .context("failed to save updated source account")?;
-    ACCOUNTS
-        .save(deps.storage, dst.key, &dst.balance)
-        .context("failed to save updated destination account")?;
-
-    let evt = Event::new("CommitTransfer")
-        .add_attribute("key", t.key.to_string())
-        .add_attribute("amount", t.data.amount.to_string())
-        .add_attribute("token_chain", t.data.token_chain.to_string())
-        .add_attribute("token_address", t.data.token_address.to_string())
-        .add_attribute("recipient_chain", t.data.recipient_chain.to_string());
-
-    TRANSFERS
-        .save(deps.storage, t.key, &t.data)
-        .context("failed to save `transfer::Data`")?;
-
-    Ok(evt)
+    Ok((src, dst))
 }
 
 #[derive(ThisError, Debug)]
