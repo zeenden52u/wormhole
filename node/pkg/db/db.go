@@ -59,6 +59,12 @@ func VaaIDFromVAA(v *vaa.VAA) *VAAID {
 	}
 }
 
+func BatchKey(b *vaa.Batch) []byte {
+	return []byte(
+		fmt.Sprintf("signed_batch/%s",
+			b.BatchID.String()))
+}
+
 var (
 	ErrVAANotFound = errors.New("requested VAA not found in store")
 	nullAddr       = vaa.Address{}
@@ -117,9 +123,61 @@ func (d *Database) StoreSignedVAA(v *vaa.VAA) error {
 	return nil
 }
 
+func (d *Database) StoreSignedBatch(v *vaa.Batch) error {
+	if len(v.Signatures) == 0 {
+		panic("StoreSignedBatch called for unsigned VAA")
+	}
+
+	b, err := v.Marshal()
+	if err != nil {
+		return fmt.Errorf("failed Batch.Marshal() for db. %w", err)
+	}
+
+	// We allow overriding of existing VAAs, since there are multiple ways to
+	// acquire signed VAA bytes. For instance, the node may have a signed VAA
+	// via gossip before it reaches quorum on its own. The new entry may have
+	// a different set of signatures, but the same VAA.
+	//
+	// TODO: panic on non-identical signing digest?
+
+	err = d.db.Update(func(txn *badger.Txn) error {
+		if err := txn.Set(BatchKey(v), b); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to commit tx: %w", err)
+	}
+
+	return nil
+}
+
 func (d *Database) GetSignedVAABytes(id VAAID) (b []byte, err error) {
 	if err := d.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(id.Bytes())
+		if err != nil {
+			return err
+		}
+		if val, err := item.ValueCopy(nil); err != nil {
+			return err
+		} else {
+			b = val
+		}
+		return nil
+	}); err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, ErrVAANotFound
+		}
+		return nil, err
+	}
+	return
+}
+
+func (d *Database) GetSignedBatchBytes(id vaa.BatchID) (b []byte, err error) {
+	if err := d.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(BatchKey(&vaa.Batch{BatchID: id}))
 		if err != nil {
 			return err
 		}

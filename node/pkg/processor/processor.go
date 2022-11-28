@@ -39,6 +39,24 @@ type (
 		HandleQuorum(sigs []*vaa.Signature, hash string, p *Processor)
 	}
 
+	// a ObservationGroup is a group of messages (Observations) emitted by a single transaction.
+	ObservationGroup interface {
+		// GetEmitterChain returns the id of the chain where this event was observed.
+		GetEmitterChain() vaa.ChainID
+		// GetTransactionID returns the unique identifer of the transaction from the source chain.
+		GetTransactionID() vaa.TransactionID
+		// GetNonce returns the nonce of the observations that make up the Batch.
+		GetNonce() vaa.Nonce
+		// GetBatchID returns the string representation of the BatchID.
+		GetBatchID() vaa.BatchID
+		// SigningMsg returns the hash of the signing body of the observation. This is used
+		// for signature generation and verification.
+		SigningMsg() ethcommon.Hash
+		// HandleQuorum finishes processing the observation once a quorum of signatures have
+		// been received for it.
+		HandleQuorum(sigs []*vaa.Signature, hash string, p *Processor)
+	}
+
 	// state represents the local view of a given observation
 	state struct {
 		// First time this digest was seen (possibly even before we observed it ourselves).
@@ -66,11 +84,48 @@ type (
 		gs *common.GuardianSet
 	}
 
+	// batchState represents the local view of a group of Observations that are being considered for BatchVAAs.
+	batchState struct {
+		state
+		ourObservation ObservationGroup
+	}
+
+	// observationMap holds Observations, and some metadata about them, as they progress toward quorum.
+	// Messages get added when they are observed, or when they are first seen via a gossip message.
+	// Keys in the map are the determinisic hashes (aka "digest") of the Observation.
+	// Items are removed from the map (and memory) after they have reached quorum, or been stale for
+	// some time, via the logic in cleanup.go
 	observationMap map[string]*state
+
+	// batchMap holds observed BatchMessages, keyed by BatchID.
+	// The batches held in state are the observations (from watchers) of transactions.
+	// This observation data is the reference for which message(s) a Batch
+	// needs to include to be considered fully observed - ready to sign and broadcast.
+	// This map is checked as quorum is reached for individual VAAs in the batch.
+	batchMap map[vaa.BatchID][]*common.MessagePublication
+
+	// observationsByBatchID maps the BatchID to the MessageID(s) within the transaction.
+	// This map collects observations seen by the guardian, by BatchID, in order
+	// to map messages to the transaction that produced them. As messages get observed they are
+	// filed into this map. When a new transaction is seen the transaction is flagged to
+	// be watched and tracked for progress toward producing a BatchVAA.
+	// Stale items are periodically freed from memory via the cleanup process in batch_cleanup.go.
+	observationsByBatchID map[vaa.BatchID]map[string]*state
+
+	// batchObservationMap collects SignedBatchObservation gossip toward BatchVAA quorum.
+	// The paradigm is the exactly the same as collecting SignedObservations for v1 VAAs,
+	// the BatchVAA was "observed" (all messages independently achieved quorum, we saw them, will attest it),
+	// it's a matter of collecting peer signatures and testing for quorum.
+	// Keys in the map are BatchVAA digests.
+	batchObservationMap map[string]*batchState
 
 	// aggregationState represents the node's aggregation of guardian signatures.
 	aggregationState struct {
 		signatures observationMap
+
+		batches         batchMap              // reference for which messages make up a batch.
+		batchMessages   observationsByBatchID // collect messages by BatchID, to identify batch transactions.
+		batchSignatures batchObservationMap   // collects signatures on a fully-observed batch of messages.
 	}
 )
 
@@ -95,6 +150,21 @@ type Processor struct {
 
 	// signedInC is a channel of inbound signed VAA observations from p2p
 	signedInC chan *gossipv1.SignedVAAWithQuorum
+
+	// batchC is a ready-only channel of batched message data
+	batchC chan *common.TransactionData
+
+	// batchReqC is a send-only channel for requesting batch message data
+	batchReqC chan *common.TransactionQuery
+
+	// batchObsvC is a channel of inbound decoded batch observations from p2p
+	batchObsvC chan *gossipv1.SignedBatchObservation
+
+	// batchInC is a channel of inbound signed Batch VAAs from p2p
+	batchSignedInC chan *gossipv1.SignedBatchVAAWithQuorum
+
+	// batchVAAEnabled toggles handling or ignoring all things BatchVAA
+	batchVAAEnabled bool
 
 	// injectC is a channel of VAAs injected locally.
 	injectC chan *vaa.VAA
@@ -145,6 +215,11 @@ func NewProcessor(
 	obsvReqSendC chan<- *gossipv1.ObservationRequest,
 	injectC chan *vaa.VAA,
 	signedInC chan *gossipv1.SignedVAAWithQuorum,
+	batchC chan *common.TransactionData,
+	batchReqC chan *common.TransactionQuery,
+	batchObsvC chan *gossipv1.SignedBatchObservation,
+	batchSignedInC chan *gossipv1.SignedBatchVAAWithQuorum,
+	batchVAAEnabled bool,
 	gk *ecdsa.PrivateKey,
 	gst *common.GuardianSetState,
 	devnetMode bool,
@@ -163,6 +238,11 @@ func NewProcessor(
 		obsvC:              obsvC,
 		obsvReqSendC:       obsvReqSendC,
 		signedInC:          signedInC,
+		batchC:             batchC,
+		batchReqC:          batchReqC,
+		batchObsvC:         batchObsvC,
+		batchSignedInC:     batchSignedInC,
+		batchVAAEnabled:    batchVAAEnabled,
 		injectC:            injectC,
 		gk:                 gk,
 		gst:                gst,
@@ -177,8 +257,13 @@ func NewProcessor(
 
 		notifier: notifier,
 
-		logger:      supervisor.Logger(ctx),
-		state:       &aggregationState{observationMap{}},
+		logger: supervisor.Logger(ctx),
+		state: &aggregationState{
+			observationMap{},
+			batchMap{},
+			observationsByBatchID{},
+			batchObservationMap{},
+		},
 		ourAddr:     crypto.PubkeyToAddress(gk.PublicKey),
 		governor:    g,
 		pythnetVaas: make(map[string]PythNetVaaEntry),
@@ -213,7 +298,15 @@ func (p *Processor) Run(ctx context.Context) error {
 			p.handleObservation(ctx, m)
 		case m := <-p.signedInC:
 			p.handleInboundSignedVAAWithQuorum(ctx, m)
+		case m := <-p.batchC:
+			p.handleBatchMessage(ctx, m)
+		case m := <-p.batchObsvC:
+			p.handleBatchObservation(ctx, m)
+		case m := <-p.batchSignedInC:
+			p.handleInboundSignedBatchVAAWithQuorum(ctx, m)
 		case <-p.cleanup.C:
+			// run the Batch cleanup first, as batches are composed of observations.
+			p.handleBatchCleanup(ctx)
 			p.handleCleanup(ctx)
 		case <-govTimer.C:
 			if p.governor != nil {

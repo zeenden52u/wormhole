@@ -217,7 +217,7 @@ func (s *spyServer) HandleGossipBatchVAA(g *gossipv1.SignedBatchVAAWithQuorum) e
 	s.subsAllVaaMu.Lock()
 	defer s.subsAllVaaMu.Unlock()
 
-	b, err := vaa.UnmarshalBatch(g.BatchVaa)
+	b, err := vaa.UnmarshalBatchVAA(g.BatchVaa)
 	if err != nil {
 		s.logger.Error("failed unmarshaing BatchVAA bytes from gossipv1.SignedBatchVAAWithQuorum.",
 			zap.Error(err))
@@ -469,6 +469,12 @@ func runSpy(cmd *cobra.Command, args []string) {
 	// Inbound signed VAAs
 	signedInC := make(chan *gossipv1.SignedVAAWithQuorum, 50)
 
+	// Inbound batch observations
+	batchObsvC := make(chan *gossipv1.SignedBatchObservation, 50)
+
+	// Inbound signed Batch VAAs
+	batchSignedInC := make(chan *gossipv1.SignedBatchVAAWithQuorum, 50)
+
 	// Guardian set state managed by processor
 	gst := common.NewGuardianSetState(nil)
 
@@ -486,6 +492,17 @@ func runSpy(cmd *cobra.Command, args []string) {
 			case <-rootCtx.Done():
 				return
 			case <-obsvC:
+			}
+		}
+	}()
+
+	// Ignore batch observations
+	go func() {
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case <-batchObsvC:
 			}
 		}
 	}()
@@ -521,6 +538,22 @@ func runSpy(cmd *cobra.Command, args []string) {
 		}
 	}()
 
+	// Publish batch VAAs
+	go func() {
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case v := <-batchSignedInC:
+				logger.Info("Received signed BatchVAA",
+					zap.Any("vaa", v.BatchVaa))
+				if err := s.HandleGossipBatchVAA(v); err != nil {
+					logger.Error("failed to HandleGossipVAA", zap.Error(err))
+				}
+			}
+		}
+	}()
+
 	// Load p2p private key
 	var priv crypto.PrivKey
 	priv, err = common.GetOrCreateNodeKey(logger, *nodeKeyPath)
@@ -530,7 +563,7 @@ func runSpy(cmd *cobra.Command, args []string) {
 
 	// Run supervisor.
 	supervisor.New(rootCtx, logger, func(ctx context.Context) error {
-		if err := supervisor.Run(ctx, "p2p", p2p.Run(obsvC, obsvReqC, nil, sendC, signedInC, priv, nil, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, "", false, rootCtxCancel, nil, nil, nil)); err != nil {
+		if err := supervisor.Run(ctx, "p2p", p2p.Run(obsvC, obsvReqC, nil, sendC, signedInC, batchObsvC, batchSignedInC, priv, nil, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, "", false, rootCtxCancel, nil, nil, nil)); err != nil {
 			return err
 		}
 

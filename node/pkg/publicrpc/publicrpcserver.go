@@ -8,6 +8,7 @@ import (
 	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/db"
 	"github.com/certusone/wormhole/node/pkg/governor"
+	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
 	"github.com/wormhole-foundation/wormhole/sdk/vaa"
 	"go.uber.org/zap"
@@ -106,8 +107,48 @@ func (s *PublicrpcServer) GetSignedVAA(ctx context.Context, req *publicrpcv1.Get
 }
 
 func (s *PublicrpcServer) GetSignedBatchVAA(ctx context.Context, req *publicrpcv1.GetSignedBatchVAARequest) (*publicrpcv1.GetSignedBatchVAAResponse, error) {
-	// TEMP - noop implementaion to satisfy inclusion requirement
-	return nil, status.Error(codes.Unimplemented, "not yet implemented")
+	if req.BatchId == nil {
+		return nil, status.Error(codes.InvalidArgument, "no batch ID specified")
+	}
+
+	txID, err := vaa.BytesToTransactionID(req.BatchId.TxId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument,
+			fmt.Sprintf("invalid TransactionID specified %v", err))
+	}
+
+	b, err := s.db.GetSignedBatchBytes(vaa.BatchID{
+		EmitterChain:  vaa.ChainID(req.BatchId.EmitterChain.Number()),
+		TransactionID: txID,
+		Nonce:         vaa.Nonce(req.BatchId.Nonce),
+	})
+
+	if err != nil {
+		if err == db.ErrVAANotFound {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		s.logger.Error("failed to fetch VAA", zap.Error(err), zap.Any("request", req))
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+
+	batch, err := vaa.UnmarshalBatch(b)
+	if err != nil {
+		s.logger.Error("failed to unmarshal Batch from DB", zap.Error(err), zap.Any("request", req))
+		return nil, status.Error(codes.Internal, "failed to retrieve Batch")
+	}
+	// create a byte array of just the BatchVAA, the part the user will redeem on the destination chain(s)
+	vaaBytes, _ := batch.BatchVAA.Marshal()
+
+	signed := &gossipv1.SignedBatchVAAWithQuorum{
+		BatchVaa: vaaBytes,
+		ChainId:  uint32(batch.BatchID.EmitterChain),
+		TxId:     batch.BatchID.TransactionID[:],
+		Nonce:    uint32(batch.BatchID.Nonce),
+		BatchId:  batch.BatchID.String(),
+	}
+	return &publicrpcv1.GetSignedBatchVAAResponse{
+		SignedBatchVaa: signed,
+	}, nil
 }
 
 func (s *PublicrpcServer) GetCurrentGuardianSet(ctx context.Context, req *publicrpcv1.GetCurrentGuardianSetRequest) (*publicrpcv1.GetCurrentGuardianSetResponse, error) {
