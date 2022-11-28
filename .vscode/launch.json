@@ -1,0 +1,43 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "sdk/js batch_vaa eth-integration.ts",
+            "runtimeArgs": [
+                "--inspect-brk",
+                "${workspaceRoot}/sdk/js/node_modules/.bin/jest",
+                "--config=jestconfig.json",
+                "--verbose",
+                "src/batch_vaa/__tests__/eth-integration.ts"
+            ],
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "cwd": "${workspaceRoot}/sdk/js",
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "test wormhole.js",
+            "runtimeArgs": [
+                "--inspect-brk",
+                "${workspaceRoot}/ethereum/node_modules/.bin/truffle",
+                "test",
+                "test/wormhole.js",
+                "--network=test",
+                "--compile-none"
+            ],
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "cwd": "${workspaceRoot}/ethereum",
+        }
+    ]
+}
