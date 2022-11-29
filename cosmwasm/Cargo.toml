@@ -6,6 +6,7 @@ members = [
     "contracts/token-bridge",
     "contracts/shutdown-token-bridge",
     "contracts/mock-bridge-integration",
+    "contracts/wormchain-btc",
     "packages/wormhole-bindings",
 ]
 
