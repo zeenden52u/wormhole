@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Instantiate the on-chain state for accounting.  Unlike other methods in this crate,
-/// `instantiate` does not perform any validation of the data in `init`.
+/// `instantiate` does not perform any validation of the data in `init`.:w
 pub fn instantiate<C: CustomQuery>(deps: DepsMut<C>, init: Instantiate) -> anyhow::Result<Event> {
     let num_accounts = init.accounts.len();
     let num_transfers = init.transfers.len();
@@ -84,7 +84,7 @@ pub enum CommitTransferError {
 /// #     };
 /// #
 ///       commit_transfer(deps.as_mut(), tx.clone())?;
-///  
+///
 ///       // Repeating the transfer should return an error.
 ///       let err = commit_transfer(deps.as_mut(), tx)
 ///           .expect_err("successfully committed duplicate transfer");
@@ -209,7 +209,7 @@ pub enum ModifyBalanceError {
 ///           amount: Uint256::from(4u128),
 ///           reason: "test".into(),
 ///       };
-///  
+///
 ///       let err = modify_balance(deps.as_mut(), m)
 ///           .expect_err("successfully modified account with insufficient balance");
 ///       if let Some(e) = err.downcast_ref::<ModifyBalanceError>() {
