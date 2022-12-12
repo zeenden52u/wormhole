@@ -273,14 +273,14 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         });
     }
 
-    function normalizeAmount(uint256 amount, uint8 decimals) internal pure returns(uint256){
+    function normalizeAmount(uint256 amount, uint8 decimals) public pure returns(uint256){
         if (decimals > 8) {
             amount /= 10 ** (decimals - 8);
         }
         return amount;
     }
 
-    function deNormalizeAmount(uint256 amount, uint8 decimals) internal pure returns(uint256){
+    function deNormalizeAmount(uint256 amount, uint8 decimals) public pure returns(uint256){
         if (decimals > 8) {
             amount *= 10 ** (decimals - 8);
         }

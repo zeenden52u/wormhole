@@ -149,4 +149,8 @@ interface ITokenBridge {
     function parseUpgrade(bytes memory encoded) external pure returns (UpgradeContract memory chain);
 
     function parseRecoverChainId(bytes memory encodedRecoverChainId) external pure returns (RecoverChainId memory rci);
+
+    function normalizeAmount(uint256 amount, uint8 decimals) external pure returns(uint256);
+
+    function deNormalizeAmount(uint256 amount, uint8 decimals) external pure returns(uint256);
 }
