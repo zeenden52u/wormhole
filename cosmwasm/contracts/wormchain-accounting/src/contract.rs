@@ -15,8 +15,11 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
 use tinyvec::{Array, TinyVec};
-use wormhole::token::Message;
-use wormhole_bindings::{Signature, WormholeQuery};
+use wormhole::{
+    token::Message,
+    vaa::{Body, Header, Signature},
+};
+use wormhole_bindings::WormholeQuery;
 
 use crate::{
     bail,
@@ -55,9 +58,11 @@ pub fn instantiate(
         )
         .context(ContractError::VerifyQuorum)?;
 
+    // this is the unmarshal to struct. turns out it's just a json decoding??
     let init: Instantiate =
         from_binary(&msg.instantiate).context("failed to parse `Instantiate` message")?;
 
+    // DepsMut  provides an api into storage
     let tokenbridge_addr = deps
         .api
         .addr_validate(&init.tokenbridge_addr)
@@ -67,6 +72,7 @@ pub fn instantiate(
         .save(deps.storage, &tokenbridge_addr)
         .context("failed to save tokenbridge address")?;
 
+    // now go into the accounting package
     let event =
         accounting::instantiate(deps, init.into()).context("failed to instantiate accounting")?;
 
@@ -104,6 +110,7 @@ pub fn execute(
             guardian_set_index,
             signatures,
         } => upgrade_contract(deps, env, info, upgrade, guardian_set_index, signatures),
+        ExecuteMsg::SubmitVAAs { vaas } => submit_vaas(deps, info, vaas),
     }
 }
 
@@ -335,6 +342,82 @@ fn upgrade_contract(
         }))
         .add_attribute("action", "contract_upgrade")
         .add_attribute("owner", info.sender))
+}
+
+fn submit_vaas(
+    mut deps: DepsMut<WormholeQuery>,
+    info: MessageInfo,
+    vaas: Vec<Binary>,
+) -> Result<Response, AnyError> {
+    let evts = vaas
+        .into_iter()
+        .map(|v| handle_vaa(deps.branch(), v))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(Response::new()
+        .add_attribute("action", "submit_vaas")
+        .add_attribute("owner", info.sender)
+        .add_events(evts))
+}
+
+fn handle_vaa(mut deps: DepsMut<WormholeQuery>, vaa: Binary) -> anyhow::Result<Event> {
+    let (header, data) = serde_wormhole::from_slice_with_payload::<Header>(&vaa)
+        .context("failed to parse VAA header")?;
+
+    ensure!(header.version == 1, "unsupported VAA version");
+
+    deps.querier
+        .query::<Empty>(
+            &WormholeQuery::VerifyQuorum {
+                data: data.to_vec().into(),
+                guardian_set_index: header.guardian_set_index,
+                signatures: header.signatures,
+            }
+            .into(),
+        )
+        .context(ContractError::VerifyQuorum)?;
+
+    let (body, _) = serde_wormhole::from_slice_with_payload::<Body<Message>>(data)
+        .context("failed to parse VAA body")?;
+
+    let data = match body.payload {
+        Message::Transfer {
+            amount,
+            token_address,
+            token_chain,
+            recipient_chain,
+            ..
+        }
+        | Message::TransferWithPayload {
+            amount,
+            token_address,
+            token_chain,
+            recipient_chain,
+            ..
+        } => transfer::Data {
+            amount: Uint256::from_be_bytes(amount.0),
+            token_address: TokenAddress::new(token_address.0),
+            token_chain: token_chain.into(),
+            recipient_chain: recipient_chain.into(),
+        },
+        _ => bail!("Unknown tokenbridge payload"),
+    };
+
+    let key = transfer::Key::new(
+        body.emitter_chain.into(),
+        TokenAddress::new(body.emitter_address.0),
+        body.sequence,
+    );
+
+    let tx = Transfer {
+        key: key.clone(),
+        data,
+    };
+    let evt = accounting::commit_transfer(deps.branch(), tx)
+        .with_context(|| format!("failed to commit transfer for key {key}"))?;
+
+    PENDING_TRANSFERS.remove(deps.storage, key);
+
+    Ok(evt)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
