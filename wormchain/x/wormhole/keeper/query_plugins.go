@@ -52,7 +52,7 @@ func WormholeQuerier(keeper Keeper) func(ctx sdk.Context, data json.RawMessage) 
 			if err != nil {
 				return nil, err
 			}
-			return []byte{}, nil
+			return []byte("{}"), nil
 		}
 		if wormholeQuery.VerifySignature != nil {
 			// handle the verify signature query
@@ -60,7 +60,7 @@ func WormholeQuerier(keeper Keeper) func(ctx sdk.Context, data json.RawMessage) 
 			if err != nil {
 				return nil, err
 			}
-			return []byte{}, nil
+			return []byte("{}"), nil
 		}
 		if wormholeQuery.CalculateQuorum != nil {
 			// handle the calculate quorum query
