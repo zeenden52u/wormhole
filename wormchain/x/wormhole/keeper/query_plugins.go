@@ -47,16 +47,18 @@ func WormholeQuerier(keeper Keeper) func(ctx sdk.Context, data json.RawMessage) 
 		}
 
 		if wormholeQuery.VerifyQuorum != nil {
+			hash := vaa.SigningMsg(wormholeQuery.VerifyQuorum.Data).Bytes()
 			// handle the verify quorum query
-			err := keeper.VerifyQuorum(ctx, wormholeQuery.VerifyQuorum.Data, wormholeQuery.VerifyQuorum.GuardianSetIndex, wormholeQuery.VerifyQuorum.Signatures)
+			err := keeper.VerifyQuorum(ctx, hash, wormholeQuery.VerifyQuorum.GuardianSetIndex, wormholeQuery.VerifyQuorum.Signatures)
 			if err != nil {
 				return nil, err
 			}
 			return []byte("{}"), nil
 		}
 		if wormholeQuery.VerifySignature != nil {
+			hash := vaa.SigningMsg(wormholeQuery.VerifySignature.Data).Bytes()
 			// handle the verify signature query
-			err := keeper.VerifySignature(ctx, wormholeQuery.VerifySignature.Data, wormholeQuery.VerifySignature.GuardianSetIndex, wormholeQuery.VerifySignature.Signature)
+			err := keeper.VerifySignature(ctx, hash, wormholeQuery.VerifySignature.GuardianSetIndex, wormholeQuery.VerifySignature.Signature)
 			if err != nil {
 				return nil, err
 			}
