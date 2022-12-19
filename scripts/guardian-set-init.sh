@@ -90,7 +90,7 @@ bscTokenBridge=$(jq --raw-output '.chains."4".contracts.tokenBridgeEmitterAddres
 algoTokenBridge=$(jq --raw-output '.chains."8".contracts.tokenBridgeEmitterAddress' $addressesJson)
 nearTokenBridge=$(jq --raw-output '.chains."15".contracts.tokenBridgeEmitterAddress' $addressesJson)
 terra2TokenBridge=$(jq --raw-output '.chains."18".contracts.tokenBridgeEmitterAddress' $addressesJson)
-wormchainTokenBridge=$(jq --raw-output '.chains."3104".contracts.tokenBridgeEmitterAddress' $addressesJson)
+wormchainTokenBridge=$(jq --raw-output '.chains."3104".contracts.tokenBridgeNativeAddress' $addressesJson)
 aptosTokenBridge=$(jq --raw-output '.chains."22".contracts.tokenBridgeEmitterAddress' $addressesJson)
 
 solNFTBridge=$(jq --raw-output '.chains."1".contracts.nftBridgeEmitterAddress' $addressesJson)
@@ -205,6 +205,7 @@ paths=(
     ./solana/.env
     ./terra/tools/.env
     ./terra2/tools/.env
+    ./wormchain/contracts/tools/.env
 )
 
 for envDest in "${paths[@]}"; do

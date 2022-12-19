@@ -238,7 +238,7 @@ jobs:
           node-version: "16"
       - run: cd clients/js && make test
 
-  # Verify wormhole chain unit tests
+  # Verify wormchain tests
   wormchain:
     runs-on: ubuntu-20.04
     steps:
@@ -247,7 +247,10 @@ jobs:
         with:
           go-version: "1.19.3"
       - run: curl https://get.ignite.com/cli@v0.23.0 | bash && mv ignite /usr/local/bin/
-      - run: cd wormchain && make proto -B && make test
+      - name: unit-tests
+        run: cd wormchain && make proto -B && make test
+      - name: deploy-test
+        run: cd wormchain && make contracts-deploy-test
 
   # Verify go sdk unit tests
   sdk_vaa:

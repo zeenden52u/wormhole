@@ -12,16 +12,23 @@ COPY ./wormchain/go.sum .
 COPY ./sdk /sdk
 RUN go mod download
 
+# copy over c bindings (libwasmvm.x86_64.so, etc)
+RUN cp -r /go/pkg/mod/github.com/!cosm!wasm/wasmvm@v1.0.0/api/* /usr/lib
+
 COPY ./wormchain .
 
 EXPOSE 26657
 EXPOSE 26656
-EXPOSE 6060 
-EXPOSE 9090 
+EXPOSE 6060
+EXPOSE 9090
 EXPOSE 1317
 EXPOSE 4500
 
 RUN unset GOPATH
+
+# set the build/ config as default
+RUN mkdir -p /root/.wormchain
+COPY ./wormchain/build/ /root/.wormchain
 
 RUN make client
 RUN chmod +x /app/build/wormchaind

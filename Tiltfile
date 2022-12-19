@@ -733,6 +733,12 @@ if wormchain:
         ignore = ["./wormchain/testing", "./wormchain/ts-sdk", "./wormchain/design", "./wormchain/vue", "./wormchain/build/wormchaind"],
     )
 
+    docker_build(
+        ref = "wormchain-deploy",
+        context = "./wormchain/contracts",
+        dockerfile = "./cosmwasm/Dockerfile.deploy",
+    )
+
     k8s_yaml_with_ns("wormchain/validators/kubernetes/wormchain-guardian-devnet.yaml")
 
     k8s_resource(
@@ -741,7 +747,7 @@ if wormchain:
             port_forward(1319, container_port = 1317, name = "REST [:1319]", host = webHost),
             port_forward(26659, container_port = 26657, name = "TENDERMINT [:26659]", host = webHost)
         ],
-        resource_deps = [],
+        resource_deps = ["const-gen"],
         labels = ["wormchain"],
         trigger_mode = trigger_mode,
     )
