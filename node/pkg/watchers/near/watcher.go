@@ -82,6 +82,10 @@ type (
 		// sub-components
 		finalizer Finalizer
 		nearAPI   nearapi.NearApi
+
+		// near watcher specific context and cancel
+		ctx context.Context
+		cancel context.CancelFunc
 	}
 )
 
@@ -135,6 +139,8 @@ func (e *Watcher) runBlockPoll(ctx context.Context) error {
 
 	for {
 		select {
+		case <-e.ctx.Done():
+			return e.ctx.Err()
 		case <-ctx.Done():
 			return nil
 
@@ -160,6 +166,8 @@ func (e *Watcher) runChunkFetcher(ctx context.Context) error {
 
 	for {
 		select {
+		case <-e.ctx.Done():
+			return e.ctx.Err()
 		case <-ctx.Done():
 			return nil
 
@@ -184,6 +192,8 @@ func (e *Watcher) runObsvReqProcessor(ctx context.Context) error {
 
 	for {
 		select {
+		case <-e.ctx.Done():
+			return e.ctx.Err()
 		case <-ctx.Done():
 			return ctx.Err()
 		case r := <-e.obsvReqC:
@@ -210,6 +220,8 @@ func (e *Watcher) runTxProcessor(ctx context.Context) error {
 	supervisor.Signal(ctx, supervisor.SignalHealthy)
 	for {
 		select {
+		case <-e.ctx.Done():
+			return e.ctx.Err()
 		case <-ctx.Done():
 			return ctx.Err()
 
@@ -255,6 +267,9 @@ func (e *Watcher) Run(ctx context.Context) error {
 	e.nearAPI = nearapi.NewNearApiImpl(nearapi.NewHttpNearRpc(e.nearRPC))
 	e.finalizer = newFinalizer(e.eventChan, e.nearAPI, e.mainnet)
 
+	e.ctx, e.cancel = context.WithCancel(context.Background())
+	defer e.cancel()
+
 	p2p.DefaultRegistry.SetNetworkStats(vaa.ChainIDNear, &gossipv1.Heartbeat_Network{
 		ContractAddress: e.wormholeAccount,
 	})
@@ -293,8 +308,12 @@ func (e *Watcher) Run(ctx context.Context) error {
 
 	supervisor.Signal(ctx, supervisor.SignalHealthy)
 
-	<-ctx.Done()
-	return ctx.Err()
+	select {
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // schedule pushes a job to workers after delay. It is context aware and will not execute the job if the context
@@ -308,11 +327,15 @@ func (e *Watcher) schedule(ctx context.Context, job *transactionProcessingJob, d
 		defer e.transactionProcessingQueueCounter.Add(-1)
 
 		select {
+		case <-e.ctx.Done():
+			return
 		case <-ctx.Done():
 			return
 		case <-timer.C:
 			// Don't block on processing if the context is cancelled
 			select {
+			case <-e.ctx.Done():
+				return
 			case <-ctx.Done():
 				return
 			case e.transactionProcessingQueue <- job:
