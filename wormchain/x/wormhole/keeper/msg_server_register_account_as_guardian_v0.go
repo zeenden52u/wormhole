@@ -9,22 +9,18 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/wormhole-foundation/wormchain/x/wormhole/types"
-	wormholesdk "github.com/wormhole-foundation/wormhole/sdk"
 )
 
 // TODO(csongor): high-level overview of what this does
-func (k msgServer) RegisterAccountAsGuardian(goCtx context.Context, msg *types.MsgRegisterAccountAsGuardian) (*types.MsgRegisterAccountAsGuardianResponse, error) {
+func (k msgServer) Legacy_RegisterAccountAsGuardian_v0(goCtx context.Context, msg *types.MsgRegisterAccountAsGuardian) (*types.MsgRegisterAccountAsGuardianResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	if ctx.BlockHeight() < 700000 && ctx.ChainID() == "wormchain" {
-		return k.Legacy_RegisterAccountAsGuardian_v0(goCtx, msg)
-	}
 
 	signer, err := sdk.AccAddressFromBech32(msg.Signer)
 	if err != nil {
 		return nil, err
 	}
 	// recover guardian key from signature
-	signerHash := crypto.Keccak256Hash(wormholesdk.SignedWormchainAddressPrefix, signer)
+	signerHash := crypto.Keccak256Hash(signer)
 	guardianKey, err := crypto.Ecrecover(signerHash.Bytes(), msg.Signature)
 
 	if err != nil {
