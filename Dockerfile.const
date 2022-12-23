@@ -32,10 +32,13 @@ COPY scripts ./scripts
 COPY ethereum/.env.test ./ethereum/.env.test
 
 ARG num_guardians
+ARG num_wormchain_validators
 ENV NUM_GUARDIANS=$num_guardians
+ENV NUM_WORMCHAIN_VALIDATORS=$num_wormchain_validators
 
 # run guardian-set-init.sh to create env files with the init state for NUM_GUARDIANS
 RUN ./scripts/guardian-set-init.sh $NUM_GUARDIANS
+RUN ./scripts/wormchain-set-init.sh $NUM_WORMCHAIN_VALIDATORS
 
 FROM scratch AS const-export
 COPY --from=const-build /scripts/.env.0x ethereum/.env

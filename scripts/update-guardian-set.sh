@@ -30,7 +30,15 @@ guardianPublicWebBaseUrl="${webHost}:7071"
 currentGuardianSetUrl="${guardianPublicWebBaseUrl}/v1/guardianset/current"
 
 # fetch result and parse json body:
-guardianSet=$(curl ${currentGuardianSetUrl} | jq ".guardianSet")
+guardianSet=
+while [[ 1 ]] ; do
+    res=$(curl ${currentGuardianSetUrl} || echo '{"error": "curl error"}')
+    guardianSet=$(echo $res | jq ".guardianSet")
+   [[ $guardianSet != "null" ]] && break
+   echo "waiting for guardian set to come up: $res"
+   sleep 3
+done
+echo guardianSet: $guardianSet
 currentIndex=$(echo ${guardianSet} | jq ".index")
 currentNumGuardians=$(echo ${guardianSet} | jq ".addresses | length")
 echo "currentIndex: ${currentIndex}"
@@ -109,6 +117,9 @@ nextIndex=$(echo ${nexGuardianSet} | jq ".index")
 nextNumGuardians=$(echo ${nextGuardianSet} | jq ".addresses | length")
 echo "nextIndex: ${nextIndex}"
 echo "nextNumGuardians ${nextNumGuardians}"
+ls
+ls wormchain
+echo "${hexVaa}" > wormchain/build/updateVaa.hex
 
 if [ ${nextNumGuardians} == ${newNumGuardians} ]; then
     echo "number of guardians is as expected."

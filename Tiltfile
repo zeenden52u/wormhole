@@ -21,6 +21,7 @@ config.define_bool("ci", False, "We are running in CI")
 config.define_bool("manual", False, "Set TRIGGER_MODE_MANUAL by default")
 
 config.define_string("num", False, "Number of guardian nodes to run")
+config.define_string("numWormchain", False, "Number of wormchain validators to run")
 
 # You do not usually need to set this argument - this argument is for debugging only. If you do use a different
 # namespace, note that the "wormhole" namespace is hardcoded in tests and don't forget specifying the argument
@@ -57,6 +58,7 @@ config.define_bool("secondWormchain", False, "Enable a second wormchain node wit
 
 cfg = config.parse()
 num_guardians = int(cfg.get("num", "1"))
+num_wormchain_validators = int(cfg.get("numWormchain", "1"))
 namespace = cfg.get("namespace", "wormhole")
 gcpProject = cfg.get("gcpProject", "")
 bigTableKeyPath = cfg.get("bigTableKeyPath", "")
@@ -84,6 +86,8 @@ if cfg.get("manual", False):
 else:
     trigger_mode = TRIGGER_MODE_AUTO
 
+if num_guardians < num_wormchain_validators:
+    fail("number of guardians cannot be less than number of wormchain validators")
 # namespace
 
 if not ci:
@@ -95,7 +99,7 @@ def k8s_yaml_with_ns(objects):
 local_resource(
     name = "const-gen",
     deps = ["scripts", "clients", "ethereum/.env.test"],
-    cmd = 'tilt docker build -- --target const-export -f Dockerfile.const -o type=local,dest=. --build-arg num_guardians=%s .' % (num_guardians),
+    cmd = 'tilt docker build -- --target const-export -f Dockerfile.const -o type=local,dest=. --build-arg num_guardians=%s --build-arg num_wormchain_validators=%s .' % (num_guardians, num_wormchain_validators),
     env = {"DOCKER_BUILDKIT": "1"},
     allow_parallel = True,
     trigger_mode = trigger_mode,
@@ -726,6 +730,9 @@ if wormchain:
     )
 
     k8s_yaml_with_ns("wormchain/validators/kubernetes/wormchain-guardian-devnet.yaml")
+    wormchain_update_deps = []
+    if num_guardians >= 2 and ci == False:
+        wormchain_update_deps.append("guardian-set-update")
 
     k8s_resource(
         "guardian-validator",
@@ -738,19 +745,16 @@ if wormchain:
         trigger_mode = trigger_mode,
     )
 
-    if secondWormchain:
-        k8s_yaml_with_ns("wormchain/validators/kubernetes/wormchain-validator2-devnet.yaml")
-
-        k8s_resource(
-            "second-validator",
-            port_forwards = [
-                port_forward(1320, container_port = 1317, name = "REST [:1320]", host = webHost),
-                port_forward(26660, container_port = 26657, name = "TENDERMINT [:26660]", host = webHost)
-            ],
-            resource_deps = [],
+    if num_guardians >= 2 and ci == False:
+        local_resource(
+            name = "wormchain-set-update",
+            resource_deps = ["guardian-set-update"],
+            deps = ["scripts/send-vaa.sh", "clients/eth"],
+            cmd = './scripts/update-wormchain-set.sh',
             labels = ["wormchain"],
             trigger_mode = trigger_mode,
         )
+
 
 if btc:
     k8s_yaml_with_ns("devnet/btc-localnet.yaml")
