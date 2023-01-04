@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"reflect"
 	"testing"
@@ -20,6 +21,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type errWriter struct{}
+
+func (e errWriter) Write(p []byte) (int, error) {
+	return 0, errors.New("Bork bork!")
+}
 
 func TestChainIDFromString(t *testing.T) {
 	type test struct {
@@ -989,6 +996,46 @@ func TestUnmarshalBody(t *testing.T) {
 			if err == nil {
 				assert.Equal(t, testCase.expectedVAA, body)
 			}
+		})
+	}
+}
+
+func TestMustWrite(t *testing.T) {
+	tests := []struct {
+		name     string
+		writer   io.Writer
+		order    binary.ByteOrder
+		data     []byte
+		expected string
+	}{
+		{
+			name:   "working",
+			writer: new(bytes.Buffer),
+			order:  binary.BigEndian,
+			data:   []byte("Hi!"),
+			//expected: "failed to write binary data: %v",
+			expected: "",
+		},
+		{
+			name:   "broken",
+			writer: new(errWriter),
+			order:  binary.BigEndian,
+			data:   []byte("Hi!"),
+			//expected: "failed to write binary data: %v",
+			expected: "failed to write binary data: [72 105 33]",
+		},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.expected != "" {
+				require.PanicsWithValue(t, testCase.expected, func() { MustWrite(testCase.writer, testCase.order, testCase.data) })
+			} else {
+				require.NotPanics(t, func() { MustWrite(testCase.writer, testCase.order, testCase.data) })
+				stringer, ok := testCase.writer.(fmt.Stringer)
+				require.Equal(t, true, ok)
+				assert.Equal(t, string(testCase.data), stringer.String())
+			}
+
 		})
 	}
 }
