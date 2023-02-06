@@ -108,4 +108,12 @@ contract BridgeStructs {
         // Chain ID
         uint16 newChainId;
     }
+
+    struct CompleteTransferInternal {
+        // Local address for the transfered token
+        address token;
+        uint8 tokenDecimals;
+        uint256 nativeAmount;
+        uint256 nativeFee;
+    }
 }

@@ -499,67 +499,82 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
 
         require(transfer.toChain == chainId(), "invalid target chain");
 
-        IERC20 transferToken;
+        // internal complete transfer struct
+        BridgeStructs.CompleteTransferInternal memory transferInfo;
+
+        // find the address of the token on this chain
         if (transfer.tokenChain == chainId()) {
-            transferToken = IERC20(_truncateAddress(transfer.tokenAddress));
+            transferInfo.token = _truncateAddress(transfer.tokenAddress);
 
             // track outstanding token amounts
-            bridgedIn(address(transferToken), transfer.amount);
+            bridgedIn(transferInfo.token, transfer.amount);
         } else {
-            address wrapped = wrappedAsset(transfer.tokenChain, transfer.tokenAddress);
-            require(wrapped != address(0), "no wrapper for this token created yet");
-
-            transferToken = IERC20(wrapped);
+            // fetch the wrapped address
+            transferInfo.token = wrappedAsset(transfer.tokenChain, transfer.tokenAddress);
+            require(transferInfo.token != address(0), "no wrapper for this token created yet");
         }
 
-        require(unwrapWETH == false || address(transferToken) == address(WETH()), "invalid token, can only unwrap WETH");
+        require(unwrapWETH == false || transferInfo.token == address(WETH()), "invalid token, can only unwrap WETH");
 
         // query decimals
-        (,bytes memory queriedDecimals) = address(transferToken).staticcall(abi.encodeWithSignature("decimals()"));
-        uint8 decimals = abi.decode(queriedDecimals, (uint8));
+        (,bytes memory queriedDecimals) = transferInfo.token.staticcall(abi.encodeWithSignature("decimals()"));
+        transferInfo.tokenDecimals = abi.decode(queriedDecimals, (uint8));
 
         // adjust decimals
-        uint256 nativeAmount = deNormalizeAmount(transfer.amount, decimals);
-        uint256 nativeFee = deNormalizeAmount(transfer.fee, decimals);
+        transferInfo.nativeAmount = deNormalizeAmount(transfer.amount, transferInfo.tokenDecimals);
+        transferInfo.nativeFee = deNormalizeAmount(transfer.fee, transferInfo.tokenDecimals);
+
+        // withdraw WETH
+        if (unwrapWETH) {
+            WETH().withdraw(transferInfo.nativeAmount);
+        }
 
         // transfer fee to arbiter
-        if (nativeFee > 0 && transferRecipient != msg.sender) {
-            require(nativeFee <= nativeAmount, "fee higher than transferred amount");
+        if (transferInfo.nativeFee > 0 && transferRecipient != msg.sender) {
+            require(transferInfo.nativeFee <= transferInfo.nativeAmount, "fee higher than transferred amount");
 
-            if (unwrapWETH) {
-                WETH().withdraw(nativeFee);
-
-                payable(msg.sender).transfer(nativeFee);
-            } else {
-                if (transfer.tokenChain != chainId()) {
-                    // mint wrapped asset
-                    TokenImplementation(address(transferToken)).mint(msg.sender, nativeFee);
-                } else {
-                    SafeERC20.safeTransfer(transferToken, msg.sender, nativeFee);
-                }
-            }
+            // handle fee payment
+            handleTransferOnCompletion(
+                transfer.tokenChain,
+                transferInfo.token,
+                msg.sender,
+                transferInfo.nativeFee,
+                unwrapWETH
+            );
         } else {
             // set fee to zero in case transferRecipient == feeRecipient
-            nativeFee = 0;
+            transferInfo.nativeFee = 0;
         }
 
-        // transfer bridged amount to recipient
-        uint transferAmount = nativeAmount - nativeFee;
-
-        if (unwrapWETH) {
-            WETH().withdraw(transferAmount);
-
-            payable(transferRecipient).transfer(transferAmount);
-        } else {
-            if (transfer.tokenChain != chainId()) {
-                // mint wrapped asset
-                TokenImplementation(address(transferToken)).mint(transferRecipient, transferAmount);
-            } else {
-                SafeERC20.safeTransfer(transferToken, transferRecipient, transferAmount);
-            }
-        }
+        // handle outbound transfer
+        handleTransferOnCompletion(
+            transfer.tokenChain,
+            transferInfo.token,
+            transferRecipient,
+            transferInfo.nativeAmount - transferInfo.nativeFee,
+            unwrapWETH
+        );
 
         return vm.payload;
+    }
+
+    function handleTransferOnCompletion(
+        uint16 tokenChain,
+        address tokenAddress,
+        address recipient,
+        uint256 amount,
+        bool unwrapWETH
+    ) internal {
+        if (unwrapWETH) {
+            payable(recipient).transfer(amount);
+        } else {
+            if (tokenChain != chainId()) {
+                // mint wrapped asset
+                TokenImplementation(tokenAddress).mint(recipient, amount);
+            } else {
+                SafeERC20.safeTransfer(IERC20(tokenAddress), recipient, amount);
+            }
+        }
     }
 
     function bridgeOut(address token, uint normalizedAmount) internal {
