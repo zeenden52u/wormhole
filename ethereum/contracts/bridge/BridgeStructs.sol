@@ -48,7 +48,7 @@ contract BridgeStructs {
         // Amount being transferred (big-endian uint256)
         uint256 normalizedAmount;
         // Amount of tokens (big-endian uint256) that the user is willing to pay as relayer fee. Must be <= Amount.
-        uint256 normalizedArbiterFee;
+        uint256 normalizedRelayerFee;
         // Portion of msg.value to be paid as the core bridge fee
         uint wormholeFee;
     }

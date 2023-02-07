@@ -68,11 +68,11 @@ interface ITokenBridge {
 
     function attestToken(address tokenAddress, uint32 nonce) external payable returns (uint64 sequence);
 
-    function wrapAndTransferETH(uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) external payable returns (uint64 sequence);
+    function wrapAndTransferETH(uint16 recipientChain, bytes32 recipient, uint256 relayerFee, uint32 nonce) external payable returns (uint64 sequence);
 
     function wrapAndTransferETHWithPayload(uint16 recipientChain, bytes32 recipient, uint32 nonce, bytes memory payload) external payable returns (uint64 sequence);
 
-    function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) external payable returns (uint64 sequence);
+    function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 relayerFee, uint32 nonce) external payable returns (uint64 sequence);
 
     function transferTokensWithPayload(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint32 nonce, bytes memory payload) external payable returns (uint64 sequence);
 

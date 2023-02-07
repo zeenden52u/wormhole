@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 interface TokenBridge {
-  function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) external payable returns (uint64);
+  function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 relayerFee, uint32 nonce) external payable returns (uint64);
 }
 
 //https://github.com/scaffold-eth/scaffold-eth/blob/mvp-dex/packages/hardhat/contracts/YourDEX.sol

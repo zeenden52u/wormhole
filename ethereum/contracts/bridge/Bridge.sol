@@ -64,18 +64,18 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
     function wrapAndTransferETH(
         uint16 recipientChain,
         bytes32 recipient,
-        uint256 arbiterFee,
+        uint256 relayerFee,
         uint32 nonce
     ) public payable returns (uint64 sequence) {
         BridgeStructs.TransferResult
-            memory transferResult = _wrapAndTransferETH(arbiterFee);
+            memory transferResult = _wrapAndTransferETH(relayerFee);
         sequence = logTransfer(
             transferResult.tokenChain,
             transferResult.tokenAddress,
             transferResult.normalizedAmount,
             recipientChain,
             recipient,
-            transferResult.normalizedArbiterFee,
+            transferResult.normalizedRelayerFee,
             transferResult.wormholeFee,
             nonce
         );
@@ -113,17 +113,17 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         );
     }
 
-    function _wrapAndTransferETH(uint256 arbiterFee) internal returns (BridgeStructs.TransferResult memory transferResult) {
+    function _wrapAndTransferETH(uint256 relayerFee) internal returns (BridgeStructs.TransferResult memory transferResult) {
         uint wormholeFee = wormhole().messageFee();
 
         require(wormholeFee < msg.value, "value is smaller than wormhole fee");
 
         uint amount = msg.value - wormholeFee;
 
-        require(arbiterFee <= amount, "fee is bigger than amount minus wormhole fee");
+        require(relayerFee <= amount, "fee is bigger than amount minus wormhole fee");
 
         uint normalizedAmount = normalizeAmount(amount, 18);
-        uint normalizedArbiterFee = normalizeAmount(arbiterFee, 18);
+        uint normalizedRelayerFee = normalizeAmount(relayerFee, 18);
 
         // refund dust
         uint dust = amount - deNormalizeAmount(normalizedAmount, 18);
@@ -143,7 +143,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             tokenChain : chainId(),
             tokenAddress : bytes32(uint256(uint160(address(WETH())))),
             normalizedAmount : normalizedAmount,
-            normalizedArbiterFee : normalizedArbiterFee,
+            normalizedRelayerFee : normalizedRelayerFee,
             wormholeFee : wormholeFee
         });
     }
@@ -156,13 +156,13 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint256 amount,
         uint16 recipientChain,
         bytes32 recipient,
-        uint256 arbiterFee,
+        uint256 relayerFee,
         uint32 nonce
     ) public payable nonReentrant returns (uint64 sequence) {
         BridgeStructs.TransferResult memory transferResult = _transferTokens(
             token,
             amount,
-            arbiterFee
+            relayerFee
         );
         sequence = logTransfer(
             transferResult.tokenChain,
@@ -170,7 +170,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             transferResult.normalizedAmount,
             recipientChain,
             recipient,
-            transferResult.normalizedArbiterFee,
+            transferResult.normalizedRelayerFee,
             transferResult.wormholeFee,
             nonce
         );
@@ -216,7 +216,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
     /*
      *  @notice Initiate a transfer
      */
-    function _transferTokens(address token, uint256 amount, uint256 arbiterFee) internal returns (BridgeStructs.TransferResult memory transferResult) {
+    function _transferTokens(address token, uint256 amount, uint256 relayerFee) internal returns (BridgeStructs.TransferResult memory transferResult) {
         // determine token parameters
         uint16 tokenChain;
         bytes32 tokenAddress;
@@ -257,7 +257,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
 
         // normalize amounts decimals
         uint256 normalizedAmount = normalizeAmount(amount, decimals);
-        uint256 normalizedArbiterFee = normalizeAmount(arbiterFee, decimals);
+        uint256 normalizedRelayerFee = normalizeAmount(relayerFee, decimals);
 
         // track and check outstanding token amounts
         if (tokenChain == chainId()) {
@@ -268,7 +268,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             tokenChain : tokenChain,
             tokenAddress : tokenAddress,
             normalizedAmount : normalizedAmount,
-            normalizedArbiterFee : normalizedArbiterFee,
+            normalizedRelayerFee : normalizedRelayerFee,
             wormholeFee : msg.value
         });
     }
