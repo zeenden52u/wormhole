@@ -499,20 +499,21 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
 
         require(transfer.toChain == chainId(), "invalid target chain");
 
-        IERC20 transferToken;
-        if (transfer.tokenChain == chainId()) {
-            transferToken = IERC20(_truncateAddress(transfer.tokenAddress));
+        // an asset is wrapped when its origin is not the current chain
+        bool isWrappedAsset = transfer.tokenChain != chainId();
 
-            // track outstanding token amounts
-            bridgedIn(address(transferToken), transfer.amount);
-        } else {
+        IERC20 transferToken;
+        if (isWrappedAsset) {
             address wrapped = wrappedAsset(transfer.tokenChain, transfer.tokenAddress);
             require(wrapped != address(0), "no wrapper for this token created yet");
 
             transferToken = IERC20(wrapped);
-        }
+        } else {
+            transferToken = IERC20(_truncateAddress(transfer.tokenAddress));
 
-        require(unwrapWETH == false || address(transferToken) == address(WETH()), "invalid token, can only unwrap WETH");
+            // track outstanding token amounts
+            bridgedIn(address(transferToken), transfer.amount);
+        }
 
         // query decimals
         (,bytes memory queriedDecimals) = address(transferToken).staticcall(abi.encodeWithSignature("decimals()"));
@@ -522,41 +523,36 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint256 nativeAmount = deNormalizeAmount(transfer.amount, decimals);
         uint256 nativeFee = deNormalizeAmount(transfer.fee, decimals);
 
-        // transfer fee to arbiter
-        if (nativeFee > 0 && transferRecipient != msg.sender) {
-            require(nativeFee <= nativeAmount, "fee higher than transferred amount");
-
-            if (unwrapWETH) {
-                WETH().withdraw(nativeFee);
-
-                payable(msg.sender).transfer(nativeFee);
-            } else {
-                if (transfer.tokenChain != chainId()) {
-                    // mint wrapped asset
-                    TokenImplementation(address(transferToken)).mint(msg.sender, nativeFee);
-                } else {
-                    SafeERC20.safeTransfer(transferToken, msg.sender, nativeFee);
-                }
-            }
-        } else {
-            // set fee to zero in case transferRecipient == feeRecipient
+        if (msg.sender == transferRecipient) {
+            // if the transfer recipient redeems the transaction, they receive
+            // the amount + fees in one go
             nativeFee = 0;
         }
 
-        // transfer bridged amount to recipient
-        uint transferAmount = nativeAmount - nativeFee;
+        require(nativeFee <= nativeAmount, "fee higher than transferred amount");
+        uint256 transferAmount = nativeAmount - nativeFee;
 
         if (unwrapWETH) {
-            WETH().withdraw(transferAmount);
+            // native eth
+            require(address(transferToken) == address(WETH()), "invalid token, can only unwrap WETH");
+            WETH().withdraw(nativeFee + transferAmount);
 
-            payable(transferRecipient).transfer(transferAmount);
-        } else {
-            if (transfer.tokenChain != chainId()) {
-                // mint wrapped asset
-                TokenImplementation(address(transferToken)).mint(transferRecipient, transferAmount);
-            } else {
-                SafeERC20.safeTransfer(transferToken, transferRecipient, transferAmount);
+            if (nativeFee > 0) {
+                payable(msg.sender).transfer(nativeFee);
             }
+            payable(transferRecipient).transfer(transferAmount);
+        } else if (isWrappedAsset) {
+            // mint wrapped assets
+            if (nativeFee > 0) {
+                TokenImplementation(address(transferToken)).mint(msg.sender, nativeFee);
+            }
+            TokenImplementation(address(transferToken)).mint(transferRecipient, transferAmount);
+        } else {
+            // unlock native assets
+            if (nativeFee > 0) {
+                SafeERC20.safeTransfer(transferToken, msg.sender, nativeFee);
+            }
+            SafeERC20.safeTransfer(transferToken, transferRecipient, transferAmount);
         }
 
         return vm.payload;
