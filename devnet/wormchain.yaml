@@ -69,6 +69,9 @@ spec:
       containers:
         - name: wormchaind
           image: wormchaind-image
+          resources:
+            requests:
+              memory: "4096Mi"
           command:
             - /bin/bash
             - -c

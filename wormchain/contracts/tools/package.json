@@ -5,7 +5,9 @@
   "main": "deploy_wormchain.ts",
   "scripts": {
     "deploy-wormchain": "ts-node deploy_wormchain.ts",
+    "process-log": "ts-node process_log.ts",
     "test-accountant": "jest test_accountant.ts --verbose",
+    "test-backfill": "ts-node test_backfill.ts",
     "test-wormchain": "ts-node test_wormchain.ts",
     "deploy-and-test": "npm run deploy-wormchain && npm run test-wormchain"
   },
@@ -21,6 +23,7 @@
     "elliptic": "6.5.4",
     "ethers": "5.7.2",
     "js-sha3": "0.8.0",
+    "ora": "5.4.1",
     "web3-eth-abi": "1.8.1",
     "yargs": "17.6.2"
   },
