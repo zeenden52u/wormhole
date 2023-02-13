@@ -6,7 +6,7 @@ use accountant::state::{
     account::{self, Balance},
     transfer, Kind, Modification, Transfer,
 };
-use cosmwasm_std::{to_binary, Uint256};
+use cosmwasm_std::{Uint256};
 use global_accountant::msg::TransferStatus;
 use helpers::*;
 use wormhole::{token::Message, vaa::Body, Address, Amount};

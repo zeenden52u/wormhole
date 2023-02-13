@@ -205,17 +205,17 @@ pub enum Message<P = Box<RawMessage>> {
 #[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub enum ModificationKind {
+    Unknown = 0,
     Add = 1,
     Subtract = 2,
-    Unknown(u8),
 }
 
 impl From<u8> for ModificationKind {
     fn from(other: u8) -> ModificationKind {
         match other {
-            0 => ModificationKind::Add,
-            1 => ModificationKind::Subtract,
-            x => ModificationKind::Unknown(x)
+            1 => ModificationKind::Add,
+            2 => ModificationKind::Subtract,
+            _ => ModificationKind::Unknown,
         }
     }
 }
@@ -223,9 +223,9 @@ impl From<u8> for ModificationKind {
 impl From<ModificationKind> for u8 {
     fn from(other: ModificationKind) -> u8 {
         match other {
-            ModificationKind::Add => 0,
-            ModificationKind::Subtract => 1,
-            ModificationKind::Unknown(x) => x,
+            ModificationKind::Unknown => 0,
+            ModificationKind::Add => 1,
+            ModificationKind::Subtract => 2,
         }
     }
 }

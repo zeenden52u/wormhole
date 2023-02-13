@@ -77,7 +77,7 @@ func TestWasmdStoreCode(t *testing.T) {
 	msgServer := keeper.NewMsgServerImpl(*k)
 
 	// create governance to store code
-	payload := createWasmStoreCodePayload(keepertest.EXAMPLE_WASM_CONTRACT_GZIP)
+	payload := createWasmStoreCodePayload(keepertest.ACCOUNTANT_WASM_B64_GZIP)
 	v := generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload)
 	vBz, err := v.Marshal()
 	assert.NoError(t, err)
@@ -85,7 +85,7 @@ func TestWasmdStoreCode(t *testing.T) {
 	// store code should work
 	res, err := msgServer.StoreCode(context, &types.MsgStoreCode{
 		Signer:       signer.String(),
-		WASMByteCode: keepertest.EXAMPLE_WASM_CONTRACT_GZIP,
+		WASMByteCode: keepertest.ACCOUNTANT_WASM_B64_GZIP,
 		Vaa:          vBz,
 	})
 	_ = res
@@ -94,14 +94,14 @@ func TestWasmdStoreCode(t *testing.T) {
 	// replay attack does not work.
 	_, err = msgServer.StoreCode(context, &types.MsgStoreCode{
 		Signer:       signer.String(),
-		WASMByteCode: keepertest.EXAMPLE_WASM_CONTRACT_GZIP,
+		WASMByteCode: keepertest.ACCOUNTANT_WASM_B64_GZIP,
 		Vaa:          vBz,
 	})
 	assert.ErrorIs(t, err, types.ErrVAAAlreadyExecuted)
 
 	// modified wasm byte code does not verify
-	bad_wasm := make([]byte, len(keepertest.EXAMPLE_WASM_CONTRACT_GZIP))
-	copy(bad_wasm, keepertest.EXAMPLE_WASM_CONTRACT_GZIP)
+	bad_wasm := make([]byte, len(keepertest.ACCOUNTANT_WASM_B64_GZIP))
+	copy(bad_wasm, keepertest.ACCOUNTANT_WASM_B64_GZIP)
 	bad_wasm[100] = bad_wasm[100] ^ 0x40
 	// create vaa with the hash of the "valid" wasm
 	v = generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload)
@@ -114,7 +114,7 @@ func TestWasmdStoreCode(t *testing.T) {
 	assert.ErrorIs(t, err, types.ErrInvalidHash)
 
 	// Sending to wrong module is error
-	payload_wrong_module := createWasmStoreCodePayload(keepertest.EXAMPLE_WASM_CONTRACT_GZIP)
+	payload_wrong_module := createWasmStoreCodePayload(keepertest.ACCOUNTANT_WASM_B64_GZIP)
 	// tamper with the module id
 	payload_wrong_module[16] = 0xff
 	v = generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload_wrong_module)
@@ -146,13 +146,13 @@ func TestWasmdInstantiateContract(t *testing.T) {
 	msgServer := keeper.NewMsgServerImpl(*k)
 
 	// First we need to upload code that we can instantiate.
-	payload := createWasmStoreCodePayload(keepertest.EXAMPLE_WASM_CONTRACT_GZIP)
+	payload := createWasmStoreCodePayload(keepertest.ACCOUNTANT_WASM_B64_GZIP)
 	v := generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload)
 	vBz, err := v.Marshal()
 	assert.NoError(t, err)
 	res, err := msgServer.StoreCode(context, &types.MsgStoreCode{
 		Signer:       signer.String(),
-		WASMByteCode: keepertest.EXAMPLE_WASM_CONTRACT_GZIP,
+		WASMByteCode: keepertest.ACCOUNTANT_WASM_B64_GZIP,
 		Vaa:          vBz,
 	})
 	assert.NoError(t, err)
@@ -272,7 +272,7 @@ func TestWasmdMigrateContract(t *testing.T) {
 
 	// First we need to (1) upload some codes and (2) instantiate.
 	// (1) upload
-	payload := createWasmStoreCodePayload(keepertest.EXAMPLE_WASM_CONTRACT_GZIP)
+	payload := createWasmStoreCodePayload(keepertest.ACCOUNTANT_WASM_B64_GZIP)
 	code_ids := []uint64{}
 	for i := 0; i < 5; i++ {
 		v := generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload)
@@ -280,7 +280,7 @@ func TestWasmdMigrateContract(t *testing.T) {
 		assert.NoError(t, err)
 		res, err := msgServer.StoreCode(context, &types.MsgStoreCode{
 			Signer:       signer.String(),
-			WASMByteCode: keepertest.EXAMPLE_WASM_CONTRACT_GZIP,
+			WASMByteCode: keepertest.ACCOUNTANT_WASM_B64_GZIP,
 			Vaa:          vBz,
 		})
 		assert.NoError(t, err)
@@ -411,5 +411,58 @@ func TestWasmdMigrateContract(t *testing.T) {
 		Vaa:      vBz,
 	})
 	assert.ErrorIs(t, err, types.ErrUnknownGovernanceAction)
+}
+
+// This specifically tests the modify vaa in accountant
+func TestWasmdAccountantContractModify(t *testing.T) {
+	k, wasmd, ctx := keepertest.WormholeKeeperAndWasmd(t)
+	guardians, privateKeys := createNGuardianValidator(k, ctx, 10)
+	_ = privateKeys
+	k.SetConfig(ctx, types.Config{
+		GovernanceEmitter:     vaa.GovernanceEmitter[:],
+		GovernanceChain:       uint32(vaa.GovernanceChain),
+		ChainId:               uint32(vaa.ChainIDWormchain),
+		GuardianSetExpiration: 86400,
+	})
+	signer_bz := [20]byte{}
+	signer := sdk.AccAddress(signer_bz[:])
+
+	set := createNewGuardianSet(k, ctx, guardians)
+
+	context := sdk.WrapSDKContext(ctx)
+	msgServer := keeper.NewMsgServerImpl(*k)
+
+	// First we need to (1) upload some codes and (2) instantiate.
+	// (1) upload
+	payload := createWasmStoreCodePayload(keepertest.ACCOUNTANT_WASM_B64_GZIP)
+	v := generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload)
+	vBz, err := v.Marshal()
+	assert.NoError(t, err)
+	res, err := msgServer.StoreCode(context, &types.MsgStoreCode{
+		Signer:       signer.String(),
+		WASMByteCode: keepertest.ACCOUNTANT_WASM_B64_GZIP,
+		Vaa:          vBz,
+	})
+	assert.NoError(t, err)
+	code_id := res.CodeID
+
+	// (2) instantiate
+	payload = createWasmInstantiatePayload(code_id, "accountant", "{}")
+	v = generateVaa(set.Index, privateKeys, vaa.ChainID(vaa.GovernanceChain), payload)
+	vBz, _ = v.Marshal()
+	instantiate, err := msgServer.InstantiateContract(context, &types.MsgInstantiateContract{
+		Signer: signer.String(),
+		CodeID: code_id,
+		Label:  "accountant",
+		Msg:    []byte("{}"),
+		Vaa:    vBz,
+	})
+	require.NoError(t, err)
+
+	contract_addr, err := sdk.AccAddressFromBech32(instantiate.Address)
+	require.NoError(t, err)
+
+	// Now we can test sending Modify VAA to accountant
+	wasmd.Execute(ctx, contract_addr, signer, []byte("{}"), []sdk.Coin{})
 
 }

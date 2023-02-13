@@ -1,7 +1,7 @@
 mod helpers;
 
 use accountant::state::{account, Kind, Modification};
-use cosmwasm_std::{to_binary, Event, Uint256};
+use cosmwasm_std::{Event, Uint256};
 use helpers::*;
 
 #[test]

@@ -429,7 +429,7 @@ fn handle_governance_vaa(
             let kind = match kind {
                 ModificationKind::Add => Kind::Add,
                 ModificationKind::Subtract => Kind::Sub,
-                ModificationKind::Unknown(_) => bail!("unsupported governance action"),
+                ModificationKind::Unknown => bail!("unsupported governance action"),
             };
             let amount = Uint256::from_be_bytes(amount.0);
             let reason = Reason::new(reason);

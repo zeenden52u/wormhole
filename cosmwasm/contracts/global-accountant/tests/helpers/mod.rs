@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use accountant::state::{account, transfer, Modification, Kind, Reason};
+use accountant::state::{account, transfer, Modification, Kind};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     testing::{MockApi, MockStorage},
