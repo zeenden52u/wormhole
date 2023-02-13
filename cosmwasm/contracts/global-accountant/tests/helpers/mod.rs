@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use accountant::state::{account, transfer, Modification};
+use accountant::state::{account, transfer, Modification, Kind, Reason};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     testing::{MockApi, MockStorage},
@@ -19,9 +19,9 @@ use global_accountant::{
 };
 use serde::Serialize;
 use wormhole::{
-    token::{Action, GovernancePacket},
+    token::{Action, GovernancePacket, ModificationKind},
     vaa::{Body, Header, Signature},
-    Address, Chain, Vaa,
+    Address, Chain, Vaa, Amount,
 };
 use wormhole_bindings::{fake, WormholeQuery};
 
@@ -34,6 +34,7 @@ pub struct TransferResponse {
 pub struct Contract {
     addr: Addr,
     app: FakeApp,
+    pub sequence: u64,
 }
 
 impl Contract {
@@ -67,22 +68,54 @@ impl Contract {
         )
     }
 
-    pub fn modify_balance(
+    pub fn modify_balance_with(
         &mut self,
-        modification: Binary,
-        guardian_set_index: u32,
-        signatures: Vec<Signature>,
+        modification: Modification,
+        wh: &fake::WormholeKeeper,
+        tamperer: impl Fn(Vaa<GovernancePacket>) -> Binary,
     ) -> anyhow::Result<AppResponse> {
+        let Modification { sequence, chain_id, token_chain, token_address, kind, amount, reason } = modification;
+        let token_address = Address(*token_address);
+        let kind = match kind {
+            Kind::Add => ModificationKind::Add,
+            Kind::Sub => ModificationKind::Subtract,
+        };
+        let amount = Amount(amount.to_be_bytes());
+        let reason = reason.0;
+        let body = Body {
+            timestamp: self.sequence as u32,
+            nonce: self.sequence as u32,
+            emitter_chain: Chain::Solana,
+            emitter_address: wormhole::GOVERNANCE_EMITTER,
+            sequence: self.sequence as u64,
+            consistency_level: 0,
+            payload: GovernancePacket {
+                chain: Chain::Any,
+                action: Action::ModifyBalance {
+                    sequence, chain_id, token_chain, token_address, kind, amount, reason,
+                },
+            },
+        };
+
+        self.sequence += 1;
+
+        let (vaa, _) = sign_vaa_body(wh, body);
+        let data = tamperer(vaa);
+        let vaas: Vec<Binary> = vec![data];
+
         self.app.execute_contract(
             Addr::unchecked(USER),
             self.addr(),
-            &ExecuteMsg::ModifyBalance {
-                modification,
-                guardian_set_index,
-                signatures,
-            },
+            &ExecuteMsg::SubmitVAAs { vaas },
             &[],
         )
+    }
+    pub fn modify_balance(
+        &mut self,
+        modification: Modification,
+        wh: &fake::WormholeKeeper,
+    ) -> anyhow::Result<AppResponse> {
+        self.modify_balance_with(modification, wh, |vaa| serde_wormhole::to_vec(&vaa).map(From::from).unwrap())
     }
 
     pub fn upgrade_contract(
@@ -287,7 +320,9 @@ pub fn proper_instantiate() -> (fake::WormholeKeeper, Contract) {
         )
         .unwrap();
 
-    (wh, Contract { addr, app })
+    let sequence = 0;
+
+    (wh, Contract { addr, app, sequence })
 }
 
 pub fn sign_vaa_body<P: Serialize>(wh: &fake::WormholeKeeper, body: Body<P>) -> (Vaa<P>, Binary) {
