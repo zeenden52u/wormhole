@@ -95,6 +95,7 @@ func Run(
 	gov *governor.ChainGovernor,
 	signedGovCfg chan *gossipv1.SignedChainGovernorConfig,
 	signedGovSt chan *gossipv1.SignedChainGovernorStatus,
+	stealthMode bool,
 ) func(ctx context.Context) error {
 	return func(ctx context.Context) (re error) {
 		p2pReceiveChannelOverflow.WithLabelValues("observation").Add(0)
@@ -180,7 +181,7 @@ func Run(
 
 		topic := fmt.Sprintf("%s/%s", networkID, "broadcast")
 
-		logger.Info("Subscribing pubsub topic", zap.String("topic", topic))
+		logger.Info("Subscribing pubsub topic", zap.String("topic", topic), zap.Bool("stealthMode", stealthMode))
 		ps, err := pubsub.NewGossipSub(ctx, h)
 		if err != nil {
 			panic(err)
@@ -284,12 +285,14 @@ func Run(
 						return b
 					}()
 
-					err = th.Publish(ctx, b)
-					if err != nil {
-						logger.Warn("failed to publish heartbeat message", zap.Error(err))
-					}
+					if !stealthMode {
+						err = th.Publish(ctx, b)
+						if err != nil {
+							logger.Warn("failed to publish heartbeat message", zap.Error(err))
+						}
 
-					p2pHeartbeatsSent.Inc()
+						p2pHeartbeatsSent.Inc()
+					}
 					ctr += 1
 				}
 			}
@@ -301,10 +304,12 @@ func Run(
 				case <-ctx.Done():
 					return
 				case msg := <-gossipSendC:
-					err := th.Publish(ctx, msg)
-					p2pMessagesSent.Inc()
-					if err != nil {
-						logger.Error("failed to publish message from queue", zap.Error(err))
+					if !stealthMode {
+						err := th.Publish(ctx, msg)
+						p2pMessagesSent.Inc()
+						if err != nil {
+							logger.Error("failed to publish message from queue", zap.Error(err))
+						}
 					}
 				case msg := <-obsvReqSendC:
 					b, err := proto.Marshal(msg)
@@ -337,12 +342,14 @@ func Run(
 					// Send to local observation request queue (the loopback message is ignored)
 					obsvReqC <- msg
 
-					err = th.Publish(ctx, b)
-					p2pMessagesSent.Inc()
-					if err != nil {
-						logger.Error("failed to publish observation request", zap.Error(err))
-					} else {
-						logger.Info("published signed observation request", zap.Any("signed_observation_request", sReq))
+					if !stealthMode {
+						err = th.Publish(ctx, b)
+						p2pMessagesSent.Inc()
+						if err != nil {
+							logger.Error("failed to publish observation request", zap.Error(err))
+						} else {
+							logger.Info("published signed observation request", zap.Any("signed_observation_request", sReq))
+						}
 					}
 				}
 			}

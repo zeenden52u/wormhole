@@ -204,6 +204,7 @@ var (
 	bigTableKeyPath            *string
 
 	chainGovernorEnabled *bool
+	stealthMode          *bool
 )
 
 func init() {
@@ -355,6 +356,7 @@ func init() {
 	bigTableKeyPath = NodeCmd.Flags().String("bigTableKeyPath", "", "Path to json Service Account key")
 
 	chainGovernorEnabled = NodeCmd.Flags().Bool("chainGovernorEnabled", false, "Run the chain governor")
+	stealthMode = NodeCmd.Flags().Bool("stealthMode", false, "Listen but not publish to the gossip network")
 }
 
 var (
@@ -401,7 +403,9 @@ func runNode(cmd *cobra.Command, args []string) {
 		fmt.Print(devwarning)
 	}
 
-	common.LockMemory()
+	if !*stealthMode {
+		common.LockMemory()
+	}
 	common.SetRestrictiveUmask()
 
 	// Refuse to run as root in production mode.
@@ -473,8 +477,15 @@ func runNode(cmd *cobra.Command, args []string) {
 			panic(err)
 		}
 
-		// Use the first guardian node as bootstrap
-		*p2pBootstrap = fmt.Sprintf("/dns4/guardian-0.guardian/udp/%d/quic/p2p/%s", *p2pPort, g0key.String())
+		if *stealthMode {
+			// In stealth mode we listen to mainnet but we do not publish anything.
+			*p2pNetworkID = "/wormhole/mainnet/2"
+			*p2pBootstrap = "/dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWQp644DK27fd3d4Km3jr7gHiuJJ5ZGmy8hH4py7fP4FP7"
+			logger.Info("Running in stealth mode, will not publish any gossip", zap.String("networkID", *p2pNetworkID), zap.String("bootstrap", *p2pBootstrap))
+		} else {
+			// Use the first guardian node as bootstrap
+			*p2pBootstrap = fmt.Sprintf("/dns4/guardian-0.guardian/udp/%d/quic/p2p/%s", *p2pPort, g0key.String())
+		}
 
 		// Deterministic ganache ETH devnet address.
 		*ethContract = unsafeDevModeEvmContractAddress(*ethContract)
@@ -492,6 +503,8 @@ func runNode(cmd *cobra.Command, args []string) {
 		*neonContract = unsafeDevModeEvmContractAddress(*neonContract)
 		*arbitrumContract = unsafeDevModeEvmContractAddress(*arbitrumContract)
 		*optimismContract = unsafeDevModeEvmContractAddress(*optimismContract)
+	} else if *stealthMode {
+		logger.Fatal("Stealth mode may only be used in unsafe dev mode")
 	}
 
 	// Verify flags
@@ -1050,7 +1063,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	// Run supervisor.
 	supervisor.New(rootCtx, logger, func(ctx context.Context) error {
 		if err := supervisor.Run(ctx, "p2p", p2p.Run(
-			(chan<- *gossipv1.SignedObservation)(obsvC), obsvReqWriteC, obsvReqSendReadC, gossipSendC, signedInWriteC, priv, gk, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, *nodeName, *disableHeartbeatVerify, rootCtxCancel, acct, gov, nil, nil)); err != nil {
+			(chan<- *gossipv1.SignedObservation)(obsvC), obsvReqWriteC, obsvReqSendReadC, gossipSendC, signedInWriteC, priv, gk, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, *nodeName, *disableHeartbeatVerify, rootCtxCancel, acct, gov, nil, nil, *stealthMode)); err != nil {
 			return err
 		}
 
@@ -1381,6 +1394,7 @@ func runNode(cmd *cobra.Command, args []string) {
 			gov,
 			acct,
 			acctReadC,
+			*stealthMode,
 		).Run); err != nil {
 			return err
 		}

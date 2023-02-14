@@ -70,6 +70,9 @@ spec:
               name: node-bigtable-key
             - mountPath: /tmp/mounted-keys/wormchain
               name: node-wormchain-key
+          # resources:
+          #   requests:
+          #     memory: "16384Mi"
           command:
             - /guardiand
             - node
@@ -165,6 +168,7 @@ spec:
             - /tmp/publicrpc.sock
             - --dataDir
             - /tmp/data
+            - --stealthMode=true
           # - --chainGovernorEnabled=true
           #            - --logLevel=debug
           securityContext:

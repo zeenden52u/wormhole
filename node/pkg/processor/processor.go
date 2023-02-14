@@ -135,6 +135,7 @@ type Processor struct {
 	acct        *accountant.Accountant
 	acctReadC   <-chan *common.MessagePublication
 	pythnetVaas map[string]PythNetVaaEntry
+	stealthMode bool
 }
 
 func NewProcessor(
@@ -158,6 +159,7 @@ func NewProcessor(
 	g *governor.ChainGovernor,
 	acct *accountant.Accountant,
 	acctReadC <-chan *common.MessagePublication,
+	stealthMode bool,
 ) *Processor {
 
 	return &Processor{
@@ -188,6 +190,7 @@ func NewProcessor(
 		acct:        acct,
 		acctReadC:   acctReadC,
 		pythnetVaas: make(map[string]PythNetVaaEntry),
+		stealthMode: stealthMode,
 	}
 }
 
@@ -205,6 +208,9 @@ func (p *Processor) Run(ctx context.Context) error {
 			}
 			return ctx.Err()
 		case p.gs = <-p.setC:
+			if p.stealthMode {
+				p.setStealthModeGuardianSet()
+			}
 			p.logger.Info("guardian set updated",
 				zap.Strings("set", p.gs.KeysAsHexStrings()),
 				zap.Uint32("index", p.gs.Index))
@@ -304,4 +310,35 @@ func (p *Processor) getSignedVAA(id db.VAAID) (*vaa.VAA, error) {
 	}
 
 	return vaa, err
+}
+
+func (p *Processor) setStealthModeGuardianSet() {
+	p.logger.Warn("in stealth mode, hard coding guardian set")
+	p.gs = &common.GuardianSet{
+		Index: 3,
+		Keys: []ethcommon.Address{
+			// mainnet
+			ethcommon.HexToAddress("0x58CC3AE5C097b213cE3c81979e1B9f9570746AA5"), // Jump
+			ethcommon.HexToAddress("0xfF6CB952589BDE862c25Ef4392132fb9D4A42157"), // Staked
+			ethcommon.HexToAddress("0x114De8460193bdf3A2fCf81f86a09765F4762fD1"), // Figment
+			ethcommon.HexToAddress("0x107A0086b32d7A0977926A205131d8731D39cbEB"), // ChainodeTech
+			ethcommon.HexToAddress("0x8C82B2fd82FaeD2711d59AF0F2499D16e726f6b2"), // Inotel
+			ethcommon.HexToAddress("0x11b39756C042441BE6D8650b69b54EbE715E2343"), // HashQuark
+			ethcommon.HexToAddress("0x54Ce5B4D348fb74B958e8966e2ec3dBd4958a7cd"), // ChainLayer
+			ethcommon.HexToAddress("0x15e7cAF07C4e3DC8e7C469f92C8Cd88FB8005a20"), // xLabs
+			ethcommon.HexToAddress("0x74a3bf913953D695260D88BC1aA25A4eeE363ef0"), // Forbole
+			ethcommon.HexToAddress("0x000aC0076727b35FBea2dAc28fEE5cCB0fEA768e"), // Staking Fund
+			ethcommon.HexToAddress("0xAF45Ced136b9D9e24903464AE889F5C8a723FC14"), // MoonletWallet
+			ethcommon.HexToAddress("0xf93124b7c738843CBB89E864c862c38cddCccF95"), // P2P Validator
+			ethcommon.HexToAddress("0xD2CC37A4dc036a8D232b48f62cDD4731412f4890"), // 01node
+			ethcommon.HexToAddress("0xDA798F6896A3331F64b48c12D1D57Fd9cbe70811"), // MCF-V2-MAINNET
+			ethcommon.HexToAddress("0x71AA1BE1D36CaFE3867910F99C09e347899C19C3"), // Everstake
+			ethcommon.HexToAddress("0x8192b6E7387CCd768277c17DAb1b7a5027c0b3Cf"), // Chorus One
+			ethcommon.HexToAddress("0x178e21ad2E77AE06711549CFBB1f9c7a9d8096e8"), // syncnode
+			ethcommon.HexToAddress("0x5E1487F35515d02A92753504a8D75471b9f49EdB"), // Triton
+			ethcommon.HexToAddress("0x6FbEBc898F403E4773E95feB15E80C9A99c8348d"), // Staking Facilities
+			// devnet
+			// ethcommon.HexToAddress("0xbeFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe"),
+		},
+	}
 }
