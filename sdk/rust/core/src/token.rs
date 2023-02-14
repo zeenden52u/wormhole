@@ -269,13 +269,23 @@ pub enum Action {
     // Modify balance for tokenbridge
     #[serde(rename = "3")]
     ModifyBalance { 
-        sequence: u64,
-        chain_id: u16,
-        token_chain: u16,
-        token_address: Address,
-        kind: ModificationKind,
-        amount: Amount,
-        reason: [u8; 32],
+        // module:  \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00TokenBridge (32)
+        // chainId: \x03\x0c (2)
+        // action: \x03 (1)
+
+        // \x00\x00\x00\x00\x00\x00\x00$
+        sequence: u64, // 8
+
+        // \x00\x01
+        chain_id: u16, // 10
+        // \x00\x01
+        token_chain: u16, // 12
+        // ||||||||||||||||||||||||||||||||
+        token_address: Address, // 44
+        // \x01
+        kind: ModificationKind, // 45
+        amount: Amount, // 78
+        reason: [u8; 32], // 110
     },
 }
 

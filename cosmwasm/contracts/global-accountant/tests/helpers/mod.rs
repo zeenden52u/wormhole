@@ -106,7 +106,7 @@ impl Contract {
         self.app.execute_contract(
             Addr::unchecked(USER),
             self.addr(),
-            &ExecuteMsg::SubmitVAAs { vaas },
+            &ExecuteMsg::SubmitVaas { vaas },
             &[],
         )
     }
@@ -140,7 +140,7 @@ impl Contract {
         self.app.execute_contract(
             Addr::unchecked(ADMIN),
             self.addr(),
-            &ExecuteMsg::SubmitVAAs { vaas },
+            &ExecuteMsg::SubmitVaas { vaas },
             &[],
         )
     }

@@ -84,7 +84,7 @@ pub fn execute(
             guardian_set_index,
             signatures,
         } => upgrade_contract(deps, env, info, upgrade, guardian_set_index, signatures),
-        ExecuteMsg::SubmitVAAs { vaas } => submit_vaas(deps, info, vaas),
+        ExecuteMsg::SubmitVaas { vaas } => submit_vaas(deps, info, vaas),
     }
 }
 

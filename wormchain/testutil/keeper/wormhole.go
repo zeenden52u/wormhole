@@ -31,11 +31,11 @@ import (
 )
 
 func WormholeKeeper(t testing.TB) (*keeper.Keeper, sdk.Context) {
-	k, _, ctx := WormholeKeeperAndWasmd(t)
+	k, _, _, ctx := WormholeKeeperAndWasmd(t)
 	return k, ctx
 }
 
-func WormholeKeeperAndWasmd(t testing.TB) (*keeper.Keeper, *wasmkeeper.PermissionedKeeper, sdk.Context) {
+func WormholeKeeperAndWasmd(t testing.TB) (*keeper.Keeper, wasmkeeper.Keeper, *wasmkeeper.PermissionedKeeper, sdk.Context) {
 	keys := sdk.NewKVStoreKeys(
 		authtypes.StoreKey,
 		paramstypes.StoreKey,
@@ -138,5 +138,5 @@ func WormholeKeeperAndWasmd(t testing.TB) (*keeper.Keeper, *wasmkeeper.Permissio
 	appapp.WormholeKeeper.SetWasmdKeeper(permissionedWasmKeeper)
 	k.SetWasmdKeeper(permissionedWasmKeeper)
 
-	return k, permissionedWasmKeeper, ctx
+	return k, wasmKeeper, permissionedWasmKeeper, ctx
 }

@@ -131,7 +131,7 @@ pub enum ExecuteMsg {
 
     /// Submit one or more signed VAAs to update the on-chain state.  If processing any of the VAAs
     /// returns an error, the entire transaction is aborted and none of the VAAs are committed.
-    SubmitVAAs {
+    SubmitVaas {
         /// One or more VAAs to be submitted.  Each VAA should be encoded in the standard wormhole
         /// wire format.
         vaas: Vec<Binary>,
