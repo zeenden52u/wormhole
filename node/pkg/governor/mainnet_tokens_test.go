@@ -14,7 +14,7 @@ func TestTokenListSize(t *testing.T) {
 
 	/* Assuming that governed tokens will need to be updated every time
 	   we regenerate it */
-	assert.Equal(t, 134, len(tokenConfigEntries))
+	assert.Equal(t, 146, len(tokenConfigEntries))
 }
 
 func TestTokenListAddressSize(t *testing.T) {
@@ -70,7 +70,7 @@ func TestTokenListDecimalRange(t *testing.T) {
 	/* Assume that all governed token entries will have decimals of 6 or 8 */
 	for _, tokenConfigEntry := range tokenConfigEntries {
 		d := tokenConfigEntry.decimals
-		assert.Condition(t, func() bool { return d == 6 || d == 8 })
+		assert.Truef(t, d == 6 || d == 8, "Decimal for %v:%v is neither 6 nor 8", tokenConfigEntry.chain, tokenConfigEntry.addr)
 	}
 }
 
