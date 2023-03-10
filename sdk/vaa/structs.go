@@ -210,6 +210,8 @@ func (c ChainID) String() string {
 		return "btc"
 	case ChainIDBase:
 		return "base"
+	case ChainIDFilecoin:
+		return "filecoin"
 	default:
 		return fmt.Sprintf("unknown chain ID: %d", c)
 	}
@@ -275,6 +277,8 @@ func ChainIDFromString(s string) (ChainID, error) {
 		return ChainIDBtc, nil
 	case "base":
 		return ChainIDBase, nil
+	case "filecoin":
+		return ChainIDFilecoin, nil
 	default:
 		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
 	}
@@ -309,6 +313,7 @@ func GetAllNetworkIDs() []ChainID {
 		ChainIDXpla,
 		ChainIDBtc,
 		ChainIDBase,
+		ChainIDFilecoin,
 		ChainIDWormchain,
 	}
 }
@@ -369,6 +374,8 @@ const (
 	ChainIDBtc ChainID = 29
 	// ChainIDBase is the ChainID of Base
 	ChainIDBase ChainID = 30
+	// ChainIDFilecoin is the ChainID of Filecoin
+	ChainIDFilecoin ChainID = 31
 	//ChainIDWormchain is the ChainID of Wormchain
 	ChainIDWormchain ChainID = 3104
 

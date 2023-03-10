@@ -177,6 +177,9 @@ var (
 	baseRPC      *string
 	baseContract *string
 
+	filecoinRPC      *string
+	filecoinContract *string
+
 	logLevel                *string
 	publicRpcLogDetailStr   *string
 	publicRpcLogToTelemetry *bool
@@ -324,6 +327,9 @@ func init() {
 
 	baseRPC = NodeCmd.Flags().String("baseRPC", "", "Base RPC URL")
 	baseContract = NodeCmd.Flags().String("baseContract", "", "Base contract address")
+
+	filecoinRPC = NodeCmd.Flags().String("filecoinRPC", "", "Filecoin RPC URL")
+	filecoinContract = NodeCmd.Flags().String("filecoinContract", "", "Filecoin contract address")
 
 	logLevel = NodeCmd.Flags().String("logLevel", "info", "Logging level (debug, info, warn, error, dpanic, panic, fatal)")
 	publicRpcLogDetailStr = NodeCmd.Flags().String("publicRpcLogDetail", "full", "The detail with which public RPC requests shall be logged (none=no logging, minimal=only log gRPC methods, full=log gRPC method, payload (up to 200 bytes) and user agent (up to 200 bytes))")
@@ -494,6 +500,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		*arbitrumContract = unsafeDevModeEvmContractAddress(*arbitrumContract)
 		*optimismContract = unsafeDevModeEvmContractAddress(*optimismContract)
 		*baseContract = unsafeDevModeEvmContractAddress(*baseContract)
+		*filecoinContract = unsafeDevModeEvmContractAddress(*filecoinContract)
 	}
 
 	// Verify flags
@@ -647,6 +654,12 @@ func runNode(cmd *cobra.Command, args []string) {
 		if *baseContract == "" {
 			logger.Fatal("Please specify --baseContract")
 		}
+		if *filecoinRPC == "" {
+			logger.Fatal("Please specify --filecoinRRPC")
+		}
+		if *filecoinContract == "" {
+			logger.Fatal("Please specify --filecoinContract")
+		}
 	} else {
 		if *neonRPC != "" && !*unsafeDevMode {
 			logger.Fatal("Please do not specify --neonRPC")
@@ -659,6 +672,12 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 		if *baseContract != "" && !*unsafeDevMode {
 			logger.Fatal("Please do not specify --baseContract")
+		}
+		if *filecoinRPC != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --filecoinRPC")
+		}
+		if *filecoinContract != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --filecoinContract")
 		}
 	}
 
@@ -796,6 +815,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	arbitrumContractAddr := eth_common.HexToAddress(*arbitrumContract)
 	optimismContractAddr := eth_common.HexToAddress(*optimismContract)
 	baseContractAddr := eth_common.HexToAddress(*baseContract)
+	filecoinContractAddr := eth_common.HexToAddress(*filecoinContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -1384,6 +1404,15 @@ func runNode(cmd *cobra.Command, args []string) {
 				chainObsvReqC[vaa.ChainIDBase] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
 				baseWatcher := evm.NewEthWatcher(*baseRPC, baseContractAddr, "base", common.ReadinessBaseSyncing, vaa.ChainIDBase, chainMsgC[vaa.ChainIDBase], nil, chainObsvReqC[vaa.ChainIDBase], *unsafeDevMode)
 				if err := supervisor.Run(ctx, "basewatch", common.WrapWithScissors(baseWatcher.Run, "basewatch")); err != nil {
+					return err
+				}
+			}
+			if shouldStart(filecoinRPC) {
+				logger.Info("Starting Filecoin watcher")
+				readiness.RegisterComponent(common.ReadinessFilecoinSyncing)
+				chainObsvReqC[vaa.ChainIDFilecoin] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
+				filecoinWatcher := evm.NewEthWatcher(*filecoinRPC, filecoinContractAddr, "filecoin", common.ReadinessFilecoinSyncing, vaa.ChainIDFilecoin, chainMsgC[vaa.ChainIDFilecoin], nil, chainObsvReqC[vaa.ChainIDFilecoin], *unsafeDevMode)
+				if err := supervisor.Run(ctx, "filecoinwatch", common.WrapWithScissors(filecoinWatcher.Run, "filecoinwatch")); err != nil {
 					return err
 				}
 			}

@@ -357,6 +357,15 @@ module.exports = {
       },
       network_id: 84531,
     },
+    filecoin_testnet: {
+      provider: () => {
+        return new HDWalletProvider(
+          process.env.MNEMONIC,
+          "https://api.hyperspace.node.glif.io/rpc/v1"
+        );
+      },
+      network_id: "*", // 3141 returned a "chain id mismatch" error.
+    },    
   },
 
   compilers: {

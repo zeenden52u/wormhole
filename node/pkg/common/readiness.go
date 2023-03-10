@@ -29,5 +29,6 @@ const (
 	ReadinessArbitrumSyncing  readiness.Component = "arbitrumSyncing"
 	ReadinessOptimismSyncing  readiness.Component = "optimismSyncing"
 	ReadinessBaseSyncing      readiness.Component = "baseSyncing"
+	ReadinessFilecoinSyncing  readiness.Component = "filecoinSyncing"
 	ReadinessWormchainSyncing readiness.Component = "wormchainSyncing"
 )
