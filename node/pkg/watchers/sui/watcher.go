@@ -45,8 +45,7 @@ type (
 		msgChan  chan *common.MessagePublication
 		obsvReqC chan *gossipv1.ObservationRequest
 
-		subId      int64
-		subscribed bool
+		subId int64
 	}
 
 	SuiResult struct {
@@ -103,9 +102,20 @@ type (
 		} `json:"result"`
 		ID int `json:"id"`
 	}
+
+	SuiCheckpointSN struct {
+		Jsonrpc string `json:"jsonrpc"`
+		Result  uint64 `json:"result"`
+		ID      int    `json:"id"`
+	}
 )
 
 var (
+	suiConnectionErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "wormhole_sui_connection_errors_total",
+			Help: "Total number of SUI connection errors",
+		}, []string{"reason"})
 	suiMessagesConfirmed = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "wormhole_sui_observations_confirmed_total",
@@ -117,6 +127,17 @@ var (
 			Help: "Current Sui block height",
 		})
 )
+
+type clientRequest struct {
+	JSONRPC string `json:"jsonrpc"`
+	// A String containing the name of the method to be invoked.
+	Method string `json:"method"`
+	// Object to pass as request parameter to the method.
+	Params [1]string `json:"params"`
+	// The request id. This can be of any type. It is used to match the
+	// response with the request that it is replying to.
+	ID uint64 `json:"id"`
+}
 
 // NewWatcher creates a new Sui appid watcher
 func NewWatcher(
@@ -137,7 +158,6 @@ func NewWatcher(
 		msgChan:       messageEvents,
 		obsvReqC:      obsvReqC,
 		subId:         0,
-		subscribed:    false,
 	}
 }
 
@@ -237,18 +257,28 @@ func (e *Watcher) Run(ctx context.Context) error {
 	u := url.URL{Scheme: "ws", Host: e.suiWS}
 
 	logger.Info("Sui watcher connecting to WS node ", zap.String("url", u.String()))
+	logger.Error("SUI watcher:", zap.String("suiRPC", e.suiRPC), zap.String("suiWS", e.suiWS), zap.String("suiAccount", e.suiAccount), zap.String("suiPackage", e.suiPackage))
 
-	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	// ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	// if err != nil {
+	// 	logger.Error(fmt.Sprintf("e.suiWS: %s", err.Error()))
+	// 	return err
+	// }
+
+	ws, _, err := websocket.DefaultDialer.DialContext(ctx, u.String(), nil)
 	if err != nil {
-		logger.Error(fmt.Sprintf("e.suiWS: %s", err.Error()))
-		return err
+		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+		suiConnectionErrors.WithLabelValues("websocket_dial_error").Inc()
+		return fmt.Errorf("websocket dial failed: %w", err)
 	}
-
-	var s string
+	defer ws.Close()
 
 	nBig, _ := rand.Int(rand.Reader, big.NewInt(27))
 	e.subId = nBig.Int64()
 
+	// var s string
+	var temp string
+	// var params [1]string
 	if e.unsafeDevMode {
 		// There is no way to have a fixed package id on
 		// deployment.  This means that in devnet, everytime
@@ -256,165 +286,242 @@ func (e *Watcher) Run(ctx context.Context) error {
 		// id.  The solution is to just subscribe to the whole
 		// deployer account instead of to a specific package
 		// in that account...
-		s = fmt.Sprintf(`{"jsonrpc":"2.0", "id": %d, "method": "sui_subscribeEvent", "params": [{"SenderAddress": "%s"}]}`, e.subId, e.suiAccount)
-	} else {
-		s = fmt.Sprintf(`{"jsonrpc":"2.0", "id": %d, "method": "sui_subscribeEvent", "params": [{"SenderAddress": "%s", "Package": "%s"}]}`, e.subId, e.suiAccount, e.suiPackage)
+		temp = fmt.Sprintf(`{"jsonrpc":"2.0", "id": %d, "method": "sui_subscribeEvent", "params": [{"SenderAddress": "%s"}]}`, e.subId, e.suiAccount)
+		// tmp := fmt.Sprintf(`[{"SenderAddress": "%s"}]`, e.suiAccount)
+		// params = [...]string{tmp}
+
+		// temp = `{"jsonrpc":"2.0", "id": 1, "method": "sui_getLatestCheckpointSequenceNumber", "params" : [] }`
+		// temp = `{"jsonrpc":"2.0", "id": 1, "method": "sui_subscribeEvent", "params" : [] }`
+		// eventFilter := fmt.Sprintf(`{"SenderAddress": "%s"}`, e.suiAccount)
+		// temp = fmt.Sprintf(`{"jsonrpc":"2.0", "id": 1, "method": "sui_subscribeEvent", "params": [%s]}`, eventFilter)
+		// temp = fmt.Sprintf(`{"jsonrpc":"2.0", "id": 1, "method": "sui_subscribeEvent", "params": "[{"SenderAddress":"%s"}]"}`, e.suiAccount)
+		// temp = fmt.Sprintf(`{"jsonrpc":"2.0", "id": %d, "method": "sui_subscribeEvent", "params": [{"filter":{"SenderAddress": "%s"}}]}`, e.subId, e.suiAccount)
+		// temp := fmt.Sprintf(`{[{"SenderAddress": "%s"}]}`, e.suiAccount)
+		// params = [...]string{temp}
+		// } else {
+		// s = fmt.Sprintf(`{"jsonrpc":"2.0", "id": %d, "method": "sui_subscribeEvent", "params": [{"SenderAddress": "%s", "Package": "%s"}]}`, e.subId, e.suiAccount, e.suiPackage)
+		// s = fmt.Sprintf("{\"jsonrpc\":\"2.0\", \"id\": %d, \"method\": \"sui_subscribeEvent\", \"params\": [{\"SenderAddress\": \"%s\", \"Package\": \"%s\"}]}", e.subId, e.suiAccount, e.suiPackage)
+		// params = [...]string{s}
 	}
+	// command := &clientRequest{
+	// 	JSONRPC: "2.0",
+	// 	Method:  "sui_subscribeEvent",
+	// 	Params:  params,
+	// 	ID:      uint64(e.subId),
+	// }
 
-	logger.Info("Subscribing using", zap.String("filter", s))
+	logger.Error("Subscribing using", zap.String("json:", temp))
 
-	if err := ws.WriteMessage(websocket.TextMessage, []byte(s)); err != nil {
-		logger.Error(fmt.Sprintf("write: %s", err.Error()))
-		return err
+	err = ws.WriteMessage(websocket.TextMessage, []byte(temp))
+	// err = ws.WriteJSON(command)
+	// err = ws.WriteJSON(temp)
+	if err != nil {
+		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+		suiConnectionErrors.WithLabelValues("websocket_subscription_error").Inc()
+		return fmt.Errorf("websocket subscription failed: %w", err)
 	}
+	// Wait for the success response
+	mType, p, err := ws.ReadMessage()
+	if err != nil {
+		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+		suiConnectionErrors.WithLabelValues("event_subscription_error").Inc()
+		return fmt.Errorf("event subscription failed: %w", err)
+	}
+	var subRes map[string]any
+	err = json.Unmarshal(p, &subRes)
+	if err != nil {
+		return fmt.Errorf("failed to Unmarshal the subscription result: %w", err)
+	}
+	logger.Info("Unmarshalled json", zap.Any("subRes", subRes))
+	actualResult := subRes["result"]
+	logger.Info("actualResult", zap.Any("res", actualResult))
+	if actualResult == nil {
+		return fmt.Errorf("Failed to request filter in subscription request")
+	}
+	logger.Info("subscribed to new transaction events", zap.Int("messageType", mType), zap.String("bytes", string(p)))
 
-	timer := time.NewTicker(time.Second * 1)
+	timer := time.NewTicker(time.Second * 5)
 	defer timer.Stop()
 
 	supervisor.Signal(ctx, supervisor.SignalHealthy)
+	readiness.SetReady(common.ReadinessSuiSyncing)
 
 	errC := make(chan error)
 	defer close(errC)
 	pumpData := make(chan []byte)
 	defer close(pumpData)
 
-	go func() {
+	common.RunWithScissors(ctx, errC, "sui_data_pump", func(ctx context.Context) error {
+		logger.Error("Entering ReadMessage...")
 		for {
-			if _, msg, err := ws.ReadMessage(); err != nil {
-				logger.Error(fmt.Sprintf("ReadMessage: '%s'", err.Error()))
-				if strings.HasSuffix(err.Error(), "EOF") {
-					errC <- err
-					return
+			select {
+			case <-ctx.Done():
+				logger.Error("sui_data_pump context done")
+				return nil
+
+			default:
+				_, msg, err := ws.ReadMessage()
+				if err != nil {
+					logger.Error(fmt.Sprintf("ReadMessage: '%s'", err.Error()))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					suiConnectionErrors.WithLabelValues("channel_read_error").Inc()
+					// if strings.HasSuffix(err.Error(), "EOF") {
+					// logger.Error("EOF found")
+					// errC <- err
+					return err
 				}
-			} else {
-				pumpData <- msg
+
+				var res SuiEventMsg
+				err = json.Unmarshal(msg, &res)
+				if err != nil {
+					logger.Error("Failed to unmarshal SuiEventMsg", zap.String("body", string(msg)), zap.Error(err))
+					return fmt.Errorf("Failed to unmarshal SuiEventMsg, body: %s, error: %w", string(msg), err)
+					// continue
+				}
+				if res.Error != nil {
+					return fmt.Errorf("Bad SuiEventMsg, body: %s, error: %w", string(msg), err)
+				}
+				logger.Info("SUI result message", zap.String("message", string(msg)), zap.Any("event", res))
+				if res.ID != nil {
+					// if *res.ID == e.subId {
+					logger.Error("Found a res.ID???")
+					// e.subscribed = true
+					// }
+					continue
+				}
+
+				if res.Params != nil && (*res.Params).Result != nil {
+					err := e.inspectBody(logger, *(*res.Params).Result)
+					if err != nil {
+						logger.Error(fmt.Sprintf("inspectBody: %s", err.Error()))
+					}
+					continue
+				}
 			}
 		}
-	}()
+	})
 
-	for {
-		select {
-		case err := <-errC:
-			_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			logger.Error("Pump died")
-			return err
-		case <-ctx.Done():
-			_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			return ctx.Err()
-		case r := <-e.obsvReqC:
-			if vaa.ChainID(r.ChainId) != vaa.ChainIDSui {
-				panic("invalid chain ID")
-			}
+	common.RunWithScissors(ctx, errC, "sui_block_height", func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Error("sui_block_height context done")
+				return nil
 
-			id := base64.StdEncoding.EncodeToString(r.TxHash)
-
-			logger.Info("obsv request", zap.String("TxHash", string(id)))
-
-			buf := fmt.Sprintf(`{"jsonrpc":"2.0", "id": 1, "method": "sui_getEvents", "params": [{"Transaction": "%s"}, null, 10, true]}`, id)
-
-			resp, err := http.Post(e.suiRPC, "application/json", strings.NewReader(buf))
-			if err != nil {
-				logger.Error("getEvents API failed", zap.String("suiRPC", e.suiRPC), zap.Error(err))
-				p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
-				continue
-			}
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				logger.Error("unexpected truncated body when calling getEvents", zap.Error(err))
-				p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
-				continue
-
-			}
-			resp.Body.Close()
-
-			logger.Info("receive", zap.String("body", string(body)))
-
-			var res SuiTxnQuery
-			err = json.Unmarshal(body, &res)
-			if err != nil {
-				logger.Error("failed to unmarshal event message", zap.Error(err))
-				p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
-				continue
-
-			}
-
-			for _, chunk := range res.Result.Data {
-				err := e.inspectBody(logger, chunk)
+			case <-timer.C:
+				// resp, err := http.Post(e.suiRPC, "application/json", strings.NewReader(`{"jsonrpc":"2.0", "id": 1, "method": "sui_getCommitteeInfo", "params": []}`))
+				resp, err := http.Post(e.suiRPC, "application/json", strings.NewReader(`{"jsonrpc":"2.0", "id": 1, "method": "sui_getLatestCheckpointSequenceNumber", "params": []}`))
 				if err != nil {
-					logger.Error("unspected error while parsing chunk data in event", zap.Error(err))
+					logger.Error("sui_getLatestCheckpointSequenceNumber failed", zap.Error(err))
+					// logger.Error("sui_getCommitteeInfo failed", zap.Error(err))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					return fmt.Errorf("sui_getLatestCheckpointSequenceNumber failed to post: %w", err)
 				}
-			}
-		case msg := <-pumpData:
-			logger.Info("receive", zap.String("body", string(msg)))
-
-			var res SuiEventMsg
-			err = json.Unmarshal(msg, &res)
-			if err != nil {
-				logger.Error("Failed to unmarshal SuiEventMsg", zap.String("body", string(msg)), zap.Error(err))
-				continue
-			}
-			if res.Error != nil {
-				_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-				return errors.New((*res.Error).Message)
-			}
-			if res.ID != nil {
-				if *res.ID == e.subId {
-					logger.Debug("Subscribed set to true")
-					e.subscribed = true
-				}
-				continue
-			}
-
-			if res.Params != nil && (*res.Params).Result != nil {
-				err := e.inspectBody(logger, *(*res.Params).Result)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					logger.Error(fmt.Sprintf("inspectBody: %s", err.Error()))
+					logger.Error("sui_getLatestCheckpointSequenceNumber failed", zap.Error(err))
+					// logger.Error("sui_getCommitteeInfo failed", zap.Error(err))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					return fmt.Errorf("sui_getLatestCheckpointSequenceNumber failed to read: %w", err)
 				}
-				continue
-			}
+				resp.Body.Close()
 
-		case <-timer.C:
-			resp, err := http.Post(e.suiRPC, "application/json", strings.NewReader(`{"jsonrpc":"2.0", "id": 1, "method": "sui_getCommitteeInfo", "params": []}`))
-			if err != nil {
-				logger.Error("sui_getCommitteeInfo failed", zap.Error(err))
-				p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
-				break
+				var res SuiCheckpointSN
+				// var res SuiCommitteeInfo
+				err = json.Unmarshal(body, &res)
+				if err != nil {
+					logger.Error("unmarshal failed into uint64", zap.String("body", string(body)), zap.Error(err))
+					// logger.Error("unmarshal failed into SuiCommitteeInfo", zap.String("body", string(body)), zap.Error(err))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					return fmt.Errorf("sui_getLatestCheckpointSequenceNumber failed to unmarshal body: %s, error: %w", string(body), err)
+				}
 
-			}
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				logger.Error("sui_getCommitteeInfo failed", zap.Error(err))
-				p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
-				break
-			}
-			resp.Body.Close()
+				// curl -s -X POST -d '{"jsonrpc":"2.0", "id": 1, "method": "sui_getLatestCheckpointSequenceNumber", "params": []}' -H 'Content-Type: application/json' http://127.0.0.1:9000
+				// Epoch is currently not ticking in 0.16.0.  They also
+				// might release another API that gives a
+				// proper block height as we traditionally
+				// understand it...
+				currentSuiHeight.Set(float64(res.Result))
+				logger.Error(fmt.Sprintf("sui_getLatestCheckpointSequenceNumber: %d", res.Result))
+				// currentSuiHeight.Set(float64(res.Result.Epoch))
+				// logger.Error(fmt.Sprintf("sui_getCommitteeInfo: %d", res.Result.Epoch))
 
-			var res SuiCommitteeInfo
-			err = json.Unmarshal(body, &res)
-			if err != nil {
-				logger.Error("unmarshal failed into SuiCommitteeInfo", zap.String("body", string(body)), zap.Error(err))
-				p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
-				continue
+				p2p.DefaultRegistry.SetNetworkStats(vaa.ChainIDSui, &gossipv1.Heartbeat_Network{
+					Height: int64(res.Result),
+					// Height:          int64(res.Result.Epoch),
+					ContractAddress: e.suiAccount,
+				})
 
-			}
-
-			// curl -s -X POST -d '{"jsonrpc":"2.0", "id": 1, "method": "sui_getLatestCheckpointSequenceNumber", "params": []}' -H 'Content-Type: application/json' http://127.0.0.1:9000
-			// Epoch is currently not ticking in 0.16.0.  They also
-			// might release another API that gives a
-			// proper block height as we traditionally
-			// understand it...
-			currentSuiHeight.Set(float64(res.Result.Epoch))
-			logger.Error(fmt.Sprintf("sui_getCommitteeInfo: %d", res.Result.Epoch))
-
-			p2p.DefaultRegistry.SetNetworkStats(vaa.ChainIDSui, &gossipv1.Heartbeat_Network{
-				Height:          int64(res.Result.Epoch),
-				ContractAddress: e.suiAccount,
-			})
-
-			if e.subscribed {
 				readiness.SetReady(common.ReadinessSuiSyncing)
 			}
 		}
+	})
+
+	common.RunWithScissors(ctx, errC, "sui_fetch_obvs_req", func(ctx context.Context) error {
+		for {
+			select {
+			case err := <-errC:
+				logger.Error("sui_fetch_obvs_req died", zap.Error(err))
+				return fmt.Errorf("sui_fetch_obvs_req died: %w", err)
+			case <-ctx.Done():
+				logger.Error("sui_fetch_obvs_req context done")
+				return ctx.Err()
+			case r := <-e.obsvReqC:
+				if vaa.ChainID(r.ChainId) != vaa.ChainIDSui {
+					panic("invalid chain ID")
+				}
+
+				id := base64.StdEncoding.EncodeToString(r.TxHash)
+
+				logger.Error("obsv request", zap.String("TxHash", string(id)))
+
+				buf := fmt.Sprintf(`{"jsonrpc":"2.0", "id": 1, "method": "sui_getEvents", "params": [{"Transaction": "%s"}, null, 10, true]}`, id)
+				logger.Error("observation", zap.String("rpc call", buf))
+
+				resp, err := http.Post(e.suiRPC, "application/json", strings.NewReader(buf))
+				if err != nil {
+					logger.Error("getEvents API failed", zap.String("suiRPC", e.suiRPC), zap.Error(err))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					continue
+				}
+
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					logger.Error("unexpected truncated body when calling getEvents", zap.Error(err))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					return fmt.Errorf("sui__fetch_obvs_req failed to post: %w", err)
+
+				}
+				resp.Body.Close()
+
+				logger.Info("receive", zap.String("body", string(body)))
+
+				var res SuiTxnQuery
+				err = json.Unmarshal(body, &res)
+				if err != nil {
+					logger.Error("failed to unmarshal event message", zap.Error(err))
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSui, 1)
+					return fmt.Errorf("sui__fetch_obvs_req failed to unmarshal: %w", err)
+
+				}
+
+				for _, chunk := range res.Result.Data {
+					err := e.inspectBody(logger, chunk)
+					if err != nil {
+						logger.Error("unspected error while parsing chunk data in event", zap.Error(err))
+						return fmt.Errorf("sui__fetch_obvs_req failed to parse chunk data in event: %w", err)
+					}
+				}
+			}
+		}
+	})
+
+	select {
+	case <-ctx.Done():
+		_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		return ctx.Err()
+	case err := <-errC:
+		_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		return err
 	}
 }
