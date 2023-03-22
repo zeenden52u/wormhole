@@ -25,6 +25,32 @@ contract Implementation is Governance {
         emit LogMessagePublished(msg.sender, sequence, nonce, payload, consistencyLevel);
     }
 
+    // Publish a message to be attested by the Wormhole network
+    function publishMessageRetHash(
+        uint32 nonce,
+        bytes memory payload,
+        uint8 consistencyLevel
+    ) public payable returns (bytes32 vmHash) {
+        // check fee
+        require(msg.value == messageFee(), "invalid fee");
+
+        uint64 sequence = useSequence(msg.sender);
+        // emit log
+        emit LogMessagePublished(msg.sender, sequence, nonce, payload, consistencyLevel);
+
+        bytes memory body = abi.encodePacked(
+            block.timestamp,
+            nonce,
+            chainId(),
+            bytes32(uint256(uint160(msg.sender))),
+            sequence,
+            consistencyLevel,
+            payload
+        );
+
+        vmHash = keccak256(abi.encodePacked(keccak256(body)));
+    }
+
     function useSequence(address emitter) internal returns (uint64 sequence) {
         sequence = nextSequence(emitter);
         setNextSequence(emitter, sequence + 1);

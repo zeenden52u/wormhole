@@ -84,6 +84,12 @@ interface IWormhole {
         uint8 consistencyLevel
     ) external payable returns (uint64 sequence);
 
+    function publishMessageRetHash(
+        uint32 nonce,
+        bytes memory payload,
+        uint8 consistencyLevel
+    ) external payable returns (bytes32 vmHash);
+
     function initialize() external;
 
     function parseAndVerifyVM(bytes calldata encodedVM) external view returns (VM memory vm, bool valid, string memory reason);
