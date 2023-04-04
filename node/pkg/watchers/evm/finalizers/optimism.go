@@ -140,7 +140,8 @@ func (f *OptimismFinalizer) IsBlockFinalized(ctx context.Context, block *connect
 	finalizerMappingSize := len(f.finalizerMapping)
 	if finalizerMappingSize != 0 && f.finalizerMapping[finalizerMappingSize-1].l2Block.Cmp(rInfo.l2Block) > 0 {
 		// This is the error case where the RPC call is not working as expected.
-		return false, fmt.Errorf("The received verified index just went backwards. Received %s. Last number in array is %s", rInfo.l2Block.String(), f.finalizerMapping[finalizerMappingSize-1].l2Block.String())
+		f.logger.Error("The received verified index just went backwards.", zap.String("Received", rInfo.l2Block.String()), zap.String("Last number in array", f.finalizerMapping[finalizerMappingSize-1].l2Block.String()))
+		return false, nil
 	}
 	if finalizerMappingSize == 0 || f.finalizerMapping[finalizerMappingSize-1].l2Block.Cmp(rInfo.l2Block) < 0 {
 		// New information.  Append it to the array.
