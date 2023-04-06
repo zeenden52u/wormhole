@@ -1,6 +1,6 @@
 # Default
 
-* @evan-gray @hendrikhofstadt
+* @evan-gray
 
 # Chains
 
@@ -8,9 +8,9 @@
 /aptos/ @kcsongor @a5-pickle
 /bitcoin/ @conorpp @jumpsiegel
 /cosmwasm/ @jynnantonix @kcsongor @a5-pickle
-/ethereum/ @a5-pickle @calebrate @gator-boi @hendrikhofstadt @kcsongor
+/ethereum/ @a5-pickle @calebrate @gator-boi @kcsongor
 /near/ @jumpsiegel
-/solana/ @hendrikhofstadt @kcsongor @a5-pickle
+/solana/ @kcsongor @a5-pickle
 /sui/ @kcsongor @a5-pickle
 /terra/ @kcsongor @a5-pickle
 /wormchain/ @conorpp @hendrikhofstadt
@@ -26,7 +26,7 @@
 /sdk/js-proto-web/ @evan-gray @kev1n-peters
 /sdk/js-wasm/ @evan-gray @kev1n-peters
 /sdk/js/ @evan-gray @kev1n-peters
-/sdk/rust/ @hendrikhofstadt @a5-pickle
+/sdk/rust/ @kcsongor @a5-pickle
 /sdk/vaa/ @bruce-riley @hendrikhofstadt
 /spydk/ @evan-gray
 /testing/ @a5-pickle @evan-gray
@@ -67,13 +67,13 @@
 /node/pkg/watchers/aptos/ @evan-gray @jumpsiegel @panoel
 
 ## Watcher - Cosmwasm
-/node/pkg/watchers/cosmwasm/ @evan-gray @hendrikhofstadt
+/node/pkg/watchers/cosmwasm/ @evan-gray @bruce-riley
 
 ## Watcher - EVM
-/node/pkg/watchers/evm/ @evan-gray @bruce-riley @hendrikhofstadt
+/node/pkg/watchers/evm/ @evan-gray @bruce-riley
 
 ## Watcher - NEAR
 /node/pkg/watchers/near/ @evan-gray @jumpsiegel @kev1n-peters
 
 ## Watcher - Solana
-/node/pkg/watchers/solana/ @evan-gray @hendrikhofstadt @bruce-riley
+/node/pkg/watchers/solana/ @evan-gray @bruce-riley
