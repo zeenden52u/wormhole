@@ -193,7 +193,7 @@ def build_node_yaml():
 #                    "--suiPackage",
 #                    "0x.....",
                     "--suiAccount",
-                    "0x2acab6bb0e4722e528291bc6ca4f097e18ce9331",
+                    "0xed867315e3f7c83ae82e6d5858b6a6cc57c291fd84f7509646ebc8162169cf96",
                     "--suiWS",
                     "sui:9000",
                 ]
