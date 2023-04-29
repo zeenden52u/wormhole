@@ -1,40 +1,40 @@
 ---
 protocol-key-pair:
-  value: W+hPTVWhdFgzHs3YuRHV6gLfgFhHA1WG0pisIXiN8E8=
+  value: OR1VweVuN3W8Hxi8ZHRKdp6safngf8U7DlmGH10Z+2k=
 worker-key-pair:
-  value: AApEvpZE1O+2GMqZ1AbRE3+Kmgr1O5mdsMZ6I/gLpVSy
+  value: AHNsowcormq5rYZVW5V499blGiWqTinXlo/V7rs0tcBd
 account-key-pair:
-  value: AN7ZHgjN8G7Nw7Q8NtY9TisPBjmEYpdUzbczjqR98XLh
+  value: AJTj/b119rCMJ0OkSIIa9pRQMf0qOcEPHdjSNt5VgNj0
 network-key-pair:
-  value: AAnB6/zZooq4xDtB7oM/GeTSCh5tBxKAyJwWOMPlEJ4R
+  value: AHKA1DFPOg4QlanpV2tWyUndxqXgx0O8D93CNzmw03dy
 db-path: sui_config/authorities_db/full_node_db
-network-address: /ip4/127.0.0.1/tcp/36683/http
+network-address: /ip4/127.0.0.1/tcp/37445/http
 json-rpc-address: "0.0.0.0:9000"
-metrics-address: "127.0.0.1:35915"
-admin-interface-port: 44319
+metrics-address: "127.0.0.1:38565"
+admin-interface-port: 36035
 enable-event-processing: true
 enable-index-processing: true
 grpc-load-shed: ~
 grpc-concurrency-limit: ~
 p2p-config:
-  listen-address: "127.0.0.1:38187"
-  external-address: /ip4/127.0.0.1/udp/38187
+  listen-address: "127.0.0.1:43509"
+  external-address: /ip4/127.0.0.1/udp/43509
   seed-peers:
-    - peer-id: ce60e3077e02a3683436af450f3a4511b4c40b158956637caf9ccf11391e7e10
-      address: /ip4/127.0.0.1/udp/44061
-    - peer-id: 5f0f42cb3fb20dd577703388320964f9351d997313c04a032247060d214b2e71
-      address: /ip4/127.0.0.1/udp/46335
-    - peer-id: 6d9095130b1536c0c9218ea9feb0f36685a6fa0b3b1e67d256cc4fb340a48d69
-      address: /ip4/127.0.0.1/udp/32965
-    - peer-id: b2915bf787845a55c24e18fdc162a575eb02d23bae3f9e566d7c51ebcfeb4a42
-      address: /ip4/127.0.0.1/udp/39889
+    - peer-id: 8e77f62bc427164a42558178a326bb3ac2144d3f5fc7403254d6e522576865ab
+      address: /ip4/127.0.0.1/udp/43475
+    - peer-id: 2fd1450a8f162002de28cc7d0b29ae7fb954cbf856d175c33e81e57d785ccefe
+      address: /ip4/127.0.0.1/udp/38361
+    - peer-id: 41918afe4e5b460cd9d9db904652b8eefd18307b0e2906973e23374aa255d011
+      address: /ip4/127.0.0.1/udp/35733
+    - peer-id: 0df6bbeb56987ec4d90a25801b4005aad089e001e323c055721c6ce13185328a
+      address: /ip4/127.0.0.1/udp/45695
 genesis:
   genesis-file-location: sui_config/genesis.blob
 authority-store-pruning-config:
   num-latest-epoch-dbs-to-retain: 3
   epoch-db-pruning-period-secs: 3600
   num-epochs-to-retain: 2
-  max-checkpoints-in-batch: 200
+  max-checkpoints-in-batch: 10
   max-transactions-in-batch: 1000
   use-range-deletion: true
 end-of-epoch-broadcast-channel-capacity: 128
@@ -51,3 +51,8 @@ expensive-safety-check-config:
   enable-state-consistency-check: false
   force-disable-state-consistency-check: false
   enable-move-vm-paranoid-checks: false
+transaction-deny-config:
+  package_publish_disabled: false
+  package_upgrade_disabled: false
+  shared_object_disabled: false
+  user_transaction_disabled: false

@@ -2,18 +2,18 @@
 protocol-key-pair:
   value: OXnx3yM1C/ppgnDMx/o1d49fJs7E05kq11mXNae/O+I=
 worker-key-pair:
-  value: AHXs8DP7EccyxtxAGq/m33LgvOApXs4JStH3PLAe9vGw
+  value: AJvgsJqRwqMeGzmyAz/13DBsPNzBjwKPsEzMBh5fRe6Q
 account-key-pair:
-  value: AC8vF9E3QYf0aTyBZWlSzJJXETvV5vYkOtEJl+DWQMlk
+  value: ADqb75G7CPMdtsiCkqpzb/1FsL4DPnE15nQ/ANDQ78eE
 network-key-pair:
-  value: AOapcKU6mW5SopFM6eBSiXgbuPJTz11CiEqM+SJGIEOF
+  value: AHPiElOX3GRjHdHH0KkTdQ6eFnVd7KdFKjJRg7wYPaGl
 db-path: sui_config/authorities_db/addeef94d898
-network-address: /ip4/127.0.0.1/tcp/34633/http
-json-rpc-address: "127.0.0.1:38025"
-metrics-address: "127.0.0.1:43451"
-admin-interface-port: 36793
+network-address: /ip4/127.0.0.1/tcp/41695/http
+json-rpc-address: "127.0.0.1:46105"
+metrics-address: "127.0.0.1:46715"
+admin-interface-port: 38255
 consensus-config:
-  address: /ip4/127.0.0.1/tcp/40307/http
+  address: /ip4/127.0.0.1/tcp/41627/http
   db-path: sui_config/consensus_db/addeef94d898
   internal-worker-address: ~
   max-pending-transactions: ~
@@ -34,15 +34,15 @@ consensus-config:
       payload_availability_timeout: 30000ms
       handler_certificate_deliver_timeout: 30000ms
     consensus_api_grpc:
-      socket_addr: /ip4/127.0.0.1/tcp/37445/http
+      socket_addr: /ip4/127.0.0.1/tcp/40869/http
       get_collections_timeout: 5000ms
       remove_collections_timeout: 5000ms
     max_concurrent_requests: 500000
     prometheus_metrics:
-      socket_addr: /ip4/127.0.0.1/tcp/43943/http
+      socket_addr: /ip4/127.0.0.1/tcp/33727/http
     network_admin_server:
-      primary_network_admin_server_port: 39611
-      worker_network_admin_server_base_port: 38377
+      primary_network_admin_server_port: 40599
+      worker_network_admin_server_base_port: 34129
     anemo:
       send_certificate_rate_limit: ~
       get_payload_availability_rate_limit: ~
@@ -54,15 +54,15 @@ enable-index-processing: true
 grpc-load-shed: ~
 grpc-concurrency-limit: 20000000000
 p2p-config:
-  listen-address: "127.0.0.1:32965"
-  external-address: /ip4/127.0.0.1/udp/32965
+  listen-address: "127.0.0.1:35733"
+  external-address: /ip4/127.0.0.1/udp/35733
 genesis:
   genesis-file-location: sui_config/genesis.blob
 authority-store-pruning-config:
   num-latest-epoch-dbs-to-retain: 3
   epoch-db-pruning-period-secs: 3600
   num-epochs-to-retain: 2
-  max-checkpoints-in-batch: 200
+  max-checkpoints-in-batch: 10
   max-transactions-in-batch: 1000
   use-range-deletion: true
 end-of-epoch-broadcast-channel-capacity: 128
@@ -79,3 +79,8 @@ expensive-safety-check-config:
   enable-state-consistency-check: false
   force-disable-state-consistency-check: false
   enable-move-vm-paranoid-checks: false
+transaction-deny-config:
+  package_publish_disabled: false
+  package_upgrade_disabled: false
+  shared_object_disabled: false
+  user_transaction_disabled: false
