@@ -1,5 +1,5 @@
 {
-  "testTimeout": 120000,
+  "testTimeout": 300000,
   "verbose": true,
   "transform": {
     "^.+\\.ts$": ["ts-jest", { "tsconfig": false }]

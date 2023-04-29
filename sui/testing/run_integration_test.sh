@@ -17,15 +17,9 @@ echo "$(date) :: starting localnet"
 sui start --network.config $SUI_CONFIG/network.yaml > /dev/null 2>&1 &
 sleep 1
 
-echo "$(date) :: deploying wormhole and token bridge"
-cd $TEST_DIR/..
-bash scripts/deploy.sh devnet \
-    -k AGA20wtGcwbcNAG4nwapbQ5wIuXwkYQEWFUoSVAxctHb > deploy.out 2>&1
-cd testing
-
 ## run contract tests here
 echo "$(date) :: running tests"
-npx ts-mocha -t 1000000 $TEST_DIR/js/*.ts
+npm test
 
 # nuke
 echo "$(date) :: done"

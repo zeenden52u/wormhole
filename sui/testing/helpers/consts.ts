@@ -1,24 +1,22 @@
-// NOTE: modify these to reflect current versions of packages
-export const VERSION_WORMHOLE = 1;
-export const VERSION_TOKEN_BRIDGE = 1;
+import { resolve } from "path";
 
-// keystore
+export const SUI_ROOT = resolve(`${__dirname}/../..`);
+export const MOCK_STAGING_ROOT = `${SUI_ROOT}/testing/staging`;
+
+export const DEPLOY_CMD = `worm sui setup-devnet`;
+
 export const KEYSTORE = [
   "AB522qKKEsXMTFRD2SG3Het/02S/ZBOugmcH3R1CDG6l",
   "AOmPq9B16F3W3ijO/4s9hI6v8LdiYCawKAW31PKpg4Qp",
+  "AOLhc0ryVWnD5LmqH3kCHruBpVV+68EWjEGu2eC9gndK",
+  "AKCo1FyhQ0zUpnoZLmGJJ+8LttTrt56W87Ho4vBF+R+8",
   "AGA20wtGcwbcNAG4nwapbQ5wIuXwkYQEWFUoSVAxctHb",
+  "AOL19ASNl1MAv0sf+mG4I43YwF9vVhmAu+K7s+neQVL5",
+  "ADzosdnte8XHftZ84JbebQYxsKDRnyKU+0Y773XfC6Vf",
+  "ANahoS6pZAO3NSOC3YFh2mVZ1nXlhgsl/f1X/wuIWNsC",
+  "AB51j2QISNC5i6q7RvSqWEamaFdDtbvNdlhMpjM5orgF",
+  "AJhFF5+GLOmF8UGe5jNurKh5sW1pmsUKFdZ2nBTF4mRk",
 ];
-
-// wallets
-export const WALLET_PRIVATE_KEY = Buffer.from(KEYSTORE[0], "base64").subarray(
-  1
-);
-export const RELAYER_PRIVATE_KEY = Buffer.from(KEYSTORE[1], "base64").subarray(
-  1
-);
-export const CREATOR_PRIVATE_KEY = Buffer.from(KEYSTORE[2], "base64").subarray(
-  1
-);
 
 // guardian signer
 export const GUARDIAN_PRIVATE_KEY =
@@ -38,3 +36,10 @@ export const GOVERNANCE_EMITTER =
 
 // file encoding
 export const UTF8: BufferEncoding = "utf-8";
+
+// foreign
+export const ETHEREUM_TOKEN_BRIDGE =
+  "0x00000000000000000000000000000000deadbeef";
+
+// coin types
+export const COIN_TYPE_SUI = "0x2::sui::SUI";
