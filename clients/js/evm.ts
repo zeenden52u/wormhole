@@ -8,10 +8,12 @@ import {
   CHAIN_ID_APTOS,
   CHAIN_ID_INJECTIVE,
   CHAIN_ID_SOLANA,
+  ChainName,
   CHAINS,
   CONTRACTS,
   Contracts,
   EVMChainName,
+  toChainId,
 } from "@certusone/wormhole-sdk/lib/cjs/utils/consts";
 import {
   BridgeImplementation__factory,
@@ -613,23 +615,31 @@ export function computeMappingElemSlot(
  *
  * @returns _values the values to write into the slot (packed)
  */
-async function getStorageAt(rpc: string, contract_address: string, storage_slot: StorageSlotish, types: Encoding[]): Promise<any[]> {
-  const total = types.map((typ) => typeWidth(typ)).reduce((x, y) => (x + y))
+async function getStorageAt(
+  rpc: string,
+  contract_address: string,
+  storage_slot: StorageSlotish,
+  types: Encoding[]
+): Promise<any[]> {
+  const total = types.map((typ) => typeWidth(typ)).reduce((x, y) => x + y);
   if (total > 32) {
-    throw new Error(`Storage slots can contain a maximum of 32 bytes. Total size of ${types} is ${total} bytes.`)
+    throw new Error(
+      `Storage slots can contain a maximum of 32 bytes. Total size of ${types} is ${total} bytes.`
+    );
   }
 
-  const string_val: string =
-    await (new ethers.providers.JsonRpcProvider(rpc).getStorageAt(contract_address, storage_slot))
-  let val = ethers.BigNumber.from(string_val)
-  let ret: any[] = []
+  const string_val: string = await new ethers.providers.JsonRpcProvider(
+    rpc
+  ).getStorageAt(contract_address, storage_slot);
+  let val = ethers.BigNumber.from(string_val);
+  let ret: any[] = [];
   // we decode the elements one by one, by shifting down the stuff we've parsed already
   types.forEach((typ) => {
-    const padded = ethers.utils.defaultAbiCoder.encode(["uint256"], [val])
-    ret.push(ethers.utils.defaultAbiCoder.decode([typ], padded)[0])
-    val = val.shr(typeWidth(typ) * 8)
-  })
-  return ret
+    const padded = ethers.utils.defaultAbiCoder.encode(["uint256"], [val]);
+    ret.push(ethers.utils.defaultAbiCoder.decode([typ], padded)[0]);
+    val = val.shr(typeWidth(typ) * 8);
+  });
+  return ret;
 }
 
 /**
@@ -650,7 +660,13 @@ async function getStorageAt(rpc: string, contract_address: string, storage_slot:
  *
  * @returns the `data` property of the JSON response
  */
-export async function setStorageAt(rpc: string, contract_address: string, storage_slot: StorageSlotish, types: Encoding[], values: any[]): Promise<any> {
+export async function setStorageAt(
+  rpc: string,
+  contract_address: string,
+  storage_slot: StorageSlotish,
+  types: Encoding[],
+  values: any[]
+): Promise<any> {
   // we need to reverse the values and types arrays, because the first element
   // is stored at the rightmost bytes.
   //
@@ -658,43 +674,52 @@ export async function setStorageAt(rpc: string, contract_address: string, storag
   //   uint32 a
   //   uint32 b
   // will be stored as 0x...b...a
-  const _values = values.reverse()
-  const _types = types.reverse()
-  const total = _types.map((typ) => typeWidth(typ)).reduce((x, y) => (x + y))
+  const _values = values.reverse();
+  const _types = types.reverse();
+  const total = _types.map((typ) => typeWidth(typ)).reduce((x, y) => x + y);
   // ensure that the types fit into a slot
   if (total > 32) {
-    throw new Error(`Storage slots can contain a maximum of 32 bytes. Total size of ${_types} is ${total} bytes.`)
+    throw new Error(
+      `Storage slots can contain a maximum of 32 bytes. Total size of ${_types} is ${total} bytes.`
+    );
   }
   if (_types.length !== _values.length) {
-    throw new Error(`Expected ${_types.length} value(s), but got ${_values.length}.`)
+    throw new Error(
+      `Expected ${_types.length} value(s), but got ${_values.length}.`
+    );
   }
   // as far as I could tell, `ethers` doesn't provide a way to pack multiple
   // values into a single slot (the abi coder pads everything to 32 bytes), so we do it ourselves
-  const val = "0x" + _types.map((typ, i) => encode(typ, _values[i])).reduce((x, y) => x + y).padStart(64, "0")
+  const val =
+    "0x" +
+    _types
+      .map((typ, i) => encode(typ, _values[i]))
+      .reduce((x, y) => x + y)
+      .padStart(64, "0");
   // format the storage slot
-  const slot = ethers.utils.defaultAbiCoder.encode(["uint256"], [storage_slot])
-  console.log(`slot ${slot} := ${val}`)
+  const slot = ethers.utils.defaultAbiCoder.encode(["uint256"], [storage_slot]);
+  console.log(`slot ${slot} := ${val}`);
 
-  return (await axios.post(rpc, {
-    id: 0,
-    jsonrpc: "2.0",
-    method: "hardhat_setStorageAt",
-    params: [
-      contract_address,
-      slot,
-      val,
-    ],
-  })).data
+  return (
+    await axios.post(rpc, {
+      id: 0,
+      jsonrpc: "2.0",
+      method: "hardhat_setStorageAt",
+      params: [contract_address, slot, val],
+    })
+  ).data;
 }
 
-async function maybeUnsupported<T>(query: Promise<T>): Promise<T | "unsupported"> {
+async function maybeUnsupported<T>(
+  query: Promise<T>
+): Promise<T | "unsupported"> {
   try {
-    return await query
+    return await query;
   } catch (e) {
     if (e.reason === "unsupported") {
-      return e.reason
+      return e.reason;
     }
-    throw e
+    throw e;
   }
 }
 
@@ -739,7 +764,9 @@ export async function query_registrations_evm(
       throw new Error(`Invalid module: ${module}`);
   }
 
-  console.log(`Querying the ${module} on ${network} EVM chain ${chain} for registered chains.`);
+  console.log(
+    `Querying the ${module} on ${network} EVM chain ${chain} for registered chains.`
+  );
 
   const registrationsPromise = Promise.all(
     Object.entries(CHAINS)
@@ -757,4 +784,61 @@ export async function query_registrations_evm(
     results[c_name] = c;
   }
   return results;
+}
+
+export async function get_foreign_asset_on_evm(
+  network: "MAINNET" | "TESTNET" | "DEVNET",
+  chain: EVMChainName,
+  module: "Core" | "NFTBridge" | "TokenBridge",
+  originChain: ChainName,
+  originAddr: string
+) {
+  let n = NETWORKS[network][chain];
+  let contracts = CONTRACTS[network][chain];
+
+  let target_contract: string;
+  let contract: any;
+
+  const provider = new ethers.providers.JsonRpcProvider(n.rpc);
+
+  switch (module) {
+    case "TokenBridge":
+      target_contract = contracts.token_bridge;
+      if (target_contract === undefined) {
+        throw Error(`Unknown token bridge contract on ${network} for ${chain}`);
+      }
+      contract = BridgeImplementation__factory.connect(
+        target_contract,
+        provider
+      );
+      break;
+    case "NFTBridge":
+      target_contract = contracts.nft_bridge;
+      if (target_contract === undefined) {
+        throw Error(`Unknown NFT bridge contract on ${network} for ${chain}`);
+      }
+      contract = NFTBridgeImplementation__factory.connect(
+        target_contract,
+        provider
+      );
+      break;
+    default:
+      throw new Error(`Invalid module: ${module}`);
+  }
+
+  let originChainId = toChainId(originChain);
+  if (originChainId === CHAIN_ID_APTOS) {
+    originAddr = getExternalAddressFromType(originAddr);
+  } else {
+    originAddr = tryNativeToHexString(originAddr, originChainId);
+  }
+
+  const addr = await getForeignAssetEth(
+    target_contract,
+    provider,
+    originChainId,
+    hexToUint8Array(originAddr)
+  );
+
+  console.log(addr);
 }
