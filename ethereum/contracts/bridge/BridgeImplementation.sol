@@ -29,6 +29,9 @@ contract BridgeImplementation is Bridge {
 
         setInitialized(impl);
 
+        // Clear the registration for Sui.
+        setBridgeImplementation(21, bytes32(0));
+
         _;
     }
 }

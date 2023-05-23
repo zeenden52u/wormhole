@@ -61,7 +61,7 @@ pub enum TransferType<A> {
 /// Ok(Response::default())
 /// ```
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     // // This migration adds a new field to the [`ConfigInfo`] struct. The
     // // state stored on chain has the old version, so we first parse it as
     // // [`ConfigInfoLegacy`], then add the new fields, and write it back as [`ConfigInfo`].
@@ -105,6 +105,14 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Respons
     // };
 
     // config(deps.storage).save(&config_info)?;
+
+    let chain_id: u16 = 21; // Sui
+    let existing = bridge_contracts_read(deps.storage).load(&chain_id.to_be_bytes());
+    if existing.is_ok() {
+        let mut bucket = bridge_contracts(deps.storage);
+        bucket.remove(&chain_id.to_be_bytes());
+    }
+
     Ok(Response::default())
 }
 
