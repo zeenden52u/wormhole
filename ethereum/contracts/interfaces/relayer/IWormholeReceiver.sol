@@ -11,7 +11,7 @@ pragma solidity ^0.8.0;
  * @custom:member sourceChainId - the wormhole chain ID where this delivery was requested.
  * @custom:member maximumRefund - the maximum refund that can possibly be awarded at the end of this
  *     delivery, assuming no gas is used by receiveWormholeMessages.
- * @custom:member deliveryHash - the VAA hash of the deliveryVAA. 
+ * @custom:member deliveryHash - the VAA hash of the deliveryVAA.
  * @custom:member payload - an arbitrary message which was included in the delivery by the
  *     requester.
  */

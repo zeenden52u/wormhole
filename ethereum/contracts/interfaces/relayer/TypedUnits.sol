@@ -8,6 +8,7 @@ type GasPrice is uint256;
 
 type Gas is uint256;
 
+// TODO: maybe rename to USD
 type Dollar is uint256;
 
 type Wei is uint256;

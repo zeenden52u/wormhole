@@ -31,11 +31,17 @@ interface IWormholeRelayerBase {
   */
 interface IWormholeRelayerSend is IWormholeRelayerBase {
 
+  // TODO: add a library for sending payload3s through the token bridge
+
+  // TODO: consider not overloading function names
   function sendToEvm(
+    // TODO: make it clearer that this is a wormhole chain ID.
     uint16 targetChainId,
     address targetAddress,
     bytes memory payload,
+    // TODO: this is foreign Wei
     Wei receiverValue,
+    // TODO: this is foreign gas limit
     Gas gasLimit
   ) external payable returns (uint64 sequence);
 
@@ -95,8 +101,10 @@ interface IWormholeRelayerSend is IWormholeRelayerBase {
     uint16 targetChainId,
     bytes32 targetAddress,
     bytes memory payload,
-    Wei receiverValue,
-    Wei paymentForExtraReceiverValue,
+    // TODO: wei only exists in EVM
+    Wei receiverValue, // target currency
+    Wei paymentForExtraReceiverValue, // source currency
+    // TODO: resourceRequest?
     bytes memory encodedExecutionParameters,
     uint16 refundChainId,
     bytes32 refundAddress,
@@ -129,6 +137,15 @@ interface IWormholeRelayerSend is IWormholeRelayerBase {
    * @param targetAddress The address (in Wormhole 32-byte format) on chain `targetChainId` of the contract to which the vaas are delivered.
    * This contract must implement the IWormholeReceiver interface, which simply requires a `receiveWormholeMessage(DeliveryData memory deliveryData, bytes[] memory signedVaas)` endpoint
    */
+  // default: refund remains unchanged?
+  function forwardToEvm(
+    uint16 targetChainId,
+    address targetAddress,
+    bytes memory payload,
+    Wei receiverValue,
+    Gas gasLimit
+  ) external payable;
+
   function forwardToEvm(
     uint16 targetChainId,
     address targetAddress,
@@ -327,8 +344,6 @@ interface IWormholeRelayerDelivery is IWormholeRelayerBase {
   ) external payable;
 }
 
-interface IWormholeRelayer is IWormholeRelayerDelivery, IWormholeRelayerSend {}
-
 /*
  *  Errors thrown by IWormholeRelayer contract
  */
@@ -339,12 +354,12 @@ uint256 constant RETURNDATA_TRUNCATION_THRESHOLD = 132;
 //When msg.value was not equal to (one wormhole message fee) + `maxTransactionFee` + `receiverValue`
 error InvalidMsgValue(Wei msgValue, Wei totalFee);
 
-error RequestedGasLimitTooLow(); 
+error RequestedGasLimitTooLow();
 
 error RelayProviderDoesNotSupportTargetChain(address relayer, uint16 chainId);
 
 //When calling `forward()` on the CoreRelayer if no delivery is in progress
-error NoDeliveryInProgress(); 
+error NoDeliveryInProgress();
 //When calling `delivery()` a second time even though a delivery is already in progress
 error ReentrantDelivery(address msgSender, address lockedBy);
 //When any other contract but the delivery target calls `forward()` on the CoreRelayer while a
