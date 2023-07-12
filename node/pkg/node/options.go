@@ -287,7 +287,7 @@ func GuardianOptionWatchers(watcherConfigs []watchers.WatcherConfig, ibcWatcherC
 					common.MustRegisterReadinessSyncing(wc.GetChainID())
 				}
 
-				chainObsvReqC[wc.GetChainID()] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
+				chainObsvReqC[wc.GetChainID()] = make(chan *gossipv1.ObservationRequest, observationRequestPerChainBufferSize)
 
 				if wc.RequiredL1Finalizer() != "" {
 					l1watcher, ok := watchers[wc.RequiredL1Finalizer()]
@@ -323,7 +323,7 @@ func GuardianOptionWatchers(watcherConfigs []watchers.WatcherConfig, ibcWatcherC
 						continue
 					}
 
-					chainObsvReqC[chainID] = make(chan *gossipv1.ObservationRequest, observationRequestBufferSize)
+					chainObsvReqC[chainID] = make(chan *gossipv1.ObservationRequest, observationRequestPerChainBufferSize)
 					common.MustRegisterReadinessSyncing(chainID)
 
 					chainConfig = append(chainConfig, ibc.ChainConfigEntry{
