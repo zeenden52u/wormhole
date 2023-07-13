@@ -235,10 +235,17 @@ func Run(
 			panic(err)
 		}
 
-		topic := fmt.Sprintf("%s/%s", networkID, "broadcast")
+		topic := fmt.Sprintf("%s/%s", networkID, "test")
 
 		logger.Info("Subscribing pubsub topic", zap.String("topic", topic))
-		ps, err := pubsub.NewGossipSub(ctx, h)
+		gossipParams := pubsub.DefaultGossipSubParams()
+		// Reduce number of connected peers to reduce network egress
+		// which can be costly when running in the cloud
+		gossipParams.D = 1    // default: 6
+		gossipParams.Dlo = 1  // default: 5
+		gossipParams.Dhi = 2  // default: 12
+		gossipParams.Dout = 1 // default: 2
+		ps, err := pubsub.NewGossipSub(ctx, h, pubsub.WithGossipSubParams(gossipParams))
 		if err != nil {
 			panic(err)
 		}
