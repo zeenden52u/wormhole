@@ -128,6 +128,20 @@ func (d *Database) StoreSignedVAA(v *vaa.VAA) error {
 	return nil
 }
 
+func (d *Database) HasVAA(id VAAID) (bool, error) {
+	err := d.db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(id.Bytes())
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err == badger.ErrKeyNotFound {
+		return true, nil
+	}
+	return false, err
+}
+
 func (d *Database) GetSignedVAABytes(id VAAID) (b []byte, err error) {
 	if err := d.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(id.Bytes())
