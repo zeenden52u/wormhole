@@ -115,7 +115,7 @@ func newMockGuardianSet(t testing.TB, testId uint, n int) []*mockGuardian {
 
 		gs[i] = &mockGuardian{
 			p2pKey:           devnet.DeterministicP2PPrivKeyByIndex(int64(i)),
-			MockObservationC: make(chan *common.MessagePublication),
+			MockObservationC: make(chan *common.MessagePublication, 20),
 			MockSetC:         make(chan *common.GuardianSet),
 			gk:               gk,
 			guardianAddr:     ethcrypto.PubkeyToAddress(gk.PublicKey),
@@ -1134,9 +1134,8 @@ func runConsensusBenchmark(t *testing.B, name string, numGuardians int, numMessa
 						return
 					case <-nextObsReadyC:
 						msg := someMessage()
-						for _, g := range gs {
-							msgCopy := *msg
-							g.MockObservationC <- &msgCopy
+						for _, i := range math_rand.Perm(len(gs)) {
+							gs[i].MockObservationC <- msg
 						}
 					}
 				}
