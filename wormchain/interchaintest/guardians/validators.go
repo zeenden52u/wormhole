@@ -30,13 +30,17 @@ func CreateVal(t *testing.T) *Val {
 	}
 }
 
+// Mirror the guardian keys in scripts/devnet-consts.json
 func CreateValSet(t *testing.T, total int) *ValSet {
-	var valSet ValSet
-	for i := 0; i < total; i++ {
-		valSet.Vals = append(valSet.Vals, *CreateVal(t))
+	privHex := "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0"
+	priv, err := crypto.HexToECDSA(privHex)
+	require.NoError(t, err)
+	signer := crypto.PubkeyToAddress(priv.PublicKey).Bytes()
+
+	return &ValSet{
+		Vals: []Val{
+			{signer, priv},
+		},
+		Total: 1,
 	}
-
-	valSet.Total = total
-
-	return &valSet
 }
