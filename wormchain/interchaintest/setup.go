@@ -38,8 +38,8 @@ var (
 			{
 				Repository: "wormchain",
 				//Version:    "gateway-integration",
-				Version:    "local",
-				UidGid: "1025:1025",
+				Version: "local",
+				UidGid:  "1025:1025",
 			},
 		},
 		Bin:            "wormchaind",
@@ -52,7 +52,7 @@ var (
 		NoHostMount:    false,
 		EncodingConfig: wormchainEncoding(),
 	}
-	numVals      = 2
+	numVals      = 1
 	numFullNodes = 1
 )
 
