@@ -267,6 +267,19 @@ func Run(
 			}
 		}()
 
+		/*
+			peerInfo := peer.AddrInfo{
+				ID:    h.ID(),
+				Addrs: h.Addrs(),
+			}
+			addrs, err := peer.AddrInfoToP2pAddrs(&peerInfo)
+			if err != nil {
+				panic(err)
+			}
+
+			logger.Warn("libp2p host online", zap.String("id", h.ID().String()), zap.Stringers("addrs", addrs))
+		*/
+
 		nodeIdBytes, err := h.ID().Marshal()
 		if err != nil {
 			panic(err)

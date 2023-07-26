@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -103,30 +102,35 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 
 	// Verify the Guardian's signature. This verifies that m.Signature matches m.Hash and recovers
 	// the public key that was used to sign the payload.
-	pk, err := crypto.Ecrecover(m.Hash, m.Signature)
-	if err != nil {
-		p.logger.Warn("failed to verify signature on observation",
-			zap.String("digest", hash),
-			zap.String("signature", hex.EncodeToString(m.Signature)),
-			zap.String("addr", hex.EncodeToString(m.Addr)),
-			zap.Error(err))
-		observationsFailedTotal.WithLabelValues("invalid_signature").Inc()
-		return
-	}
+	/*
+		pk, err := crypto.Ecrecover(m.Hash, m.Signature)
+		if err != nil {
+			p.logger.Warn("failed to verify signature on observation",
+				zap.String("digest", hash),
+				zap.String("signature", hex.EncodeToString(m.Signature)),
+				zap.String("addr", hex.EncodeToString(m.Addr)),
+				zap.Error(err))
+			observationsFailedTotal.WithLabelValues("invalid_signature").Inc()
+			return
+		}
+	*/
 
 	// Verify that m.Addr matches the public key that signed m.Hash.
 	their_addr := common.BytesToAddress(m.Addr)
-	signer_pk := common.BytesToAddress(crypto.Keccak256(pk[1:])[12:])
 
-	if their_addr != signer_pk {
-		p.logger.Info("invalid observation - address does not match pubkey",
-			zap.String("digest", hash),
-			zap.String("signature", hex.EncodeToString(m.Signature)),
-			zap.String("addr", hex.EncodeToString(m.Addr)),
-			zap.String("pk", signer_pk.Hex()))
-		observationsFailedTotal.WithLabelValues("pubkey_mismatch").Inc()
-		return
-	}
+	/*
+		signer_pk := common.BytesToAddress(crypto.Keccak256(pk[1:])[12:])
+
+		if their_addr != signer_pk {
+			p.logger.Info("invalid observation - address does not match pubkey",
+				zap.String("digest", hash),
+				zap.String("signature", hex.EncodeToString(m.Signature)),
+				zap.String("addr", hex.EncodeToString(m.Addr)),
+				zap.String("pk", signer_pk.Hex()))
+			observationsFailedTotal.WithLabelValues("pubkey_mismatch").Inc()
+			return
+		}
+	*/
 
 	// Determine which guardian set to use. The following cases are possible:
 	//

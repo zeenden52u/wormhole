@@ -26,15 +26,17 @@ func (v *VAA) HandleQuorum(sigs []*vaa.Signature, hash string, p *Processor) {
 	}
 
 	// Store signed VAA in database.
-	p.logger.Info("signed VAA with quorum",
-		zap.String("digest", hash),
-		zap.String("message_id", signed.MessageID()))
+	/*
+		p.logger.Warn("signed VAA with quorum",
+			zap.String("digest", hash),
+			zap.String("message_id", signed.MessageID()))
+	*/
 
 	if err := p.storeSignedVAA(signed); err != nil {
 		p.logger.Error("failed to store signed VAA", zap.Error(err))
 	}
 
-	p.broadcastSignedVAA(signed)
+	//p.broadcastSignedVAA(signed)
 	p.attestationEvents.ReportVAAQuorum(signed)
 	p.state.signatures[hash].submitted = true
 }

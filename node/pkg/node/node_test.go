@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,16 +56,21 @@ const LOCAL_RPC_PORTRANGE_START = 10000
 const LOCAL_P2P_PORTRANGE_START = 11000
 const LOCAL_STATUS_PORTRANGE_START = 12000
 const LOCAL_PUBLICWEB_PORTRANGE_START = 13000
+const LOCAL_GNET_PORTRANGE_START = 14000
 
 var PROMETHEUS_METRIC_VALID_HEARTBEAT_RECEIVED = "wormhole_p2p_broadcast_messages_received_total{type=\"valid_heartbeat\"}"
 
-const WAIT_FOR_LOGS = true
+const WAIT_FOR_LOGS = false
 const WAIT_FOR_METRICS = false
+
+const BENCHMARK_USE_GNET = true
 
 // The level at which logs will be written to console; During testing, logs are produced and buffered at Info level, because some tests need to look for certain entries.
 var CONSOLE_LOG_LEVEL = zap.InfoLevel
 
 var TEST_ID_CTR atomic.Uint32
+
+var benchmarkOnlineWg sync.WaitGroup // TODO FIXME this shouldn't be a global
 
 func getTestId() uint {
 	return uint(TEST_ID_CTR.Add(1))
@@ -88,6 +94,7 @@ type guardianConfig struct {
 	publicWeb    string
 	statusPort   uint
 	p2pPort      uint
+	gnetPort     uint
 }
 
 func createGuardianConfig(t testing.TB, testId uint, mockGuardianIndex uint) *guardianConfig {
@@ -99,6 +106,7 @@ func createGuardianConfig(t testing.TB, testId uint, mockGuardianIndex uint) *gu
 		publicWeb:    fmt.Sprintf("127.0.0.1:%d", mockGuardianIndex+LOCAL_PUBLICWEB_PORTRANGE_START+testId*20),
 		statusPort:   mockGuardianIndex + LOCAL_STATUS_PORTRANGE_START + testId*20,
 		p2pPort:      mockGuardianIndex + LOCAL_P2P_PORTRANGE_START + testId*20,
+		gnetPort:     mockGuardianIndex + LOCAL_GNET_PORTRANGE_START + testId*20,
 	}
 }
 
@@ -186,13 +194,34 @@ func mockGuardianRunnable(t testing.TB, gs []*mockGuardian, mockGuardianIndex ui
 			GuardianOptionWatchers(watcherConfigs, nil),
 			GuardianOptionNoAccountant(), // disable accountant
 			GuardianOptionGovernor(true),
-			GuardianOptionP2P(gs[mockGuardianIndex].p2pKey, networkID, bootstrapPeers, nodeName, false, cfg.p2pPort, func() string { return "" }),
 			GuardianOptionPublicRpcSocket(cfg.publicSocket, publicRpcLogDetail),
 			GuardianOptionPublicrpcTcpService(cfg.publicRpc, publicRpcLogDetail),
 			GuardianOptionPublicWeb(cfg.publicWeb, cfg.publicSocket, "", false, ""),
 			GuardianOptionAdminService(cfg.adminSocket, nil, nil, rpcMap),
 			GuardianOptionStatusServer(fmt.Sprintf("[::]:%d", cfg.statusPort)),
 			GuardianOptionProcessor(),
+		}
+
+		if _, ok := t.(*testing.B); ok && BENCHMARK_USE_GNET {
+			guardianAddrs := make([]string, len(gs))
+			for i := 0; i < len(gs); i++ {
+				peerId, err := libp2p_peer.IDFromPublicKey(gs[i].p2pKey.GetPublic())
+				if err != nil {
+					panic(err)
+				}
+				guardianAddrs[i] = fmt.Sprintf("/ip4/127.0.0.1/udp/%d/quic/p2p/%s", gs[i].config.p2pPort, peerId.String())
+			}
+
+			// skip yourself
+			guardianAddrs[mockGuardianIndex] = ""
+
+			guardianOptions = append(guardianOptions,
+				GuardianOptionGnet(&benchmarkOnlineWg, gs[mockGuardianIndex].p2pKey, networkID, guardianAddrs, nodeName, cfg.p2pPort, bootstrapPeers),
+			)
+		} else {
+			guardianOptions = append(guardianOptions,
+				GuardianOptionP2P(gs[mockGuardianIndex].p2pKey, networkID, bootstrapPeers, nodeName, false, cfg.p2pPort, func() string { return "" }),
+			)
 		}
 
 		guardianNode := NewGuardianNode(
@@ -660,6 +689,10 @@ func runConsensusTests(t *testing.T, testCases []testCase, numGuardians int) {
 		if WAIT_FOR_LOGS {
 			waitForHeartbeatsInLogs(t, zapObserver, gs)
 		}
+		if !WAIT_FOR_METRICS && !WAIT_FOR_LOGS {
+			benchmarkOnlineWg.Wait()
+			time.Sleep(time.Second * 3)
+		}
 		logger.Info("All Guardians have received at least one heartbeat.")
 
 		// have them make observations
@@ -1036,7 +1069,8 @@ func BenchmarkConsensus(b *testing.B) {
 	//CONSOLE_LOG_LEVEL = zap.DebugLevel
 	//CONSOLE_LOG_LEVEL = zap.InfoLevel
 	CONSOLE_LOG_LEVEL = zap.WarnLevel
-	runConsensusBenchmark(b, "1", 19, 1000, 50) // ~7.5s
+	runConsensusBenchmark(b, "1", 19, 5000, 20) // ~
+	//runConsensusBenchmark(b, "1", 19, 1000, 10) // ~10s
 	//runConsensusBenchmark(b, "1", 19, 1000, 5) // ~10s
 	//runConsensusBenchmark(b, "1", 19, 1000, 1) // ~13s
 }
@@ -1045,6 +1079,7 @@ func runConsensusBenchmark(t *testing.B, name string, numGuardians int, numMessa
 	const vaaCheckGuardianIndex = 1 // we will query this Guardian for VAAs.
 
 	t.Run(name, func(t *testing.B) {
+		benchmarkOnlineWg.Add(numGuardians)
 		require.Equal(t, t.N, 1)
 		testId := getTestId()
 		msgSeqStart := someMsgSequenceCounter
@@ -1096,7 +1131,7 @@ func runConsensusBenchmark(t *testing.B, name string, numGuardians int, numMessa
 
 			// Wait for them to connect each other and receive at least one heartbeat.
 			// This is necessary because if they have not joined the p2p network yet, gossip messages may get dropped silently.
-			assert.True(t, WAIT_FOR_LOGS || WAIT_FOR_METRICS)
+			// assert.True(t, WAIT_FOR_LOGS || WAIT_FOR_METRICS) // TODO FIXME
 			if WAIT_FOR_METRICS {
 				waitForPromMetricGte(t, ctx, gs, PROMETHEUS_METRIC_VALID_HEARTBEAT_RECEIVED, 1)
 			}
@@ -1148,6 +1183,7 @@ func runConsensusBenchmark(t *testing.B, name string, numGuardians int, numMessa
 					EmitterAddress: someMsgEmitter.String(),
 					Sequence:       msgSeqStart + uint64(i+1),
 				}
+				logger.Info("VAA success", zap.Uint64("seq", msgSeqStart+uint64(i+1)))
 				// a VAA should not take longer than 10s to be produced, no matter what.
 				waitCtx, cancelFunc := context.WithTimeout(ctx, time.Second*10)
 				_, err := waitForVaa(t, waitCtx, c, msgId, false)

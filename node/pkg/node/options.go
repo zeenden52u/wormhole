@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/certusone/wormhole/node/pkg/accountant"
 	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/db"
+	"github.com/certusone/wormhole/node/pkg/gnet"
 	"github.com/certusone/wormhole/node/pkg/governor"
 	"github.com/certusone/wormhole/node/pkg/p2p"
 	"github.com/certusone/wormhole/node/pkg/processor"
@@ -71,6 +73,49 @@ func GuardianOptionP2P(p2pKey libp2p_crypto.PrivKey, networkId string, bootstrap
 				nil,
 				components,
 				ibcFeaturesFunc,
+			)
+
+			return nil
+		}}
+}
+
+// GuardianOptionGnet configures the guardian to use GNet for networking
+func GuardianOptionGnet(
+	onlineWg *sync.WaitGroup,
+	p2pKey libp2p_crypto.PrivKey,
+	networkId string,
+	otherGuardianAddrStrings []string,
+	nodeName string,
+	p2pPort uint,
+	p2pBootstrapPeers string,
+) *GuardianOption {
+	return &GuardianOption{
+		name: "gnet",
+		f: func(ctx context.Context, logger *zap.Logger, g *G) error {
+			components := p2p.DefaultComponents()
+
+			if g.env == common.GoTest {
+				components.WarnChannelOverflow = true
+				components.SignedHeartbeatLogLevel = zapcore.InfoLevel
+			}
+
+			g.runnables["gnet"] = gnet.GnetRunnable(
+				ctx,
+				g.gst,
+				p2pKey,
+				networkId,
+				p2pPort,
+				p2pBootstrapPeers,
+				g.gk,
+				nodeName,
+				g.rootCtxCancel,
+				otherGuardianAddrStrings,
+				g.obsvC,
+				g.obsvReqC.writeC,
+				g.obsvReqC.readC,
+				g.gossipSendC,
+				g.signedInC.writeC,
+				onlineWg,
 			)
 
 			return nil
