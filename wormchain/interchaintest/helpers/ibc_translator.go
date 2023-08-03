@@ -41,7 +41,7 @@ func SetMiddlewareContract(
 
 	contractAddr := [32]byte{}
 	copy(contractAddr[:], MustAccAddressFromBech32(contractBech32Addr, cfg.Bech32Prefix).Bytes())
-	payload := vaa.BodyWormchainMiddlewareContract{
+	payload := vaa.BodyWormchainIbcComposabilityMwContract{
 		ContractAddr: contractAddr,
 	}
 	payloadBz := payload.Serialize()
