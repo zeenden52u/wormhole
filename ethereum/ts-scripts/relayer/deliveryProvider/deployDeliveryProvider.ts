@@ -45,7 +45,6 @@ async function run() {
       deliveryProviderSetup.address,
       deliveryProviderImplementation.address,
     );
-
     deployments.deliveryProviderImplementations.push(
       deliveryProviderImplementation,
     );
