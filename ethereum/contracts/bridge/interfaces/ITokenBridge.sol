@@ -66,6 +66,10 @@ interface ITokenBridge {
 
     event TransferRedeemed(uint16 indexed emitterChainId, bytes32 indexed emitterAddress, uint64 indexed sequence);
 
+    event TokenRedeemed(address indexed recipient, address indexed token, uint256 amount);
+
+    event TokenTransferred(address indexed sender, address indexed token, uint256 amount);
+
     function _parseTransferCommon(bytes memory encoded) external pure returns (Transfer memory transfer);
 
     function attestToken(address tokenAddress, uint32 nonce) external payable returns (uint64 sequence);

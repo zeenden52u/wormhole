@@ -32,6 +32,44 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint64 indexed sequence
     );
 
+    /**
+     * @notice Emitted when a transfer is completed by the token bridge.
+     * @param recipient Address of the token recipient.
+     * @param token Address of the redeemed token.
+     * @param amount Amount of the token sent to the recipient.
+     * @param emitterChainID Wormhole chain ID of the emitter on the source chain.
+     * @param sequence Sequence of the Wormhole message.
+     * @param payloadID The ID of the payload (1 or 3).
+     * @param sender Address (bytes32 zero-left-padded) of the sender when the payloadID is 3, otherwise zeros.
+     */
+    event TokenRedeemed(
+        address indexed recipient,
+        address indexed token,
+        uint256 amount,
+        uint16 indexed emitterChainID,
+        uint64 sequence,
+        uint8 payloadID,
+        bytes32 sender
+    );
+
+    /**
+     * @notice Emitted when a token is transferred by the token bridge.
+     * @param sender Address of the sender.
+     * @param token Address of the sent token.
+     * @param amount Amount of the token sent.
+     * @param recipientChainID Wormhole chain ID of the recipient chain.
+     * @param sequence Sequence of the Wormhole message.
+     * @param payloadID The ID of the payload (1 or 3).
+     */
+    event TokenTransferred(
+        address indexed sender,
+        address indexed token,
+        uint256 amount,
+        uint16 indexed recipientChainID,
+        uint64 sequence,
+        uint8 payloadID
+    );
+
     /*
      *  @dev Produce a AssetMeta message for a given token
      */
@@ -79,8 +117,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint256 arbiterFee,
         uint32 nonce
     ) public payable returns (uint64 sequence) {
-        BridgeStructs.TransferResult
-            memory transferResult = _wrapAndTransferETH(arbiterFee);
+        (BridgeStructs.TransferResult memory transferResult, uint256 deNormalizedAmount) = _wrapAndTransferETH(arbiterFee);
         sequence = logTransfer(
             transferResult.tokenChain,
             transferResult.tokenAddress,
@@ -90,6 +127,14 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             transferResult.normalizedArbiterFee,
             transferResult.wormholeFee,
             nonce
+        );
+        emit TokenTransferred(
+            msg.sender, 
+            address(WETH()),
+            deNormalizedAmount,
+            recipientChain,
+            sequence,
+            1
         );
     }
 
@@ -111,8 +156,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint32 nonce,
         bytes memory payload
     ) public payable returns (uint64 sequence) {
-        BridgeStructs.TransferResult
-            memory transferResult = _wrapAndTransferETH(0);
+        (BridgeStructs.TransferResult memory transferResult, uint256 deNormalizedAmount) = _wrapAndTransferETH(0);
         sequence = logTransferWithPayload(
             transferResult.tokenChain,
             transferResult.tokenAddress,
@@ -123,9 +167,17 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             nonce,
             payload
         );
+        emit TokenTransferred(
+            msg.sender, 
+            address(WETH()),
+            deNormalizedAmount,
+            recipientChain,
+            sequence,
+            3
+        );
     }
 
-    function _wrapAndTransferETH(uint256 arbiterFee) internal returns (BridgeStructs.TransferResult memory transferResult) {
+    function _wrapAndTransferETH(uint256 arbiterFee) internal returns (BridgeStructs.TransferResult memory transferResult, uint256 deNormalizedAmount) {
         uint wormholeFee = wormhole().messageFee();
 
         require(wormholeFee < msg.value, "value is smaller than wormhole fee");
@@ -136,16 +188,17 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
 
         uint normalizedAmount = normalizeAmount(amount, 18);
         uint normalizedArbiterFee = normalizeAmount(arbiterFee, 18);
+        deNormalizedAmount = deNormalizeAmount(normalizedAmount, 18);
 
         // refund dust
-        uint dust = amount - deNormalizeAmount(normalizedAmount, 18);
+        uint dust = amount - deNormalizedAmount;
         if (dust > 0) {
             payable(msg.sender).transfer(dust);
         }
 
         // deposit into WETH
         WETH().deposit{
-            value : amount - dust
+            value : amount - dust 
         }();
 
         // track and check outstanding token amounts
@@ -171,7 +224,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint256 arbiterFee,
         uint32 nonce
     ) public payable nonReentrant returns (uint64 sequence) {
-        BridgeStructs.TransferResult memory transferResult = _transferTokens(
+        (BridgeStructs.TransferResult memory transferResult, uint256 deNormalizedAmount) = _transferTokens(
             token,
             amount,
             arbiterFee
@@ -185,6 +238,14 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             transferResult.normalizedArbiterFee,
             transferResult.wormholeFee,
             nonce
+        );
+        emit TokenTransferred(
+            msg.sender, 
+            token, 
+            deNormalizedAmount,
+            recipientChain,
+            sequence,
+            1
         );
     }
 
@@ -208,7 +269,7 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
         uint32 nonce,
         bytes memory payload
     ) public payable nonReentrant returns (uint64 sequence) {
-        BridgeStructs.TransferResult memory transferResult = _transferTokens(
+        (BridgeStructs.TransferResult memory transferResult, uint256 deNormalizedAmount) = _transferTokens(
             token,
             amount,
             0
@@ -223,12 +284,20 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             nonce,
             payload
         );
+        emit TokenTransferred(
+            msg.sender, 
+            token, 
+            deNormalizedAmount,
+            recipientChain,
+            sequence,
+            3
+        );
     }
 
     /*
      *  @notice Initiate a transfer
      */
-    function _transferTokens(address token, uint256 amount, uint256 arbiterFee) internal returns (BridgeStructs.TransferResult memory transferResult) {
+    function _transferTokens(address token, uint256 amount, uint256 arbiterFee) internal returns (BridgeStructs.TransferResult memory transferResult, deNormalizedAmount) {
         // determine token parameters
         uint16 tokenChain;
         bytes32 tokenAddress;
@@ -283,6 +352,11 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
             normalizedArbiterFee : normalizedArbiterFee,
             wormholeFee : msg.value
         });
+
+        deNormalizedAmount = amount;
+
+        // Simple event I had before
+        // emit TokenTransferred(msg.sender, token, amount);
     }
 
     function normalizeAmount(uint256 amount, uint8 decimals) internal pure returns(uint256){
@@ -573,6 +647,8 @@ contract Bridge is BridgeGovernance, ReentrancyGuard {
                 SafeERC20.safeTransfer(transferToken, transferRecipient, transferAmount);
             }
         }
+
+        emit TokenRedeemed(transferRecipient, address(transferToken), transferAmount);
 
         return vm.payload;
     }

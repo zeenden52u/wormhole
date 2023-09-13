@@ -436,7 +436,7 @@ contract("Bridge", function () {
         assert.equal(accountBalanceBefore.toString(10), amount);
         assert.equal(bridgeBalanceBefore.toString(10), "0");
 
-        await initialized.methods.transferTokens(
+        const tx = await initialized.methods.transferTokens(
             TokenImplementation.address,
             amount,
             "10",
@@ -485,6 +485,8 @@ contract("Bridge", function () {
 
         // fee
         assert.equal(log.payload.substr(204, 64), web3.eth.abi.encodeParameter("uint256", new BigNumber(fee).div(1e10).toString()).substring(2))
+
+        verifyTokenTransferredEvent(accounts[0], TokenImplementation.address, amount, tx.events.TokenTransferred);
     })
 
     it("should deposit and log fee token transfers correctly", async function () {
@@ -635,12 +637,19 @@ contract("Bridge", function () {
         assert.equal(bridgeBalanceAfter.toString(10), "0");
 
         // verify the `TransferRedeemed` event
-        const event = tx.events.TransferRedeemed;
+        const transferRedeemedEvent = tx.events.TransferRedeemed;
 
-        assert.equal(event !== undefined, true);
-        assert.equal(event.returnValues.emitterChainId, testForeignChainId);
-        assert.equal(event.returnValues.emitterAddress, testForeignBridgeContract);
-        assert.equal(event.returnValues.sequence, sequence);
+        assert.equal(transferRedeemedEvent !== undefined, true);
+        assert.equal(transferRedeemedEvent.returnValues.emitterChainId, testForeignChainId);
+        assert.equal(transferRedeemedEvent.returnValues.emitterAddress, testForeignBridgeContract);
+        assert.equal(transferRedeemedEvent.returnValues.sequence, sequence);
+
+        // verify the `TokenRedeemed` event
+        const tokenRedeemedEvent = tx.events.TokenRedeemed;
+        assert.equal(tokenRedeemedEvent !== undefined, true);
+        assert.equal(tokenRedeemedEvent.returnValues.recipient, accounts[0]);
+        assert.equal(tokenRedeemedEvent.returnValues.token, TokenImplementation.address);
+        assert.equal(tokenRedeemedEvent.returnValues.amount, amount);
     })
 
     it("should deposit and log transfer with payload correctly", async function () {
@@ -1044,7 +1053,7 @@ contract("Bridge", function () {
         assert.equal(totalWETHSupply.toString(10), "0");
         assert.equal(bridgeBalanceBefore.toString(10), "0");
 
-        await initialized.methods.wrapAndTransferETH(
+        const tx = await initialized.methods.wrapAndTransferETH(
             "10",
             "0x000000000000000000000000b7a2211e8165943192ad04f5dd21bedc29ff003e",
             fee,
@@ -1091,6 +1100,8 @@ contract("Bridge", function () {
 
         // fee
         assert.equal(log.payload.substr(204, 64), web3.eth.abi.encodeParameter("uint256", new BigNumber(fee).div(1e10).toString()).substring(2))
+
+        verifyTokenTransferredEvent(accounts[0], WETH, amount, tx.events.TokenTransferred);
     })
 
     it("should handle ETH withdrawals and fees correctly", async function () {
@@ -1138,7 +1149,7 @@ contract("Bridge", function () {
             0
         );
 
-        const transferTX = await initialized.methods.completeTransferAndUnwrapETH("0x" + vm).send({
+        await initialized.methods.completeTransferAndUnwrapETH("0x" + vm).send({
             from: accounts[0],
             gasLimit: 2000000
         });
@@ -1149,8 +1160,11 @@ contract("Bridge", function () {
         const accountBalanceAfter = await web3.eth.getBalance(accounts[1]);
         const feeRecipientBalanceAfter = await web3.eth.getBalance(accounts[0]);
 
-        assert.equal((new BigNumber(accountBalanceAfter)).minus(accountBalanceBefore).toString(10), (new BigNumber(amount)).minus(fee).toString(10))
+        const expectedAmount = new BigNumber(amount).minus(fee).toString(10);
+        assert.equal((new BigNumber(accountBalanceAfter)).minus(accountBalanceBefore).toString(10), expectedAmount)
         assert.ok((new BigNumber(feeRecipientBalanceAfter)).gt(feeRecipientBalanceBefore))
+
+        verifyTokenTransferredEvent(accounts[1], WETH, expectedAmount, tx.events.TokenTransferred);
     })
 
     it("should handle ETH deposits with payload correctly", async function () {
@@ -1288,6 +1302,13 @@ contract("Bridge", function () {
         const accountBalanceAfter = await web3.eth.getBalance(accounts[0]);
 
         assert.ok((new BigNumber(accountBalanceAfter)).gt(accountBalanceBefore))
+
+        // verify the `TokenRedeemed` event
+        const tokenRedeemedEvent = transferTX.events.TokenRedeemed;
+        assert.equal(tokenRedeemedEvent !== undefined, true);
+        assert.equal(tokenRedeemedEvent.returnValues.recipient, accounts[0]);
+        assert.equal(tokenRedeemedEvent.returnValues.token, WETH);
+        assert.equal(tokenRedeemedEvent.returnValues.amount, amount);
     })
 
     it("should revert on transfer out of a total of > max(uint64) tokens", async function () {
@@ -1577,4 +1598,11 @@ function zeroPadBytes(value, length) {
         value = "0" + value;
     }
     return value;
+}
+
+function verifyTokenTransferredEvent(expectedSender, expectedToken, expectedAmount, event) {
+    assert.equal(event !== undefined, true);
+    assert.equal(event.returnValues.sender, expectedSender);
+    assert.equal(event.returnValues.token, expectedToken);
+    assert.equal(event.returnValues.amount, expectedAmount);
 }
