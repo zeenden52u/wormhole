@@ -6,29 +6,52 @@ pragma experimental ABIEncoderV2;
 
 import "./Getters.sol";
 import "./Structs.sol";
-import "./libraries/external/BytesLib.sol";
+import "./libraries/relayer/BytesParsing.sol";
 
-contract Messages is Getters {
-    using BytesLib for bytes;
+import "forge-std/console.sol";
 
-    /// @dev parseAndVerifyVM serves to parse an encodedVM and wholy validate it for consumption
-    function parseAndVerifyVM(bytes calldata encodedVM) public view returns (Structs.VM memory vm, bool valid, string memory reason) {
+contract OptimizedMessages is Getters {
+    using BytesParsing for bytes;
+
+    function parseAndVerifyVMOptimized(
+        bytes calldata encodedVM, 
+        bytes calldata guardianSet, 
+        uint32 guardianSetIndex
+    ) public view returns (Structs.VM memory vm, bool valid, string memory reason) {
+        // Verify that the specified guardian set is a valid. 
+        require(
+            getGuardianSetHash(guardianSetIndex) == keccak256(guardianSet), 
+            "invalid guardian set"
+        );
+
+        // TODO: Optimize parsing function. 
         vm = parseVM(encodedVM);
-        /// setting checkHash to false as we can trust the hash field in this case given that parseVM computes and then sets the hash field above
-        (valid, reason) = verifyVMInternal(vm, getGuardianSet(vm.guardianSetIndex), false);
+
+        // Verify that the VM is signed with the same guardian set that was specified.
+        require(vm.guardianSetIndex == guardianSetIndex, "mismatched guardian set index");
+
+        (valid, reason) = verifyVMInternal(vm, parseGuardianSetOptimized(guardianSet), false);
     }
 
-   /**
-    * @dev `verifyVM` serves to validate an arbitrary vm against a valid Guardian set
-    *  - it aims to make sure the VM is for a known guardianSet
-    *  - it aims to ensure the guardianSet is not expired
-    *  - it aims to ensure the VM has reached quorum
-    *  - it aims to verify the signatures provided against the guardianSet
-    *  - it aims to verify the hash field provided against the contents of the vm
-    */
-    function verifyVM(Structs.VM memory vm) public view returns (bool valid, string memory reason) {
-        (valid, reason) = verifyVMInternal(vm, getGuardianSet(vm.guardianSetIndex), true);    
-    }
+    function parseGuardianSetOptimized(bytes calldata guardianSetData) public pure returns (Structs.GuardianSet memory guardianSet) {
+        // Fetch the guardian set length.
+        uint256 endGuardianKeyIndex = guardianSetData.length - 4; 
+        uint256 guardianCount = endGuardianKeyIndex / 20; 
+
+        guardianSet = Structs.GuardianSet({
+            keys : new address[](guardianCount),
+            expirationTime : 0
+        });
+        (guardianSet.expirationTime, ) = guardianSetData.asUint32Unchecked(endGuardianKeyIndex);
+
+        uint256 offset = 0;
+        for(uint256 i = 0; i < guardianCount;) {
+            (guardianSet.keys[i], offset) = guardianSetData.asAddressUnchecked(offset);
+            unchecked { 
+                ++i; 
+            } 
+        } 
+    } 
 
     /**
     * @dev `verifyVMInternal` serves to validate an arbitrary vm against a valid Guardian set
@@ -141,71 +164,56 @@ contract Messages is Getters {
         return (true, "");
     }
 
+	function checkPayloadId(
+		bytes memory encoded,
+		uint256 startOffset,
+		uint8 expectedPayloadId
+	) private pure returns (uint256 offset) {
+		uint8 parsedPayloadId;
+		(parsedPayloadId, offset) = encoded.asUint8Unchecked(startOffset);
+        require(parsedPayloadId == expectedPayloadId, "invalid payload id");
+	}
+
     /**
      * @dev parseVM serves to parse an encodedVM into a vm struct
      *  - it intentionally performs no validation functions, it simply parses raw into a struct
      */
-    function parseVM(bytes memory encodedVM) public pure virtual returns (Structs.VM memory vm) {
-        uint index = 0;
+    function parseVM(bytes memory encodedVM) public view virtual returns (Structs.VM memory vm) {
+        uint256 offset = checkPayloadId(encodedVM, 0, 1);
+        vm.version = 1;
+        (vm.guardianSetIndex, offset) = encodedVM.asUint32Unchecked(offset);
 
-        vm.version = encodedVM.toUint8(index);
-        index += 1;
-        // SECURITY: Note that currently the VM.version is not part of the hash 
-        // and for reasons described below it cannot be made part of the hash. 
-        // This means that this field's integrity is not protected and cannot be trusted. 
-        // This is not a problem today since there is only one accepted version, but it 
-        // could be a problem if we wanted to allow other versions in the future. 
-        require(vm.version == 1, "VM version incompatible"); 
+        // Parse sigs. 
+        uint256 signersLen;
+        (signersLen, offset) = encodedVM.asUint8Unchecked(offset);
 
-        vm.guardianSetIndex = encodedVM.toUint32(index);
-        index += 4;
-
-        // Parse Signatures
-        uint256 signersLen = encodedVM.toUint8(index);
-        index += 1;
         vm.signatures = new Structs.Signature[](signersLen);
-        for (uint i = 0; i < signersLen; i++) {
-            vm.signatures[i].guardianIndex = encodedVM.toUint8(index);
-            index += 1;
-
-            vm.signatures[i].r = encodedVM.toBytes32(index);
-            index += 32;
-            vm.signatures[i].s = encodedVM.toBytes32(index);
-            index += 32;
-            vm.signatures[i].v = encodedVM.toUint8(index) + 27;
-            index += 1;
+        for (uint i = 0; i < signersLen;) {
+            (vm.signatures[i].guardianIndex, offset) = encodedVM.asUint8Unchecked(offset);
+            (vm.signatures[i].r, offset) = encodedVM.asBytes32Unchecked(offset);
+            (vm.signatures[i].s, offset) = encodedVM.asBytes32Unchecked(offset);
+            (vm.signatures[i].v, offset) = encodedVM.asUint8Unchecked(offset);
+            
+            unchecked { 
+                vm.signatures[i].v += 27;
+                ++i; 
+            }
         }
 
-        /*
-        Hash the body
-
-        SECURITY: Do not change the way the hash of a VM is computed! 
-        Changing it could result into two different hashes for the same observation. 
-        But xDapps rely on the hash of an observation for replay protection.
-        */
-        bytes memory body = encodedVM.slice(index, encodedVM.length - index);
+        bytes memory body;
+        (body, ) = encodedVM.sliceUnchecked(offset, encodedVM.length - offset);
         vm.hash = keccak256(abi.encodePacked(keccak256(body)));
 
         // Parse the body
-        vm.timestamp = encodedVM.toUint32(index);
-        index += 4;
+        (vm.timestamp, offset) = encodedVM.asUint32Unchecked(offset);
+        (vm.nonce, offset) = encodedVM.asUint32Unchecked(offset);
+        (vm.emitterChainId, offset) = encodedVM.asUint16Unchecked(offset);
+        (vm.emitterAddress, offset) = encodedVM.asBytes32Unchecked(offset);
+        (vm.sequence, offset) = encodedVM.asUint64Unchecked(offset);
+        (vm.consistencyLevel, offset) = encodedVM.asUint8Unchecked(offset);
+        (vm.payload, offset) = encodedVM.sliceUnchecked(offset, encodedVM.length - offset);
 
-        vm.nonce = encodedVM.toUint32(index);
-        index += 4;
-
-        vm.emitterChainId = encodedVM.toUint16(index);
-        index += 2;
-
-        vm.emitterAddress = encodedVM.toBytes32(index);
-        index += 32;
-
-        vm.sequence = encodedVM.toUint64(index);
-        index += 8;
-
-        vm.consistencyLevel = encodedVM.toUint8(index);
-        index += 1;
-
-        vm.payload = encodedVM.slice(index, encodedVM.length - index);
+        require(encodedVM.length == offset, "invalid payload length");
     }
 
     /**

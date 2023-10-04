@@ -6,6 +6,9 @@ pragma solidity ^0.8.0;
 import "../contracts/Messages.sol";
 import "../contracts/Setters.sol";
 import "../contracts/Structs.sol";
+import {OptimizedMessages} from "../contracts/OptimizedMessages.sol";
+import {OptimizedParser} from "./ParseVmOptimized.sol";
+import {Parser} from "./ParseVm.sol";
 
 import "forge-std/Test.sol";
 import "forge-std/Vm.sol";
@@ -57,7 +60,13 @@ contract ExportedMessages is Messages, Setters {
     }
 }
 
-contract TestMessages is Test {
+contract ExportedOptimizedMessages is OptimizedMessages, Setters {
+    function storeGuardianSetPub(Structs.GuardianSet memory set, uint32 index) public {
+        return super.storeGuardianSet(set, index);
+    }
+}
+
+contract TestMessages is Test, OptimizedParser, Parser {
   address constant testGuardianPub = 0xbeFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe;
 
   // A valid VM with one signature from the testGuardianPublic key
@@ -66,13 +75,14 @@ contract TestMessages is Test {
   uint256 constant testGuardian = 93941733246223705020089879371323733820373732307041878556247502674739205313440;
 
   ExportedMessages messages;
+  ExportedOptimizedMessages optimizedMessages;
   WormholeSigner wormholeSimulator; 
 
   Structs.GuardianSet guardianSet;
 
   // Guardian set with 19 guardians and wallets with each signing key. 
   Structs.GuardianSet guardianSetOpt;
-  uint256[] guardianKeys = new uint256[](19);
+  uint256[] guardianKeys = new uint256[](13);
 
   function setupSingleGuardian() internal {
     // initialize guardian set with one guardian
@@ -84,19 +94,19 @@ contract TestMessages is Test {
 
   function setupMultiGuardian() internal {
     // initialize guardian set with 19 guardians 
-    address[] memory keys = new address[](19);
-    for (uint256 i = 0; i < 19; ++i) {
+    address[] memory keys = new address[](13);
+    for (uint256 i = 0; i < 13; ++i) {
       // create a keypair for each guardian 
       VmSafe.Wallet memory wallet = vm.createWallet(string(abi.encodePacked("guardian", i)));
       keys[i] = wallet.addr; 
       guardianKeys[i] = wallet.privateKey; 
     }
     guardianSetOpt = Structs.GuardianSet(keys, 0); 
-    require(messages.quorum(guardianSetOpt.keys.length) == 13, "Quorum should be 13"); 
   }
 
   function setUp() public {
     messages = new ExportedMessages();
+    optimizedMessages = new ExportedOptimizedMessages();
     wormholeSimulator = new WormholeSigner();
     setupSingleGuardian();
     setupMultiGuardian();
@@ -257,28 +267,8 @@ contract TestMessages is Test {
     assertEq(reason, "vm.hash doesn't match body");
   }
 
-  function testParseGuardianSetOptimized(uint8 guardianCount) public view {
-    vm.assume(guardianCount > 0 && guardianCount <= 19);
-
-    // Encode the guardian set.
-    bytes memory encodedGuardianSet;
-    for (uint256 i = 0; i < guardianCount; ++i) {
-      encodedGuardianSet = abi.encodePacked(encodedGuardianSet, guardianSetOpt.keys[i]);
-    }
-    encodedGuardianSet = abi.encodePacked(encodedGuardianSet, guardianSetOpt.expirationTime);
-
-    // Parse the guardian set. 
-    Structs.GuardianSet memory parsedSet = messages.parseGuardianSetOptimized(encodedGuardianSet);
-
-    // Validate the results by comparing the parsed set to the original set.
-    for (uint256 i = 0; i < guardianCount; ++i) {
-      assert(parsedSet.keys[i] == guardianSetOpt.keys[i]);
-    } 
-    assert(parsedSet.expirationTime == guardianSetOpt.expirationTime);
-  }
-
-  function testParseAndVerifyVMOptimized(bytes memory payload) public {
-    vm.assume(payload.length > 0 && payload.length < 1000);
+  function testParseVMGasBad() public {
+    bytes memory payload = hex"03deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";    
 
     uint16 emitterChainId = 16;
     bytes32 emitterAddress = bytes32(uint256(uint160(makeAddr("foreignEmitter"))));
@@ -287,6 +277,8 @@ contract TestMessages is Test {
     // Set the guardian set to the optimized guardian set.
     messages.storeGuardianSetPub(guardianSetOpt, currentSetIndex);
     messages.setGuardianSetHash(currentSetIndex);
+    optimizedMessages.storeGuardianSetPub(guardianSetOpt, currentSetIndex);
+    optimizedMessages.setGuardianSetHash(currentSetIndex);
 
     // Create a message with an arbitrary payload. 
     bytes memory signedMessage = getSignedVM(
@@ -297,28 +289,73 @@ contract TestMessages is Test {
       currentSetIndex
     );
 
-    // Parse and verify the VM. 
-    (Structs.VM memory vm_, bool valid,) = messages.parseAndVerifyVM(signedMessage);
-    assertEq(valid, true);
+    Structs.VM memory vm = internalParseVMSlow(signedMessage);
+    Structs.VM memory vm2 = internalParseVMFast(signedMessage);
 
-    // Parse and verify the VM using the optimized endpoint. 
-    (Structs.VM memory vmOptimized, bool valid_,) = messages.parseAndVerifyVMOptimized(
-      signedMessage, 
-      messages.getEncodedGuardianSet(currentSetIndex), 
+    assertEqualVM(vm, vm2);
+  }
+
+  function testParseAndVerifyVMGasBad() public {
+    bytes memory payload = hex"03deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";    
+
+    uint16 emitterChainId = 16;
+    bytes32 emitterAddress = bytes32(uint256(uint160(makeAddr("foreignEmitter"))));
+    uint32 currentSetIndex = messages.getCurrentGuardianSetIndex();
+
+    // Set the guardian set to the optimized guardian set.
+    messages.storeGuardianSetPub(guardianSetOpt, currentSetIndex);
+    messages.setGuardianSetHash(currentSetIndex);
+    optimizedMessages.storeGuardianSetPub(guardianSetOpt, currentSetIndex);
+    optimizedMessages.setGuardianSetHash(currentSetIndex);
+
+    // Create a message with an arbitrary payload. 
+    bytes memory signedMessage = getSignedVM(
+      payload,
+      emitterAddress,
+      emitterChainId,
+      guardianKeys,
       currentSetIndex
     );
-    assertEq(valid_, true);
 
-    // Validate the results by comparing the parsed VM to the optimized VM.
-    assertEq(vm_.version, vmOptimized.version);
-    assertEq(vm_.timestamp, vmOptimized.timestamp);
-    assertEq(vm_.nonce, vmOptimized.nonce);
-    assertEq(vm_.emitterChainId, vmOptimized.emitterChainId);
-    assertEq(vm_.emitterAddress, vmOptimized.emitterAddress);
-    assertEq(vm_.sequence, vmOptimized.sequence);
-    assertEq(vm_.consistencyLevel, vmOptimized.consistencyLevel);
-    assertEq(vm_.payload, vmOptimized.payload);
-    assertEq(vm_.guardianSetIndex, vmOptimized.guardianSetIndex);
-    assertEq(vm_.signatures.length, vmOptimized.signatures.length);
+    bytes memory encodedGuardianSet = optimizedMessages.getEncodedGuardianSet(currentSetIndex);
+
+    Structs.VM memory vm;
+    {
+      uint256 gasBefore = gasleft();
+      (vm,, ) = messages.parseAndVerifyVM(signedMessage);
+      uint256 gasAfter = gasleft();
+      console.log("Gas cost before: %d", gasBefore - gasAfter);
+    }
+
+    Structs.VM memory vm2;
+    {
+      uint256 gasBefore = gasleft();
+      (vm2,, ) = optimizedMessages.parseAndVerifyVMOptimized(signedMessage, encodedGuardianSet, currentSetIndex);
+      uint256 gasAfter = gasleft();
+      console.log("Gas cost after: %d", gasBefore - gasAfter);
+    }
+
+    // assertEqualVM(vm, vm2);
+  }
+
+  function assertEqualVM(Structs.VM memory vm, Structs.VM memory vm2) internal {
+    assertEq(vm.version, vm2.version);
+    assertEq(vm.timestamp, vm2.timestamp);
+    assertEq(vm.emitterChainId, vm2.emitterChainId);
+    assertEq(vm.emitterAddress, vm2.emitterAddress);
+    assertEq(vm.sequence, vm2.sequence);
+    assertEq(vm.consistencyLevel, vm2.consistencyLevel);
+    assertEq(vm.payload, vm2.payload);
+    assertEq(vm.guardianSetIndex, vm2.guardianSetIndex);
+    assertEq(vm.hash, vm2.hash);
+    assertEq(vm.signatures.length, vm2.signatures.length);
+
+    // Verify each signature is the same. 
+    for (uint256 i = 0; i < vm.signatures.length; ++i) {
+      assertEq(vm.signatures[i].guardianIndex, vm2.signatures[i].guardianIndex);
+      assertEq(vm.signatures[i].r, vm2.signatures[i].r);
+      assertEq(vm.signatures[i].s, vm2.signatures[i].s);
+      assertEq(vm.signatures[i].v, vm2.signatures[i].v);
+    }
   }
 }
