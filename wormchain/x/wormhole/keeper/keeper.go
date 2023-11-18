@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
+	ibcClientKeeper "github.com/cosmos/ibc-go/v4/modules/core/02-client/keeper"
 	"github.com/wormhole-foundation/wormchain/x/wormhole/types"
 )
 
@@ -17,13 +18,15 @@ type (
 		storeKey sdk.StoreKey
 		memKey   sdk.StoreKey
 
-		accountKeeper types.AccountKeeper
-		bankKeeper    types.BankKeeper
-		wasmdKeeper   types.WasmdKeeper
-		upgradeKeeper upgradekeeper.Keeper
+		accountKeeper   types.AccountKeeper
+		bankKeeper      types.BankKeeper
+		wasmdKeeper     types.WasmdKeeper
+		upgradeKeeper   upgradekeeper.Keeper
+		ibcClientKeeper ibcClientKeeper.Keeper
 
-		setWasmd   bool
-		setUpgrade bool
+		setWasmd     bool
+		setUpgrade   bool
+		setIbcClient bool
 	}
 )
 
@@ -54,9 +57,16 @@ func (k *Keeper) SetWasmdKeeper(keeper types.WasmdKeeper) {
 	k.setWasmd = true
 }
 
+// We need to set UpgradeKeeper after initialization for the same reason as the above.
 func (k *Keeper) SetUpgradeKeeper(keeper upgradekeeper.Keeper) {
 	k.upgradeKeeper = keeper
 	k.setUpgrade = true
+}
+
+// We need to set IbcClientKeeper after initialization for the same reason as the above.
+func (k *Keeper) SetIbcClientKeeper(keeper ibcClientKeeper.Keeper) {
+	k.ibcClientKeeper = keeper
+	k.setIbcClient = true
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {

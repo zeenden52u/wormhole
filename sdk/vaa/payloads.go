@@ -77,6 +77,7 @@ var (
 	ActionScheduleUpgrade               GovernanceAction = 1
 	ActionCancelUpgrade                 GovernanceAction = 2
 	ActionSetIbcComposabilityMwContract GovernanceAction = 3
+	ActionRecoverIbcLightClient         GovernanceAction = 4
 
 	// Accountant goverance actions
 	ActionModifyBalance GovernanceAction = 1
@@ -171,6 +172,13 @@ type (
 	// BodyGatewayIbcComposabilityMwContract is a governance message to set a specific contract (i.e. IBC Translator) for the ibc composability middleware to use
 	BodyGatewayIbcComposabilityMwContract struct {
 		ContractAddr [32]byte
+	}
+
+	BodyGatewayRecoverIbcLightClient struct {
+		// These Client IDs should follow the IBC client identifier standard: https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#paths-identifiers-separators
+		// If the identifier string is shorter than 64 bytes, the correct number of 0x00 bytes should be prepended.
+		SubjectClientId    [64]byte
+		SubstituteClientId [64]byte
 	}
 
 	// BodyCircleIntegrationUpdateWormholeFinality is a governance message to update the wormhole finality for Circle Integration.
@@ -330,6 +338,30 @@ func (r *BodyGatewayIbcComposabilityMwContract) Deserialize(bz []byte) {
 	r.ContractAddr = contractAddr
 }
 
+func (r BodyGatewayRecoverIbcLightClient) Serialize() []byte {
+	// TODO -- need to make client IDs fixed byte lengths
+	payload := &bytes.Buffer{}
+	payload.Write(r.SubjectClientId[:])
+	payload.Write(r.SubstituteClientId[:])
+	return serializeBridgeGovernanceVaa(GatewayModuleStr, ActionRecoverIbcLightClient, ChainIDWormchain, payload.Bytes())
+}
+
+func (r *BodyGatewayRecoverIbcLightClient) Deserialize(bz []byte) {
+	// payload is 2 64-byte buffers
+	if len(bz) < 128 {
+		panic("incorrect payload length")
+	}
+
+	var subjectClientId [64]byte
+	copy(subjectClientId[:], bz[0:64])
+
+	var substituteClientId [64]byte
+	copy(substituteClientId[:], bz[64:128])
+
+	r.SubjectClientId = subjectClientId
+	r.SubstituteClientId = substituteClientId
+}
+
 func (r BodyGatewayScheduleUpgrade) Serialize() []byte {
 	payload := &bytes.Buffer{}
 	payload.Write([]byte(r.Name))
@@ -338,6 +370,12 @@ func (r BodyGatewayScheduleUpgrade) Serialize() []byte {
 }
 
 func (r *BodyGatewayScheduleUpgrade) Deserialize(bz []byte) {
+	// validate bytes length
+	// length should be at least length of the uint64
+	if len(bz) < 8 {
+		panic("incorrect payload length")
+	}
+
 	r.Name = string(bz[0 : len(bz)-8])
 	r.Height = binary.BigEndian.Uint64(bz[len(bz)-8:])
 }

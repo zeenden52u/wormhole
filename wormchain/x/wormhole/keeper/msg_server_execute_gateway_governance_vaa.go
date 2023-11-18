@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	ibcclienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
 
 	"github.com/wormhole-foundation/wormchain/x/wormhole/types"
 	"github.com/wormhole-foundation/wormhole/sdk/vaa"
@@ -48,6 +49,8 @@ func (k msgServer) ExecuteGatewayGovernanceVaa(
 		return k.cancelUpgrade(ctx)
 	case vaa.ActionSetIbcComposabilityMwContract:
 		return k.setIbcComposabilityMwContract(ctx, payload)
+	case vaa.ActionRecoverIbcLightClient:
+		return k.recoverIbcClient(ctx, payload)
 	default:
 		return nil, types.ErrUnknownGovernanceAction
 	}
@@ -65,7 +68,10 @@ func (k msgServer) scheduleUpgrade(
 		Name:   payloadBody.Name,
 		Height: int64(payloadBody.Height),
 	}
-	k.upgradeKeeper.ScheduleUpgrade(ctx, plan)
+	err := k.upgradeKeeper.ScheduleUpgrade(ctx, plan)
+	if err != nil {
+		return nil, err
+	}
 
 	return &types.EmptyResponse{}, nil
 }
@@ -97,6 +103,27 @@ func (k msgServer) setIbcComposabilityMwContract(
 	}
 
 	k.StoreIbcComposabilityMwContract(ctx, newContract)
+
+	return &types.EmptyResponse{}, nil
+}
+
+func (k msgServer) recoverIbcClient(
+	ctx sdk.Context,
+	payload []byte,
+) (*types.EmptyResponse, error) {
+	// deserialize the payload
+	// should have necessary params for the client update proposal
+	var payloadBody vaa.BodyGatewayRecoverIbcLightClient
+	payloadBody.Deserialize(payload)
+
+	// TODO -- fill out based on the wormhole governance payload proposal
+	err := k.ibcClientKeeper.ClientUpdateProposal(ctx, &ibcclienttypes.ClientUpdateProposal{
+		SubjectClientId:    string(payloadBody.SubjectClientId[:]),
+		SubstituteClientId: string(payloadBody.SubstituteClientId[:]),
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	return &types.EmptyResponse{}, nil
 }

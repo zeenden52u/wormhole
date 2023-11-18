@@ -410,6 +410,7 @@ func New(
 	)
 
 	app.WireICS20PreWasmKeeper(&app.WormholeKeeper)
+	app.WormholeKeeper.SetIbcClientKeeper(app.IBCKeeper.ClientKeeper)
 
 	// register the proposal types
 	govRouter := govtypes.NewRouter()
