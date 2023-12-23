@@ -1,0 +1,43 @@
+#syntax=docker/dockerfile:1.2@sha256:e2a8561e419ab1ba6b2fe6cbdf49fd92b95912df1cf7d313c3e2230a333fdbcc
+FROM --platform=linux/arm64/v8 docker.io/arm64v8/rust:1.70.0@sha256:b195734f8a42bd85d81bc55038b906f050af05d43e6869ea931145955fd76445 as solana
+
+RUN apt-get update && apt-get install -y curl \
+    libssl-dev \
+    libudev-dev \
+    pkg-config \
+    zlib1g-dev  \
+    clang \
+    cmake \
+    make \
+    libprotobuf-dev \
+    protobuf-compiler \
+    ninja-build
+
+# download solana
+WORKDIR /
+ARG tag=1.16.24
+RUN curl -L -s https://github.com/solana-labs/solana/archive/refs/tags/v${tag}.tar.gz -o solana-${tag}.tar.gz
+RUN tar zxvf solana-${tag}.tar.gz
+
+# build solana
+WORKDIR /solana-${tag}
+RUN /solana-${tag}/scripts/cargo-install-all.sh .
+ENV PATH="/solana-${tag}/bin:$PATH"
+RUN /solana-${tag}/bin/solana-install -V ${tag} init
+
+
+# download platform-tools
+WORKDIR /
+ARG platformTag=1.37
+# Clone until the patch for aarch64 (https://github.com/solana-labs/platform-tools/pull/71) 
+RUN git clone --branch without-python https://github.com/barnjamin/platform-tools.git platform-tools-${platformTag}
+# RUN curl -L -s https://github.com/solana-labs/platform-tools/archive/refs/tags/v${platformTag}.tar.gz -o solana-platform-tools-${platformTag}.tar.gz
+# RUN tar zxvf solana-platform-tools-${platformTag}.tar.gz
+WORKDIR /platform-tools-${platformTag}
+
+RUN /platform-tools-${platformTag}/build.sh
+
+# install platform-tools
+WORKDIR /root
+COPY install_platform_tools.sh  .
+RUN ./install_platform_tools.sh
