@@ -9,12 +9,9 @@ pub use transfer_fees::*;
 
 mod upgrade_contract;
 pub use upgrade_contract::*;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
-use crate::{
-    error::CoreBridgeError,
-    state::{Config, VaaVersion},
-    utils::vaa::VaaAccount,
-};
+use crate::{error::CoreBridgeError, state::Config};
 use anchor_lang::prelude::*;
 use wormhole_raw_vaas::core::{CoreBridgeDecree, CoreBridgeGovPayload};
 
@@ -26,20 +23,14 @@ pub fn require_valid_governance_vaa<'ctx>(
     vaa: &'ctx VaaAccount<'ctx>,
 ) -> Result<CoreBridgeDecree<'ctx>> {
     // Make sure the VAA was attested for by the latest guardian set.
-    let guardian_set_index = match vaa {
-        VaaAccount::EncodedVaa(inner) => match inner.as_vaa()? {
-            VaaVersion::V1(vaa) => vaa.guardian_set_index(),
-        },
-        VaaAccount::PostedVaaV1(inner) => inner.guardian_set_index(),
-    };
     require_eq!(
         config.guardian_set_index,
-        guardian_set_index,
+        vaa.guardian_set_index(),
         CoreBridgeError::LatestGuardianSetRequired
     );
 
     // The emitter must be the hard-coded governance emitter.
-    let emitter = vaa.try_emitter_info()?;
+    let emitter = vaa.emitter_info();
     require!(
         emitter.chain == crate::constants::GOVERNANCE_CHAIN
             && emitter.address == crate::constants::GOVERNANCE_EMITTER,
@@ -47,7 +38,7 @@ pub fn require_valid_governance_vaa<'ctx>(
     );
 
     // Finally attempt to parse the governance decree.
-    CoreBridgeGovPayload::try_from(vaa.try_payload().unwrap())
+    CoreBridgeGovPayload::try_from(vaa.payload())
         .map(|msg| msg.decree())
         .map_err(|_| error!(CoreBridgeError::InvalidGovernanceVaa))
 }

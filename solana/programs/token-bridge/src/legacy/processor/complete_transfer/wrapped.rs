@@ -8,6 +8,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token;
 use core_bridge_program::sdk as core_bridge;
 use wormhole_raw_vaas::token_bridge::TokenBridgeMessage;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct CompleteTransferWrapped<'info> {
@@ -125,7 +126,7 @@ impl<'info> CompleteTransferWrapped<'info> {
         // precaution).
         require_neq!(
             token_chain,
-            core_bridge::SOLANA_CHAIN,
+            wormhole_solana_consts::SOLANA_CHAIN,
             TokenBridgeError::NativeAsset
         );
 
@@ -146,7 +147,7 @@ fn complete_transfer_wrapped(
     ctx: Context<CompleteTransferWrapped>,
     _args: EmptyArgs,
 ) -> Result<()> {
-    let vaa = core_bridge::VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -164,8 +165,9 @@ fn complete_transfer_wrapped(
         None,
     )?;
 
-    let msg = TokenBridgeMessage::try_from(vaa.try_payload().unwrap()).unwrap();
-    let transfer = msg.transfer().unwrap();
+    let transfer = TokenBridgeMessage::try_from(vaa.payload())
+        .unwrap()
+        .to_transfer_unchecked();
 
     // We do not have to denormalize wrapped mint amounts because by definition wrapped mints can
     // only have a max of 8 decimals, which is the same as the cap for normalized amounts.

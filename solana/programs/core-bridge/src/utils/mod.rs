@@ -1,5 +1,5 @@
 //! Utilities for the Core Bridge Program.
-pub mod cpi;
+//pub mod cpi;
 
 pub mod vaa;
 

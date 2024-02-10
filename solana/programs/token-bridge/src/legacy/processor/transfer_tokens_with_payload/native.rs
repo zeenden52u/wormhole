@@ -185,7 +185,7 @@ fn transfer_tokens_with_payload_native(
     let token_transfer = crate::messages::TransferWithMessage {
         norm_amount: EncodedAmount::norm(U256::from(amount), mint.decimals).0,
         token_address: ctx.accounts.mint.key().to_bytes(),
-        token_chain: core_bridge::SOLANA_CHAIN,
+        token_chain: wormhole_solana_consts::SOLANA_CHAIN,
         redeemer,
         redeemer_chain,
         sender,

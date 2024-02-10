@@ -3,10 +3,11 @@ use crate::{
     error::CoreBridgeError,
     legacy::{instruction::EmptyArgs, utils::LegacyAnchorized},
     state::Config,
-    utils::{self, vaa::VaaAccount},
+    utils,
 };
 use anchor_lang::prelude::*;
 use solana_program::{bpf_loader_upgradeable, program::invoke_signed};
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct UpgradeContract<'info> {
@@ -112,7 +113,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 
 impl<'info> UpgradeContract<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
-        let vaa = VaaAccount::load(&ctx.accounts.vaa)?;
+        let vaa = VaaAccount::try_load(&ctx.accounts.vaa)?;
         let gov_payload = super::require_valid_governance_vaa(&ctx.accounts.config, &vaa)?;
 
         let decree = gov_payload
@@ -142,7 +143,7 @@ impl<'info> UpgradeContract<'info> {
 /// Loader Upgradeable program to upgrade this program's executable to the provided buffer.
 #[access_control(UpgradeContract::constraints(&ctx))]
 fn upgrade_contract(ctx: Context<UpgradeContract>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter

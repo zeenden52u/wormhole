@@ -9,6 +9,7 @@ use anchor_spl::{metadata, token};
 use core_bridge_program::sdk as core_bridge;
 use mpl_token_metadata::state::DataV2;
 use wormhole_raw_vaas::token_bridge::{Attestation, TokenBridgeMessage};
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct CreateOrUpdateWrapped<'info> {
@@ -140,7 +141,7 @@ impl<'info> CreateOrUpdateWrapped<'info> {
         // which were used in the accounts context.
         crate::utils::vaa::require_valid_token_bridge_vaa(
             &vaa.key(),
-            &core_bridge::VaaAccount::load(vaa).unwrap(),
+            &VaaAccount::load(vaa),
             &ctx.accounts.registered_emitter,
         )?;
 
@@ -161,7 +162,7 @@ fn create_or_update_wrapped(ctx: Context<CreateOrUpdateWrapped>, _args: EmptyArg
 }
 
 fn handle_create_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
-    let vaa = core_bridge::VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -179,7 +180,7 @@ fn handle_create_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
         None,
     )?;
 
-    let msg = TokenBridgeMessage::try_from(vaa.try_payload().unwrap()).unwrap();
+    let msg = TokenBridgeMessage::try_from(vaa.payload()).unwrap();
     let attestation = msg.attestation().unwrap();
 
     let wrapped_asset = WrappedAsset {
@@ -188,17 +189,17 @@ fn handle_create_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
             token_address: attestation.token_address(),
             native_decimals: attestation.decimals(),
         },
-        last_updated_sequence: vaa.try_emitter_info().unwrap().sequence,
+        last_updated_sequence: vaa.sequence(),
     };
 
     // Create and set wrapped asset data.
     {
-        core_bridge::system_program::create_account_safe(
+        wormhole_solana_utils::cpi::system_program::create_account_safe(
             CpiContext::new_with_signer(
                 ctx.accounts.system_program.to_account_info(),
-                core_bridge::system_program::CreateAccountSafe {
-                    new_account: ctx.accounts.wrapped_asset.to_account_info(),
-                    payer: ctx.accounts.payer.to_account_info(),
+                anchor_lang::system_program::CreateAccount {
+                    from: ctx.accounts.payer.to_account_info(),
+                    to: ctx.accounts.wrapped_asset.to_account_info(),
                 },
                 &[&[
                     WrappedAsset::SEED_PREFIX,
@@ -237,7 +238,7 @@ fn handle_create_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
 }
 
 fn handle_update_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
-    let vaa = core_bridge::VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -255,7 +256,7 @@ fn handle_update_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
         None,
     )?;
 
-    let msg = TokenBridgeMessage::try_from(vaa.try_payload().unwrap()).unwrap();
+    let msg = TokenBridgeMessage::try_from(vaa.payload()).unwrap();
     let attestation = msg.attestation().unwrap();
 
     // For wrapped assets created before this implementation, the wrapped asset schema did not
@@ -289,7 +290,7 @@ fn handle_update_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
     }
 
     // Now check the sequence to see whether this VAA is stale.
-    let updated_sequence = vaa.try_emitter_info().unwrap().sequence;
+    let updated_sequence = vaa.sequence();
     let wrapped_asset = {
         let acc_data = ctx.accounts.wrapped_asset.data.borrow();
         let mut wrapped_asset =
@@ -335,8 +336,8 @@ fn try_attestation<F, T>(vaa_acc_info: &AccountInfo, func: F) -> Result<T>
 where
     F: FnOnce(&Attestation) -> T,
 {
-    let vaa = core_bridge::VaaAccount::load(vaa_acc_info)?;
-    let msg = TokenBridgeMessage::try_from(vaa.try_payload()?)
+    let vaa = VaaAccount::try_load(vaa_acc_info)?;
+    let msg = TokenBridgeMessage::try_from(vaa.payload())
         .map_err(|_| TokenBridgeError::InvalidTokenBridgePayload)?;
     msg.attestation()
         .map(func)

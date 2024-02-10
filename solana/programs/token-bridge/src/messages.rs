@@ -193,6 +193,7 @@ mod test {
         let msg = token_bridge::TokenBridgeMessage::parse(&bytes).unwrap();
         let parsed = msg.transfer_with_message().unwrap();
 
+        let payload: &[_] = parsed.payload().into();
         let expected = TransferWithMessage {
             norm_amount: U256::from_be_bytes(parsed.amount()),
             token_address: parsed.token_address(),
@@ -200,7 +201,7 @@ mod test {
             redeemer: parsed.redeemer(),
             redeemer_chain: parsed.redeemer_chain(),
             sender: parsed.sender().into(),
-            payload: parsed.payload().to_vec(),
+            payload: payload.to_vec(),
         };
         assert_eq!(transfer, expected);
     }

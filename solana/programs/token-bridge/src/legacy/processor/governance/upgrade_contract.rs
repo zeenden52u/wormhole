@@ -4,6 +4,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use core_bridge_program::sdk as core_bridge;
 use solana_program::{bpf_loader_upgradeable, program::invoke_signed};
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct UpgradeContract<'info> {
@@ -102,7 +103,7 @@ impl<'info> UpgradeContract<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
         let vaa_acc_info = &ctx.accounts.vaa;
         let vaa_key = vaa_acc_info.key();
-        let vaa = core_bridge::VaaAccount::load(vaa_acc_info)?;
+        let vaa = VaaAccount::try_load(vaa_acc_info)?;
         let gov_payload = crate::processor::require_valid_governance_vaa(&vaa_key, &vaa)?;
 
         let decree = gov_payload
@@ -112,7 +113,7 @@ impl<'info> UpgradeContract<'info> {
         // Make sure that the contract upgrade is intended for this network.
         require_eq!(
             decree.chain(),
-            core_bridge::SOLANA_CHAIN,
+            wormhole_solana_consts::SOLANA_CHAIN,
             TokenBridgeError::GovernanceForAnotherChain
         );
 
@@ -132,7 +133,7 @@ impl<'info> UpgradeContract<'info> {
 /// Loader Upgradeable program to upgrade this program's executable to the provided buffer.
 #[access_control(UpgradeContract::constraints(&ctx))]
 fn upgrade_contract(ctx: Context<UpgradeContract>, _args: EmptyArgs) -> Result<()> {
-    let vaa = core_bridge::VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter

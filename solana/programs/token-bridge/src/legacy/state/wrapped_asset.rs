@@ -1,13 +1,4 @@
 use anchor_lang::prelude::*;
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MetadataUri {
-    wormhole_chain_id: u16,
-    canonical_address: String,
-    native_decimals: u8,
-}
 
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
 pub struct LegacyWrappedAsset {

@@ -167,12 +167,12 @@ fn handle_post_program_message_v1<'info>(
     commitment: Commitment,
 ) -> Result<()> {
     // Create message account.
-    super::system_program::create_account_safe(
+    wormhole_solana_utils::cpi::system_program::create_account_safe(
         CpiContext::new_with_signer(
             ctx.accounts.system_program.to_account_info(),
-            super::system_program::CreateAccountSafe {
-                payer: ctx.accounts.payer.to_account_info(),
-                new_account: ctx.accounts.message.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.message.to_account_info(),
             },
             ctx.signer_seeds,
         ),

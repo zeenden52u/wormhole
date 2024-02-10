@@ -3,7 +3,7 @@ use crate::{
     error::CoreBridgeError,
     legacy::{instruction::EmptyArgs, utils::LegacyAnchorized},
     state::Config,
-    utils::{self, vaa::VaaAccount},
+    utils,
 };
 use anchor_lang::{
     prelude::*,
@@ -11,6 +11,7 @@ use anchor_lang::{
 };
 use ruint::aliases::U256;
 use wormhole_raw_vaas::core::CoreBridgeGovPayload;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct TransferFees<'info> {
@@ -83,7 +84,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 
 impl<'info> TransferFees<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
-        let vaa = VaaAccount::load(&ctx.accounts.vaa)?;
+        let vaa = VaaAccount::try_load(&ctx.accounts.vaa)?;
         let gov_payload = super::require_valid_governance_vaa(&ctx.accounts.config, &vaa)?;
 
         let decree = gov_payload
@@ -121,7 +122,7 @@ impl<'info> TransferFees<'info> {
             };
             let min_required = Rent::get().map(|rent| rent.minimum_balance(data_len))?;
             require!(
-                lamports.saturating_sub(to_u64_unchecked(&amount)) >= min_required,
+                lamports.saturating_sub(to_u64_unchecked(amount)) >= min_required,
                 CoreBridgeError::NotEnoughLamports
             );
         }
@@ -133,7 +134,7 @@ impl<'info> TransferFees<'info> {
 
 #[access_control(TransferFees::constraints(&ctx))]
 fn transfer_fees(ctx: Context<TransferFees>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -151,10 +152,13 @@ fn transfer_fees(ctx: Context<TransferFees>, _args: EmptyArgs) -> Result<()> {
         None,
     )?;
 
-    let gov_payload = CoreBridgeGovPayload::try_from(vaa.try_payload().unwrap())
-        .unwrap()
-        .decree();
-    let decree = gov_payload.transfer_fees().unwrap();
+    let amount = U256::from_be_bytes(
+        CoreBridgeGovPayload::try_from(vaa.payload())
+            .unwrap()
+            .decree()
+            .to_transfer_fees_unchecked()
+            .amount(),
+    );
 
     let fee_collector = AsRef::<AccountInfo>::as_ref(&ctx.accounts.fee_collector);
 
@@ -168,7 +172,7 @@ fn transfer_fees(ctx: Context<TransferFees>, _args: EmptyArgs) -> Result<()> {
             },
             &[&[FEE_COLLECTOR_SEED_PREFIX, &[ctx.bumps["fee_collector"]]]],
         ),
-        to_u64_unchecked(&U256::from_be_bytes(decree.amount())),
+        to_u64_unchecked(amount),
     )?;
 
     // Done.
@@ -176,6 +180,6 @@ fn transfer_fees(ctx: Context<TransferFees>, _args: EmptyArgs) -> Result<()> {
 }
 
 /// Uint encodes limbs in little endian, so we will take the first u64 value.
-fn to_u64_unchecked(value: &U256) -> u64 {
+fn to_u64_unchecked(value: U256) -> u64 {
     value.as_limbs()[0]
 }

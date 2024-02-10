@@ -129,7 +129,7 @@ fn attest_token(ctx: Context<AttestToken>, args: AttestTokenArgs) -> Result<()> 
         nonce,
         crate::messages::Attestation {
             token_address: ctx.accounts.mint.key().to_bytes(),
-            token_chain: core_bridge::SOLANA_CHAIN,
+            token_chain: wormhole_solana_consts::SOLANA_CHAIN,
             decimals: ctx.accounts.mint.decimals,
             symbol: string_to_fixed32(&metadata.symbol),
             name: string_to_fixed32(&metadata.name),

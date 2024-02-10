@@ -6,10 +6,11 @@ use crate::{
     },
     state::{Config, GuardianSet},
     types::Timestamp,
-    utils::{self, vaa::VaaAccount},
+    utils,
 };
 use anchor_lang::prelude::*;
 use wormhole_raw_vaas::core::CoreBridgeGovPayload;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct GuardianSetUpdate<'info> {
@@ -86,7 +87,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 impl<'info> GuardianSetUpdate<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
         let config = &ctx.accounts.config;
-        let vaa = VaaAccount::load(&ctx.accounts.vaa)?;
+        let vaa = VaaAccount::load(&ctx.accounts.vaa);
         let gov_payload = super::require_valid_governance_vaa(config, &vaa)?;
 
         // Encoded guardian set must be the next value after the current guardian set index.
@@ -94,7 +95,7 @@ impl<'info> GuardianSetUpdate<'info> {
         // NOTE: Because try_compute_size already determined whether this governance payload is a
         // guardian set update, we are safe to unwrap here.
         require_eq!(
-            gov_payload.guardian_set_update().unwrap().new_index(),
+            gov_payload.to_guardian_set_update_unchecked().new_index(),
             config.guardian_set_index + 1,
             CoreBridgeError::InvalidGuardianSetIndex
         );
@@ -109,7 +110,7 @@ impl<'info> GuardianSetUpdate<'info> {
 /// with the new guardians encoded in the governance VAA.
 #[access_control(GuardianSetUpdate::constraints(&ctx))]
 fn guardian_set_update(ctx: Context<GuardianSetUpdate>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -127,10 +128,10 @@ fn guardian_set_update(ctx: Context<GuardianSetUpdate>, _args: EmptyArgs) -> Res
         None,
     )?;
 
-    let gov_payload = CoreBridgeGovPayload::try_from(vaa.try_payload().unwrap())
+    let decree = CoreBridgeGovPayload::try_from(vaa.payload())
         .unwrap()
-        .decree();
-    let decree = gov_payload.guardian_set_update().unwrap();
+        .decree()
+        .to_guardian_set_update_unchecked();
 
     // Deserialize new guardian set.
     let keys: Vec<[u8; 20]> = (0..usize::from(decree.num_guardians()))
@@ -156,26 +157,13 @@ fn guardian_set_update(ctx: Context<GuardianSetUpdate>, _args: EmptyArgs) -> Res
         CoreBridgeError::GuardianZeroAddress
     );
 
-    // Set new guardian set account fields.
-    let creation_time = match &vaa {
-        VaaAccount::EncodedVaa(inner) => inner
-            .as_vaa()
-            .unwrap()
-            .v1()
-            .unwrap()
-            .body()
-            .timestamp()
-            .into(),
-        VaaAccount::PostedVaaV1(inner) => inner.timestamp(),
-    };
-
     // Set the new index on the config program data.
     let config = &mut ctx.accounts.config;
     config.guardian_set_index += 1;
 
     ctx.accounts.new_guardian_set.set_inner(GuardianSet {
         index: config.guardian_set_index,
-        creation_time,
+        creation_time: vaa.timestamp().into(),
         keys,
         expiration_time: Default::default(),
     });
@@ -198,8 +186,8 @@ fn guardian_set_update(ctx: Context<GuardianSetUpdate>, _args: EmptyArgs) -> Res
 /// to deserialize as a guardian set update decree but anything else is invalid about this message,
 /// this instruction handler will revert (just not at this step when determining the account size).
 fn try_compute_size(vaa: &AccountInfo) -> Result<usize> {
-    let vaa = VaaAccount::load(vaa)?;
-    let gov_payload = CoreBridgeGovPayload::try_from(vaa.try_payload()?)
+    let vaa = VaaAccount::try_load(vaa)?;
+    let gov_payload = CoreBridgeGovPayload::try_from(vaa.payload())
         .map(|msg| msg.decree())
         .map_err(|_| error!(CoreBridgeError::InvalidGovernanceVaa))?;
 

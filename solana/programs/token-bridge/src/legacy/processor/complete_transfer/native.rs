@@ -6,6 +6,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token;
 use core_bridge_program::sdk as core_bridge;
 use wormhole_raw_vaas::token_bridge::TokenBridgeMessage;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct CompleteTransferNative<'info> {
@@ -125,7 +126,7 @@ impl<'info> CompleteTransferNative<'info> {
         // For native transfers, this mint must have been created on Solana.
         require_eq!(
             token_chain,
-            core_bridge::SOLANA_CHAIN,
+            wormhole_solana_consts::SOLANA_CHAIN,
             TokenBridgeError::WrappedAsset
         );
 
@@ -143,7 +144,7 @@ impl<'info> CompleteTransferNative<'info> {
 
 #[access_control(CompleteTransferNative::constraints(&ctx))]
 fn complete_transfer_native(ctx: Context<CompleteTransferNative>, _args: EmptyArgs) -> Result<()> {
-    let vaa = core_bridge::VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -161,8 +162,9 @@ fn complete_transfer_native(ctx: Context<CompleteTransferNative>, _args: EmptyAr
         None,
     )?;
 
-    let msg = TokenBridgeMessage::try_from(vaa.try_payload().unwrap()).unwrap();
-    let transfer = msg.transfer().unwrap();
+    let transfer = TokenBridgeMessage::try_from(vaa.payload())
+        .unwrap()
+        .to_transfer_unchecked();
 
     let decimals = ctx.accounts.mint.decimals;
 

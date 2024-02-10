@@ -1,7 +1,8 @@
-mod zero_copy;
-pub use zero_copy::*;
+// mod zero_copy;
+// pub use zero_copy::*;
 
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, system_program::CreateAccount};
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct ClaimVaa<'info> {
@@ -34,7 +35,7 @@ pub fn claim_vaa<'info>(
     vaa: &VaaAccount,
     claim_seed_prefix: Option<&[u8]>,
 ) -> Result<()> {
-    let emitter = vaa.try_emitter_info()?;
+    let emitter = vaa.emitter_info();
 
     // First make sure the claim address is derived as what we expect.
     match claim_seed_prefix {
@@ -81,12 +82,12 @@ fn handle_claim_vaa_prefixed<'info>(
         ErrorCode::ConstraintSeeds
     );
 
-    super::cpi::create_account_safe(
+    wormhole_solana_utils::cpi::system_program::create_account_safe(
         CpiContext::new_with_signer(
             ctx.program,
-            super::cpi::CreateAccountSafe {
-                payer: ctx.accounts.payer,
-                new_account: ctx.accounts.claim.to_account_info(),
+            CreateAccount {
+                from: ctx.accounts.payer,
+                to: ctx.accounts.claim.to_account_info(),
             },
             &[&[
                 prefix_seed,
@@ -131,12 +132,12 @@ fn handle_claim_vaa<'info>(
         ErrorCode::ConstraintSeeds
     );
 
-    super::cpi::create_account_safe(
+    wormhole_solana_utils::cpi::system_program::create_account_safe(
         CpiContext::new_with_signer(
             ctx.program,
-            super::cpi::CreateAccountSafe {
-                payer: ctx.accounts.payer,
-                new_account: ctx.accounts.claim.to_account_info(),
+            CreateAccount {
+                from: ctx.accounts.payer,
+                to: ctx.accounts.claim.to_account_info(),
             },
             &[&[
                 emitter_address_seed.as_ref(),

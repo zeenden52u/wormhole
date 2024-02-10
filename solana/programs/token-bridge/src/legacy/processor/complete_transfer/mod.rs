@@ -8,6 +8,7 @@ use crate::{error::TokenBridgeError, state::RegisteredEmitter, utils::fix_accoun
 use anchor_lang::prelude::*;
 use core_bridge_program::sdk as core_bridge;
 use wormhole_raw_vaas::token_bridge::TokenBridgeMessage;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 pub fn validate_token_transfer_vaa(
     vaa_acc_info: &AccountInfo,
@@ -15,7 +16,7 @@ pub fn validate_token_transfer_vaa(
     recipient_token: &Account<anchor_spl::token::TokenAccount>,
 ) -> Result<(u16, [u8; 32])> {
     let vaa_key = vaa_acc_info.key();
-    let vaa = core_bridge::VaaAccount::load(vaa_acc_info)?;
+    let vaa = VaaAccount::try_load(vaa_acc_info)?;
     let msg =
         crate::utils::vaa::require_valid_token_bridge_vaa(&vaa_key, &vaa, registered_emitter)?;
 
@@ -28,7 +29,7 @@ pub fn validate_token_transfer_vaa(
     // This token bridge transfer must be intended to be redeemed on Solana.
     require_eq!(
         transfer.recipient_chain(),
-        core_bridge::SOLANA_CHAIN,
+        wormhole_solana_consts::SOLANA_CHAIN,
         TokenBridgeError::RecipientChainNotSolana
     );
 

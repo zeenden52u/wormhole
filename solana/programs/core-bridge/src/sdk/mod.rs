@@ -15,24 +15,13 @@ mod prepare_message;
 pub use prepare_message::*;
 
 #[doc(inline)]
-pub use wormhole_raw_vaas::{Header, Payload, Vaa};
-
-/// Sub-module for System program interaction.
-#[cfg(feature = "cpi")]
-pub mod system_program {
-    #[doc(inline)]
-    pub use crate::utils::cpi::{create_account_safe, CreateAccountSafe};
-}
-
-#[doc(inline)]
 pub use crate::{
-    constants::{PROGRAM_EMITTER_SEED_PREFIX, SOLANA_CHAIN},
+    constants::PROGRAM_EMITTER_SEED_PREFIX,
     id,
     legacy::instruction::PostMessageArgs,
-    processor::{InitMessageV1Args, WriteMessageV1Args, WriteEncodedVaaArgs},
+    processor::{InitMessageV1Args, WriteEncodedVaaArgs, WriteMessageV1Args},
     state,
     types::*,
-    utils::vaa::{VAA_START, EmitterInfo, VaaAccount},
 };
 #[doc(inline)]
 #[cfg(feature = "cpi")]

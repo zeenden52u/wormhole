@@ -3,11 +3,12 @@ use crate::{
     error::CoreBridgeError,
     legacy::{instruction::EmptyArgs, utils::LegacyAnchorized},
     state::Config,
-    utils::{self, vaa::VaaAccount},
+    utils,
 };
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
 use wormhole_raw_vaas::core::CoreBridgeGovPayload;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct SetMessageFee<'info> {
@@ -57,7 +58,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 
 impl<'info> SetMessageFee<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
-        let vaa = VaaAccount::load(&ctx.accounts.vaa)?;
+        let vaa = VaaAccount::try_load(&ctx.accounts.vaa)?;
         let gov_payload = super::require_valid_governance_vaa(&ctx.accounts.config, &vaa)?;
 
         let decree = gov_payload
@@ -85,7 +86,7 @@ impl<'info> SetMessageFee<'info> {
 /// the message fee in the [Config] account.
 #[access_control(SetMessageFee::constraints(&ctx))]
 fn set_message_fee(ctx: Context<SetMessageFee>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -103,12 +104,15 @@ fn set_message_fee(ctx: Context<SetMessageFee>, _args: EmptyArgs) -> Result<()> 
         None,
     )?;
 
-    let gov_payload = CoreBridgeGovPayload::try_from(vaa.try_payload().unwrap())
-        .unwrap()
-        .decree();
+    let fee = U256::from_be_bytes(
+        CoreBridgeGovPayload::try_from(vaa.payload())
+            .unwrap()
+            .decree()
+            .to_set_message_fee_unchecked()
+            .fee(),
+    );
 
     // Uint encodes limbs in little endian, so we will take the first u64 value.
-    let fee = U256::from_be_bytes(gov_payload.set_message_fee().unwrap().fee());
     ctx.accounts.config.fee_lamports = fee.as_limbs()[0];
 
     // Done.

@@ -180,7 +180,7 @@ fn transfer_tokens_native(
     let token_transfer = crate::messages::Transfer {
         norm_amount: EncodedAmount::norm(U256::from(amount), mint.decimals).0,
         token_address: ctx.accounts.mint.key().to_bytes(),
-        token_chain: core_bridge::SOLANA_CHAIN,
+        token_chain: wormhole_solana_consts::SOLANA_CHAIN,
         recipient,
         recipient_chain,
         norm_relayer_fee: EncodedAmount::norm(U256::from(relayer_fee), mint.decimals).0,

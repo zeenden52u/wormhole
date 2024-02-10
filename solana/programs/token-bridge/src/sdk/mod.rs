@@ -4,7 +4,7 @@
 //! [legacy::cpi](crate::legacy::cpi)).
 
 #[doc(inline)]
-pub use core_bridge_program::sdk::{EmitterInfo, Timestamp, VaaAccount, SOLANA_CHAIN};
+pub use core_bridge_program::sdk::Timestamp;
 
 #[doc(inline)]
 pub use wormhole_raw_vaas::token_bridge::{

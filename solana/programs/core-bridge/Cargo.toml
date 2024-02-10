@@ -18,15 +18,19 @@ no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 ### A.K.A. Local Validator (via JS Integration Test) and Tilt
-localnet = []
+localnet = ["wormhole-solana-vaas/localnet"]
 ### A.K.A. Solana Mainnet-Beta
-mainnet = []
+mainnet = ["wormhole-solana-vaas/mainnet"]
 ### A.K.A. Solana Devnet
-testnet = []
+testnet = ["wormhole-solana-vaas/testnet"]
 
 [dependencies]
 wormhole-io.workspace = true
 wormhole-raw-vaas.workspace = true
+
+wormhole-solana-consts.workspace = true
+wormhole-solana-utils.workspace = true
+wormhole-solana-vaas.workspace = true
 
 anchor-lang.workspace = true
 solana-program.workspace = true

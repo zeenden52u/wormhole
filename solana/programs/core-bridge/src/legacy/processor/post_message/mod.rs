@@ -12,7 +12,6 @@ use crate::{
         PostedMessageV1, PostedMessageV1Data, PostedMessageV1Info,
     },
     types::Commitment,
-    utils,
 };
 use anchor_lang::{prelude::*, system_program};
 
@@ -128,7 +127,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, PostMessageArg
 /// Because the legacy implementation did not require specifying where the System program should be,
 /// we ensure that it is account #8 because the Anchor account context requires it to be in this
 /// position.
-pub(self) fn order_post_message_account_infos<'info>(
+fn order_post_message_account_infos<'info>(
     account_infos: &[AccountInfo<'info>],
 ) -> Result<Vec<AccountInfo<'info>>> {
     const NUM_ACCOUNTS: usize = 8;
@@ -213,12 +212,12 @@ fn handle_post_new_message(ctx: Context<PostMessage>, args: PostMessageArgs) -> 
     );
 
     // Create the account.
-    utils::cpi::create_account_safe(
+    wormhole_solana_utils::cpi::system_program::create_account_safe(
         CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
-            utils::cpi::CreateAccountSafe {
-                payer: ctx.accounts.payer.to_account_info(),
-                new_account: ctx.accounts.message.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.message.to_account_info(),
             },
         ),
         PostedMessageV1::compute_size(payload.len()),
@@ -379,7 +378,7 @@ fn handle_post_prepared_message(ctx: Context<PostMessage>, args: PostMessageArgs
 }
 
 /// If there is a fee, check the fee collector account to ensure that the fee has been paid.
-pub(self) fn handle_message_fee<'info>(
+fn handle_message_fee<'info>(
     config: &Account<'info, LegacyAnchorized<Config>>,
     payer: &AccountInfo<'info>,
     fee_collector: &Option<AccountInfo<'info>>,
@@ -413,7 +412,7 @@ pub(self) fn handle_message_fee<'info>(
     }
 }
 
-pub(self) fn create_or_realloc_emitter_sequence<'info>(
+fn create_or_realloc_emitter_sequence<'info>(
     emitter_sequence: &AccountInfo<'info>,
     payer: &AccountInfo<'info>,
     system_program: &Program<'info, System>,
@@ -422,12 +421,12 @@ pub(self) fn create_or_realloc_emitter_sequence<'info>(
 ) -> Result<LegacyAnchorized<EmitterSequence>> {
     if emitter_sequence.data_is_empty() {
         // Create the emitter sequence account.
-        utils::cpi::create_account_safe(
+        wormhole_solana_utils::cpi::system_program::create_account_safe(
             CpiContext::new_with_signer(
                 system_program.to_account_info(),
-                utils::cpi::CreateAccountSafe {
-                    payer: payer.to_account_info(),
-                    new_account: emitter_sequence.to_account_info(),
+                anchor_lang::system_program::CreateAccount {
+                    from: payer.to_account_info(),
+                    to: emitter_sequence.to_account_info(),
                 },
                 &[&[
                     EmitterSequence::SEED_PREFIX,

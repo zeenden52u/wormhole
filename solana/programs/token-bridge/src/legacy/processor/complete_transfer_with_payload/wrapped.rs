@@ -8,6 +8,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token;
 use core_bridge_program::sdk as core_bridge;
 use wormhole_raw_vaas::token_bridge::TokenBridgeMessage;
+use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
 pub struct CompleteTransferWithPayloadWrapped<'info> {
@@ -128,7 +129,7 @@ impl<'info> CompleteTransferWithPayloadWrapped<'info> {
         // For wrapped transfers, this token must have originated from another network.
         require_neq!(
             token_chain,
-            core_bridge::SOLANA_CHAIN,
+            wormhole_solana_consts::SOLANA_CHAIN,
             TokenBridgeError::NativeAsset
         );
 
@@ -149,7 +150,7 @@ fn complete_transfer_with_payload_wrapped(
     ctx: Context<CompleteTransferWithPayloadWrapped>,
     _args: EmptyArgs,
 ) -> Result<()> {
-    let vaa = core_bridge::VaaAccount::load(&ctx.accounts.vaa).unwrap();
+    let vaa = VaaAccount::load(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -168,10 +169,9 @@ fn complete_transfer_with_payload_wrapped(
     )?;
 
     // Take transfer amount as-is.
-    let mint_amount = TokenBridgeMessage::try_from(vaa.try_payload().unwrap())
+    let mint_amount = TokenBridgeMessage::try_from(vaa.payload())
         .unwrap()
-        .transfer_with_message()
-        .unwrap()
+        .to_transfer_with_message_unchecked()
         .encoded_amount()
         .0
         .try_into()
