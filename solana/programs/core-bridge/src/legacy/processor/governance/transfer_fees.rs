@@ -1,5 +1,5 @@
 use crate::{
-    constants::{FEE_COLLECTOR_SEED_PREFIX, SOLANA_CHAIN},
+    constants::FEE_COLLECTOR_SEED_PREFIX,
     error::CoreBridgeError,
     legacy::{instruction::EmptyArgs, utils::LegacyAnchorized},
     state::Config,
@@ -84,7 +84,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 
 impl<'info> TransferFees<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
-        let vaa = VaaAccount::try_load(&ctx.accounts.vaa)?;
+        let vaa = VaaAccount::load(&ctx.accounts.vaa)?;
         let gov_payload = super::require_valid_governance_vaa(&ctx.accounts.config, &vaa)?;
 
         let decree = gov_payload
@@ -94,7 +94,7 @@ impl<'info> TransferFees<'info> {
         // Make sure that transferring fees is intended for this network.
         require_eq!(
             decree.chain(),
-            SOLANA_CHAIN,
+            wormhole_solana_consts::SOLANA_CHAIN,
             CoreBridgeError::GovernanceForAnotherChain
         );
 
@@ -134,7 +134,7 @@ impl<'info> TransferFees<'info> {
 
 #[access_control(TransferFees::constraints(&ctx))]
 fn transfer_fees(ctx: Context<TransferFees>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter

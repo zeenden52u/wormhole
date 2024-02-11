@@ -239,7 +239,7 @@ pub struct ChainIdSolanaOnly {
 impl Default for ChainIdSolanaOnly {
     fn default() -> Self {
         Self {
-            chain_id: crate::constants::SOLANA_CHAIN,
+            chain_id: wormhole_solana_consts::SOLANA_CHAIN,
         }
     }
 }

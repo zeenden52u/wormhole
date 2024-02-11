@@ -150,7 +150,7 @@ fn complete_transfer_with_payload_wrapped(
     ctx: Context<CompleteTransferWithPayloadWrapped>,
     _args: EmptyArgs,
 ) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter

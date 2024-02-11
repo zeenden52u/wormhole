@@ -87,7 +87,7 @@ describe("Token Bridge -- Instruction: Register Chain", () => {
         vaa: encodedVaa,
       });
 
-      await expectIxErr(connection, [ix], [payer], "UnverifiedVaa");
+      await expectIxErr(connection, [ix], [payer], "Error Code: InvalidAccountData");
     });
 
     it("Invoke `register_chain`", async () => {

@@ -41,7 +41,7 @@ pub struct CreateOrUpdateWrapped<'info> {
     #[account(
         owner = core_bridge::id(),
         constraint = try_attestation(&vaa, |attestation| attestation.token_chain())?
-                        != core_bridge_program::SOLANA_CHAIN @ TokenBridgeError::NativeAsset,
+                        != wormhole_solana_consts::SOLANA_CHAIN @ TokenBridgeError::NativeAsset,
     )]
     vaa: AccountInfo<'info>,
 
@@ -141,7 +141,7 @@ impl<'info> CreateOrUpdateWrapped<'info> {
         // which were used in the accounts context.
         crate::utils::vaa::require_valid_token_bridge_vaa(
             &vaa.key(),
-            &VaaAccount::load(vaa),
+            &VaaAccount::load_unchecked(vaa),
             &ctx.accounts.registered_emitter,
         )?;
 
@@ -162,7 +162,7 @@ fn create_or_update_wrapped(ctx: Context<CreateOrUpdateWrapped>, _args: EmptyArg
 }
 
 fn handle_create_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -238,7 +238,7 @@ fn handle_create_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
 }
 
 fn handle_update_wrapped(ctx: Context<CreateOrUpdateWrapped>) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -336,7 +336,7 @@ fn try_attestation<F, T>(vaa_acc_info: &AccountInfo, func: F) -> Result<T>
 where
     F: FnOnce(&Attestation) -> T,
 {
-    let vaa = VaaAccount::try_load(vaa_acc_info)?;
+    let vaa = VaaAccount::load(vaa_acc_info)?;
     let msg = TokenBridgeMessage::try_from(vaa.payload())
         .map_err(|_| TokenBridgeError::InvalidTokenBridgePayload)?;
     msg.attestation()

@@ -64,7 +64,7 @@ impl<'info> RegisterChain<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
         let vaa_acc_info = &ctx.accounts.vaa;
         let vaa_key = vaa_acc_info.key();
-        let vaa = VaaAccount::load(vaa_acc_info);
+        let vaa = VaaAccount::load_unchecked(vaa_acc_info);
         let gov_payload = crate::processor::require_valid_governance_vaa(&vaa_key, &vaa)?;
 
         gov_payload
@@ -78,7 +78,7 @@ impl<'info> RegisterChain<'info> {
 
 #[access_control(RegisterChain::constraints(&ctx))]
 pub fn register_chain(ctx: Context<RegisterChain>) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -122,7 +122,7 @@ fn try_decree<F, T>(vaa_acc_info: &AccountInfo, func: F) -> Result<T>
 where
     F: FnOnce(&wormhole_raw_vaas::token_bridge::RegisterChain) -> T,
 {
-    let vaa = VaaAccount::try_load(vaa_acc_info)?;
+    let vaa = VaaAccount::load(vaa_acc_info)?;
     let gov_payload = TokenBridgeGovPayload::try_from(vaa.payload())
         .map_err(|_| error!(TokenBridgeError::InvalidGovernanceVaa))?;
     gov_payload

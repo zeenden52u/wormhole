@@ -3,15 +3,7 @@
 
 use anchor_lang::prelude::*;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "localnet")] {
-        declare_id!("B6RHG3mfcckmrYN1UhmJzyS1XX3fZKbkeUcpJe9Sy3FE");
-    } else if #[cfg(feature = "mainnet")] {
-        declare_id!("wormDTUJ6AWPNvk59vGQbDvGJmqbDTdgWgAqcLBCgUb");
-    } else if #[cfg(feature = "testnet")] {
-        declare_id!("DZnkkTmCiFWfYTfT41X3Rd1kDgozqzxWaHqsw6W4x2oe");
-    }
-}
+declare_id!(wormhole_solana_consts::TOKEN_BRIDGE_PROGRAM_ID);
 
 pub mod constants;
 

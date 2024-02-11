@@ -3,7 +3,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use core_bridge_program::sdk as core_bridge;
-use solana_program::{bpf_loader_upgradeable, program::invoke_signed};
+use wormhole_solana_utils::cpi::bpf_loader_upgradeable::{self, BpfLoaderUpgradeable};
 use wormhole_solana_vaas::zero_copy::VaaAccount;
 
 #[derive(Accounts)]
@@ -85,8 +85,7 @@ pub struct UpgradeContract<'info> {
     ///
     /// CHECK: In order to upgrade the program, we need to invoke the BPF Loader Upgradeable
     /// program.
-    #[account(address = solana_program::bpf_loader_upgradeable::id())]
-    bpf_loader_upgradeable_program: AccountInfo<'info>,
+    bpf_loader_upgradeable_program: Program<'info, BpfLoaderUpgradeable>,
 
     system_program: Program<'info, System>,
 }
@@ -103,7 +102,7 @@ impl<'info> UpgradeContract<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
         let vaa_acc_info = &ctx.accounts.vaa;
         let vaa_key = vaa_acc_info.key();
-        let vaa = VaaAccount::try_load(vaa_acc_info)?;
+        let vaa = VaaAccount::load(vaa_acc_info)?;
         let gov_payload = crate::processor::require_valid_governance_vaa(&vaa_key, &vaa)?;
 
         let decree = gov_payload
@@ -133,7 +132,7 @@ impl<'info> UpgradeContract<'info> {
 /// Loader Upgradeable program to upgrade this program's executable to the provided buffer.
 #[access_control(UpgradeContract::constraints(&ctx))]
 fn upgrade_contract(ctx: Context<UpgradeContract>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -152,15 +151,19 @@ fn upgrade_contract(ctx: Context<UpgradeContract>, _args: EmptyArgs) -> Result<(
     )?;
 
     // Finally upgrade.
-    invoke_signed(
-        &bpf_loader_upgradeable::upgrade(
-            &crate::ID,
-            &ctx.accounts.buffer.key(),
-            &ctx.accounts.upgrade_authority.key(),
-            &ctx.accounts.spill.key(),
-        ),
-        &ctx.accounts.to_account_infos(),
+    bpf_loader_upgradeable::upgrade(CpiContext::new_with_signer(
+        ctx.accounts
+            .bpf_loader_upgradeable_program
+            .to_account_info(),
+        bpf_loader_upgradeable::Upgrade {
+            program: ctx.accounts.this_program.to_account_info(),
+            program_data: ctx.accounts.program_data.to_account_info(),
+            buffer: ctx.accounts.buffer.to_account_info(),
+            authority: ctx.accounts.upgrade_authority.to_account_info(),
+            spill: ctx.accounts.spill.to_account_info(),
+            rent: ctx.accounts.rent.to_account_info(),
+            clock: ctx.accounts.clock.to_account_info(),
+        },
         &[&[UPGRADE_SEED_PREFIX, &[ctx.bumps["upgrade_authority"]]]],
-    )
-    .map_err(Into::into)
+    ))
 }

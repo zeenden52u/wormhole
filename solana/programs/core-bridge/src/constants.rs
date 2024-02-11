@@ -3,10 +3,6 @@
 
 use anchor_lang::prelude::constant;
 
-/// Wormhole Chain (Network) ID for Solana.
-#[constant]
-pub const SOLANA_CHAIN: u16 = 1;
-
 /// Seed for fee collector (Core Bridge's system account).
 #[constant]
 pub const FEE_COLLECTOR_SEED_PREFIX: &[u8] = b"fee_collector";

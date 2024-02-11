@@ -40,5 +40,8 @@ impl<'info> CloseEncodedVaa<'info> {
 
 #[access_control(CloseEncodedVaa::constraints(&ctx))]
 pub fn close_encoded_vaa(ctx: Context<CloseEncodedVaa>) -> Result<()> {
-    crate::utils::close_account(&ctx.accounts.encoded_vaa, &ctx.accounts.write_authority)
+    wormhole_solana_utils::account_info::close_account(
+        &ctx.accounts.encoded_vaa,
+        &ctx.accounts.write_authority,
+    )
 }

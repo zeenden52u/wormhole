@@ -18,19 +18,19 @@ version = "0.2.0-alpha.2"
 features = ["ruint"]
 
 [workspace.dependencies.wormhole-solana-utils]
-version = "0.2.0-alpha.6"
-features = ["cpi"]
+version = "0.2.0-alpha.11"
+features = ["anchor"]
 
 [workspace.dependencies.wormhole-solana-vaas]
-version = "0.2.0-alpha.6"
-features = ["encoded-vaa"]
+version = "0.2.0-alpha.11"
+features = ["anchor", "encoded-vaa"]
 
 [workspace.dependencies.anchor-lang]
 version = "0.28.0"
 features = ["derive", "init-if-needed"]
 
 [workspace.dependencies]
-wormhole-solana-consts = "0.2.0-alpha.2"
+wormhole-solana-consts = "0.2.0-alpha.11"
 wormhole-io = "0.2.0-alpha.1"
 solana-program = "1.16.27"
 anchor-spl = "0.28.0"

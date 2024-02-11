@@ -20,7 +20,7 @@ pub struct CloseMessageV1<'info> {
 }
 
 pub fn close_message_v1(ctx: Context<CloseMessageV1>) -> Result<()> {
-    crate::utils::close_account(
+    wormhole_solana_utils::account_info::close_account(
         &ctx.accounts.draft_message,
         &ctx.accounts.close_account_destination,
     )

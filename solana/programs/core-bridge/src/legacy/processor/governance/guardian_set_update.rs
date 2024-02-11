@@ -87,7 +87,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 impl<'info> GuardianSetUpdate<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
         let config = &ctx.accounts.config;
-        let vaa = VaaAccount::load(&ctx.accounts.vaa);
+        let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
         let gov_payload = super::require_valid_governance_vaa(config, &vaa)?;
 
         // Encoded guardian set must be the next value after the current guardian set index.
@@ -110,7 +110,7 @@ impl<'info> GuardianSetUpdate<'info> {
 /// with the new guardians encoded in the governance VAA.
 #[access_control(GuardianSetUpdate::constraints(&ctx))]
 fn guardian_set_update(ctx: Context<GuardianSetUpdate>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter
@@ -186,7 +186,7 @@ fn guardian_set_update(ctx: Context<GuardianSetUpdate>, _args: EmptyArgs) -> Res
 /// to deserialize as a guardian set update decree but anything else is invalid about this message,
 /// this instruction handler will revert (just not at this step when determining the account size).
 fn try_compute_size(vaa: &AccountInfo) -> Result<usize> {
-    let vaa = VaaAccount::try_load(vaa)?;
+    let vaa = VaaAccount::load(vaa)?;
     let gov_payload = CoreBridgeGovPayload::try_from(vaa.payload())
         .map(|msg| msg.decree())
         .map_err(|_| error!(CoreBridgeError::InvalidGovernanceVaa))?;

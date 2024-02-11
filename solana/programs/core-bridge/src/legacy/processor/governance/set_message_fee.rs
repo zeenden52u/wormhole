@@ -1,5 +1,4 @@
 use crate::{
-    constants::SOLANA_CHAIN,
     error::CoreBridgeError,
     legacy::{instruction::EmptyArgs, utils::LegacyAnchorized},
     state::Config,
@@ -58,7 +57,7 @@ impl<'info> crate::legacy::utils::ProcessLegacyInstruction<'info, EmptyArgs>
 
 impl<'info> SetMessageFee<'info> {
     fn constraints(ctx: &Context<Self>) -> Result<()> {
-        let vaa = VaaAccount::try_load(&ctx.accounts.vaa)?;
+        let vaa = VaaAccount::load(&ctx.accounts.vaa)?;
         let gov_payload = super::require_valid_governance_vaa(&ctx.accounts.config, &vaa)?;
 
         let decree = gov_payload
@@ -68,7 +67,7 @@ impl<'info> SetMessageFee<'info> {
         // Make sure that setting the message fee is intended for this network.
         require_eq!(
             decree.chain(),
-            SOLANA_CHAIN,
+            wormhole_solana_consts::SOLANA_CHAIN,
             CoreBridgeError::GovernanceForAnotherChain
         );
 
@@ -86,7 +85,7 @@ impl<'info> SetMessageFee<'info> {
 /// the message fee in the [Config] account.
 #[access_control(SetMessageFee::constraints(&ctx))]
 fn set_message_fee(ctx: Context<SetMessageFee>, _args: EmptyArgs) -> Result<()> {
-    let vaa = VaaAccount::load(&ctx.accounts.vaa);
+    let vaa = VaaAccount::load_unchecked(&ctx.accounts.vaa);
 
     // Create the claim account to provide replay protection. Because this instruction creates this
     // account every time it is executed, this account cannot be created again with this emitter

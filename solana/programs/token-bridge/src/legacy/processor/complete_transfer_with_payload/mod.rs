@@ -17,7 +17,7 @@ pub fn validate_token_transfer_with_payload_vaa(
     dst_token: &Account<anchor_spl::token::TokenAccount>,
 ) -> Result<(u16, [u8; 32])> {
     let vaa_key = vaa_acc_info.key();
-    let vaa = VaaAccount::try_load(vaa_acc_info)?;
+    let vaa = VaaAccount::load(vaa_acc_info)?;
     let msg =
         crate::utils::vaa::require_valid_token_bridge_vaa(&vaa_key, &vaa, registered_emitter)?;
 
