@@ -2601,12 +2601,11 @@ dependencies = [
 
 [[package]]
 name = "wormhole-solana-utils"
-version = "0.2.0-alpha.11"
+version = "0.2.0-alpha.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f24d3b91b8b6966d08cabf3ada661097e76464e2a174de989e2029758c75a548"
+checksum = "059e4dc1b2bb8fe465f7ec1ba5fe8b3c90db107896e66e92c3cddf204bc99cd3"
 dependencies = [
  "anchor-lang",
- "cfg-if",
  "solana-program",
 ]
 

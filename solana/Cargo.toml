@@ -18,7 +18,7 @@ version = "0.2.0-alpha.2"
 features = ["ruint"]
 
 [workspace.dependencies.wormhole-solana-utils]
-version = "0.2.0-alpha.11"
+version = "0.2.0-alpha.14"
 features = ["anchor"]
 
 [workspace.dependencies.wormhole-solana-vaas]
