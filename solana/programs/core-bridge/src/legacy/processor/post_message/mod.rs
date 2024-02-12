@@ -23,10 +23,7 @@ pub struct PostMessage<'info> {
     /// Seeds = \["Bridge"\], seeds::program = core_bridge_program.
     ///
     /// This account is used to determine how many lamports to transfer for Wormhole fee.
-    #[account(
-        seeds = [Config::SEED_PREFIX],
-        bump,
-    )]
+    #[account(address = wormhole_solana_consts::CORE_BRIDGE_CONFIG)]
     config: Account<'info, LegacyAnchorized<Config>>,
 
     /// Core Bridge Message (mut).
@@ -83,8 +80,7 @@ pub struct PostMessage<'info> {
     /// CHECK: This account is used to collect fees.
     #[account(
         mut,
-        seeds = [crate::constants::FEE_COLLECTOR_SEED_PREFIX],
-        bump,
+        address = wormhole_solana_consts::CORE_BRIDGE_FEE_COLLECTOR,
     )]
     fee_collector: Option<AccountInfo<'info>>,
 

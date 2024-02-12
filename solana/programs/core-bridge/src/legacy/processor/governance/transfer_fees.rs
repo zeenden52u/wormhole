@@ -20,10 +20,7 @@ pub struct TransferFees<'info> {
 
     /// For governance VAAs, we need to make sure that the current guardian set was used to attest
     /// for this governance decree.
-    #[account(
-        seeds = [Config::SEED_PREFIX],
-        bump,
-    )]
+    #[account(address = wormhole_solana_consts::CORE_BRIDGE_CONFIG)]
     config: Account<'info, LegacyAnchorized<Config>>,
 
     /// VAA account, which may either be the new EncodedVaa account or legacy PostedVaaV1

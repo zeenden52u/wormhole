@@ -51,7 +51,7 @@ describe("Core Bridge -- Legacy Instruction: Guardian Set Update", () => {
       {
         label: "config",
         contextName: "config",
-        errorMsg: "ConstraintSeeds",
+        errorMsg: "ConstraintAddress",
         dataLength: 24,
         owner: program.programId,
       },

@@ -43,8 +43,11 @@ pub struct PostVaa<'info> {
     )]
     guardian_set: Account<'info, AccountVariant<GuardianSet>>,
 
-    /// CHECK: Core Bridge never needed this account for this instruction.
-    _config: UncheckedAccount<'info>,
+    /// CHECK: Core Bridge never needed this account for this instruction. But
+    /// we will keep this account as required just in case we need it in the
+    /// future.
+    #[account(address = wormhole_solana_consts::CORE_BRIDGE_CONFIG)]
+    config: AccountInfo<'info>,
 
     /// Signature set, which stores signature validation from Sig Verify native program.
     signature_set: Account<'info, SignatureSet>,

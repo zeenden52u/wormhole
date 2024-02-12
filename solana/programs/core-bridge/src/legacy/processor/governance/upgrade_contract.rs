@@ -18,8 +18,7 @@ pub struct UpgradeContract<'info> {
     /// for this governance decree.
     #[account(
         mut,
-        seeds = [Config::SEED_PREFIX],
-        bump,
+        address = wormhole_solana_consts::CORE_BRIDGE_CONFIG,
     )]
     config: Account<'info, LegacyAnchorized<Config>>,
 

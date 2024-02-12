@@ -17,6 +17,7 @@ pub struct Initialize<'info> {
         space = Config::INIT_SPACE,
         seeds = [Config::SEED_PREFIX],
         bump,
+        address = wormhole_solana_consts::CORE_BRIDGE_CONFIG,
     )]
     config: Account<'info, LegacyAnchorized<Config>>,
 
@@ -50,6 +51,7 @@ pub struct Initialize<'info> {
         seeds = [crate::constants::FEE_COLLECTOR_SEED_PREFIX],
         bump,
         owner = system_program.key(),
+        address = wormhole_solana_consts::CORE_BRIDGE_FEE_COLLECTOR,
     )]
     fee_collector: AccountInfo<'info>,
 

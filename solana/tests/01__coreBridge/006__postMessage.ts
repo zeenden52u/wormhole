@@ -26,14 +26,14 @@ describe("Core Bridge -- Legacy Instruction: Post Message", () => {
       {
         label: "config",
         contextName: "config",
-        errorMsg: "ConstraintSeeds",
+        errorMsg: "ConstraintAddress",
         dataLength: 24,
         owner: program.programId,
       },
       {
         label: "fee_collector",
         contextName: "feeCollector",
-        errorMsg: "ConstraintSeeds",
+        errorMsg: "ConstraintAddress",
         dataLength: 0,
         owner: anchor.web3.PublicKey.default,
       },

@@ -42,7 +42,7 @@ describe("Core Bridge -- Legacy Instruction: Set Message Fee", () => {
       {
         label: "config",
         contextName: "config",
-        errorMsg: "ConstraintSeeds",
+        errorMsg: "ConstraintAddress",
         dataLength: 24,
         owner: program.programId,
       },
