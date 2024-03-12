@@ -32,10 +32,10 @@ node_modules: package-lock.json
 # When adding a new dependency, make sure to specify the exact commit hash, and
 # the --no-git and --no-commit flags (see lib/forge-std below)
 .PHONY: forge_dependencies
-forge_dependencies: lib/forge-std lib/openzeppelin-contracts
+forge_dependencies: lib/openzeppelin-contracts lib/forge-std
 
 lib/forge-std:
-	forge install foundry-rs/forge-std@v1.5.5 --no-git --no-commit
+	forge install foundry-rs/forge-std@73d44ec --no-git --no-commit
 
 lib/openzeppelin-contracts:
 	forge install openzeppelin/openzeppelin-contracts@0457042d93d9dfd760dbaa06a4d2f1216fdbe297 --no-git --no-commit
@@ -46,7 +46,7 @@ build: forge_dependencies node_modules ${SOURCE_FILES}
 	mkdir -p build
 	touch -m build
 	npm run build
-	
+
 
 flattened/%.sol: contracts/%.sol node_modules
 	@mkdir -p $(dir $@)
