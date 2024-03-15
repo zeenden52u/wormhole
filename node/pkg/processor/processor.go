@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/certusone/wormhole/node/pkg/db"
@@ -28,6 +31,10 @@ import (
 var GovInterval = time.Minute
 var CleanupInterval = time.Second * 30
 
+// WorkerFactor is used to compute the number of workers to process requests. A value of 0.0 means single threaded mode. Anything else
+// is multiplied by the number of cores to give the number of workers. In both cases, there is an additional house keeping routine.
+const WorkerFactor = 2.0
+
 type (
 	// Observation defines the interface for any events observed by the guardian.
 	Observation interface {
@@ -49,6 +56,9 @@ type (
 
 	// state represents the local view of a given observation
 	state struct {
+		// Mutex protects this particular state entry.
+		lock sync.Mutex
+
 		// First time this digest was seen (possibly even before we observed it ourselves).
 		firstObserved time.Time
 		// A re-observation request shall not be sent before this time.
@@ -78,9 +88,36 @@ type (
 
 	// aggregationState represents the node's aggregation of guardian signatures.
 	aggregationState struct {
-		signatures observationMap
+		// signaturesLock should be held when inserting / deleting / iterating over the map, but not when working with a single entry.
+		signaturesLock sync.Mutex
+		signatures     observationMap
 	}
 )
+
+// getOrCreateState returns the state for a given hash, creating it if it doesn't exist. It grabs the lock.
+func (s *aggregationState) getOrCreateState(hash string) (*state, bool) {
+	s.signaturesLock.Lock()
+	defer s.signaturesLock.Unlock()
+
+	created := false
+	if _, ok := s.signatures[hash]; !ok {
+		created = true
+		s.signatures[hash] = &state{
+			firstObserved: time.Now(),
+			nextRetry:     time.Now().Add(nextRetryDuration(0)),
+			signatures:    make(map[ethcommon.Address][]byte),
+		}
+	}
+
+	return s.signatures[hash], created
+}
+
+// delete removes a state entry from the map. It grabs the lock.
+func (s *aggregationState) delete(hash string) {
+	s.signaturesLock.Lock()
+	delete(s.signatures, hash)
+	s.signaturesLock.Unlock()
+}
 
 type PythNetVaaEntry struct {
 	v          *vaa.VAA
@@ -112,8 +149,6 @@ type Processor struct {
 
 	// Runtime state
 
-	// gs is the currently valid guardian set
-	gs *common.GuardianSet
 	// gst is managed by the processor and allows concurrent access to the
 	// guardian set by other components.
 	gst *common.GuardianSetState
@@ -126,6 +161,7 @@ type Processor struct {
 	governor       *governor.ChainGovernor
 	acct           *accountant.Accountant
 	acctReadC      <-chan *common.MessagePublication
+	pythnetVaaLock sync.Mutex
 	pythnetVaas    map[string]PythNetVaaEntry
 	gatewayRelayer *gwrelayer.GatewayRelayer
 }
@@ -174,8 +210,8 @@ func NewProcessor(
 		gst:          gst,
 		db:           db,
 
-		logger:         supervisor.Logger(ctx),
-		state:          &aggregationState{observationMap{}},
+		logger:         supervisor.Logger(ctx).With(zap.String("component", "processor")),
+		state:          &aggregationState{signatures: observationMap{}},
 		ourAddr:        crypto.PubkeyToAddress(gk.PublicKey),
 		governor:       g,
 		acct:           acct,
@@ -186,65 +222,70 @@ func NewProcessor(
 }
 
 func (p *Processor) Run(ctx context.Context) error {
-	cleanup := time.NewTicker(CleanupInterval)
+	errC := make(chan error)
 
-	// Always initialize the timer so don't have a nil pointer in the case below. It won't get rearmed after that.
+	if WorkerFactor < 0.0 {
+		return fmt.Errorf("workerFactor must be positive or zero")
+	}
+
+	var numWorkers int
+	if WorkerFactor == 0.0 {
+		numWorkers = 1
+		p.logger.Info("processor running in single worker mode")
+	} else {
+		numWorkers = int(math.Ceil(float64(runtime.NumCPU()) * WorkerFactor))
+		p.logger.Info("processor configured to use workers", zap.Int("numWorkers", numWorkers), zap.Float64("workerFactor", WorkerFactor))
+	}
+
+	// Start the routine to do housekeeping tasks that don't need to be distributed to the workers.
+	common.RunWithScissors(ctx, errC, "processor_housekeeper", p.runHousekeeper)
+
+	// Start the workers.
+	for workerId := 1; workerId <= numWorkers; workerId++ {
+		workerId := workerId
+		common.RunWithScissors(ctx, errC, fmt.Sprintf("processor_worker_%d", workerId), p.runWorker)
+	}
+
+	var err error
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+	case e := <-errC:
+		err = e
+	}
+
+	// Log these as warnings so they show up in the benchmark logs.
+	metric := &dto.Metric{}
+	_ = observationChanDelay.Write(metric)
+	p.logger.Warn("PROCESSOR_METRICS", zap.Any("observationChannelDelay", metric.String()))
+
+	metric = &dto.Metric{}
+	_ = observationTotalDelay.Write(metric)
+	p.logger.Warn("PROCESSOR_METRICS", zap.Any("observationProcessingDelay", metric.String()))
+
+	return err
+}
+
+// runHousekeeper performs general tasks that do not need to be distributed to the workers. There will always be exactly one instance of this.
+func (p *Processor) runHousekeeper(ctx context.Context) error {
+	// Always start the timers to avoid nil pointer dereferences below. They will only be rearmed on worker 1.
+	cleanup := time.NewTimer(CleanupInterval)
+	defer cleanup.Stop()
+
 	govTimer := time.NewTimer(GovInterval)
+	defer cleanup.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			if p.acct != nil {
-				p.acct.Close()
-			}
-
-			// Log these as warnings so they show up in the benchmark logs.
-			metric := &dto.Metric{}
-			_ = observationChanDelay.Write(metric)
-			p.logger.Warn("PROCESSOR_METRICS", zap.Any("observationChannelDelay", metric.String()))
-
-			metric = &dto.Metric{}
-			_ = observationTotalDelay.Write(metric)
-			p.logger.Warn("PROCESSOR_METRICS", zap.Any("observationProcessingDelay", metric.String()))
-
 			return ctx.Err()
-		case p.gs = <-p.setC:
+		case gs := <-p.setC:
 			p.logger.Info("guardian set updated",
-				zap.Strings("set", p.gs.KeysAsHexStrings()),
-				zap.Uint32("index", p.gs.Index))
-			p.gst.Set(p.gs)
-		case k := <-p.msgC:
-			if p.governor != nil {
-				if !p.governor.ProcessMsg(k) {
-					continue
-				}
-			}
-			if p.acct != nil {
-				shouldPub, err := p.acct.SubmitObservation(k)
-				if err != nil {
-					return fmt.Errorf("failed to process message `%s`: %w", k.MessageIDString(), err)
-				}
-				if !shouldPub {
-					continue
-				}
-			}
-			p.handleMessage(k)
-
-		case k := <-p.acctReadC:
-			if p.acct == nil {
-				return fmt.Errorf("received an accountant event when accountant is not configured")
-			}
-			// SECURITY defense-in-depth: Make sure the accountant did not generate an unexpected message.
-			if !p.acct.IsMessageCoveredByAccountant(k) {
-				return fmt.Errorf("accountant published a message that is not covered by it: `%s`", k.MessageIDString())
-			}
-			p.handleMessage(k)
-		case m := <-p.obsvC:
-			observationChanDelay.Observe(float64(time.Since(m.Timestamp).Microseconds()))
-			p.handleObservation(ctx, m)
-		case m := <-p.signedInC:
-			p.handleInboundSignedVAAWithQuorum(ctx, m)
+				zap.Strings("set", gs.KeysAsHexStrings()),
+				zap.Uint32("index", gs.Index))
+			p.gst.Set(gs)
 		case <-cleanup.C:
+			cleanup.Reset(CleanupInterval)
 			p.handleCleanup(ctx)
 		case <-govTimer.C:
 			if p.governor != nil {
@@ -272,10 +313,48 @@ func (p *Processor) Run(ctx context.Context) error {
 						p.handleMessage(k)
 					}
 				}
-			}
-			if (p.governor != nil) || (p.acct != nil) {
 				govTimer.Reset(GovInterval)
 			}
+		}
+	}
+}
+
+// runWorker performs the per-observation tasks that can be distributed to the workers. There will be at least one of these.
+func (p *Processor) runWorker(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case k := <-p.msgC:
+			if p.governor != nil {
+				if !p.governor.ProcessMsg(k) {
+					continue
+				}
+			}
+			if p.acct != nil {
+				shouldPub, err := p.acct.SubmitObservation(k)
+				if err != nil {
+					return fmt.Errorf("failed to process message `%s`: %w", k.MessageIDString(), err)
+				}
+				if !shouldPub {
+					continue
+				}
+			}
+			p.handleMessage(k)
+		case k := <-p.acctReadC:
+			if p.acct == nil {
+				return fmt.Errorf("received an accountant event when accountant is not configured")
+			}
+			// SECURITY defense-in-depth: Make sure the accountant did not generate an unexpected message.
+			if !p.acct.IsMessageCoveredByAccountant(k) {
+				return fmt.Errorf("accountant published a message that is not covered by it: `%s`", k.MessageIDString())
+			}
+			p.handleMessage(k)
+		case m := <-p.obsvC:
+			observationChanDelay.Observe(float64(time.Since(m.Timestamp).Microseconds()))
+			p.handleObservation(ctx, m)
+		case m := <-p.signedInC:
+			p.handleInboundSignedVAAWithQuorum(ctx, m)
 		}
 	}
 }
@@ -283,7 +362,11 @@ func (p *Processor) Run(ctx context.Context) error {
 func (p *Processor) storeSignedVAA(v *vaa.VAA) error {
 	if v.EmitterChain == vaa.ChainIDPythNet {
 		key := fmt.Sprintf("%v/%v", v.EmitterAddress, v.Sequence)
-		p.pythnetVaas[key] = PythNetVaaEntry{v: v, updateTime: time.Now()}
+		p.pythnetVaaLock.Lock()
+		defer p.pythnetVaaLock.Unlock()
+		if p.pythnetVaas != nil {
+			p.pythnetVaas[key] = PythNetVaaEntry{v: v, updateTime: time.Now()}
+		}
 		return nil
 	}
 	return p.db.StoreSignedVAA(v)
@@ -292,6 +375,8 @@ func (p *Processor) storeSignedVAA(v *vaa.VAA) error {
 // haveSignedVAA returns true if we already have a VAA for the given VAAID
 func (p *Processor) haveSignedVAA(id db.VAAID) bool {
 	if id.EmitterChain == vaa.ChainIDPythNet {
+		p.pythnetVaaLock.Lock()
+		defer p.pythnetVaaLock.Unlock()
 		if p.pythnetVaas == nil {
 			return false
 		}

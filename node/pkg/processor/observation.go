@@ -82,10 +82,18 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 
 	m := obs.Msg
 	hash := hex.EncodeToString(m.Hash)
-	s := p.state.signatures[hash]
-	if s != nil && s.submitted {
-		// already submitted; ignoring additional signatures for it.
-		return
+
+	obsState, created := p.state.getOrCreateState(hash)
+	obsState.lock.Lock()
+	defer obsState.lock.Unlock()
+
+	if !created {
+		if obsState.submitted {
+			// already submitted; ignoring additional signatures for it.
+			return
+		}
+	} else {
+		obsState.source = "unknown"
 	}
 
 	if p.logger.Core().Enabled(zapcore.DebugLevel) {
@@ -111,6 +119,9 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 			zap.String("addr", hex.EncodeToString(m.Addr)),
 			zap.Error(err))
 		observationsFailedTotal.WithLabelValues("invalid_signature").Inc()
+		if created {
+			p.state.delete(hash)
+		}
 		return
 	}
 
@@ -125,6 +136,9 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 			zap.String("addr", hex.EncodeToString(m.Addr)),
 			zap.String("pk", signer_pk.Hex()))
 		observationsFailedTotal.WithLabelValues("pubkey_mismatch").Inc()
+		if created {
+			p.state.delete(hash)
+		}
 		return
 	}
 
@@ -144,35 +158,38 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 	//
 	// During an update, vaaState.signatures can contain signatures from *both* guardian sets.
 	//
-	var gs *node_common.GuardianSet
-	if s != nil && s.gs != nil {
-		gs = s.gs
-	} else {
-		gs = p.gs
+	if obsState.gs == nil {
+		obsState.gs = p.gst.Get()
 	}
 
 	// We haven't yet observed the trusted guardian set on Ethereum, and therefore, it's impossible to verify it.
 	// May as well not have received it/been offline - drop it and wait for the guardian set.
-	if gs == nil {
+	if obsState.gs == nil {
 		p.logger.Warn("dropping observations since we haven't initialized our guardian set yet",
 			zap.String("digest", hash),
 			zap.String("their_addr", their_addr.Hex()),
 		)
 		observationsFailedTotal.WithLabelValues("uninitialized_guardian_set").Inc()
+		if created {
+			p.state.delete(hash)
+		}
 		return
 	}
 
 	// Verify that m.Addr is included in the guardian set. If it's not, drop the message. In case it's us
 	// who have the outdated guardian set, we'll just wait for the message to be retransmitted eventually.
-	_, ok := gs.KeyIndex(their_addr)
+	_, ok := obsState.gs.KeyIndex(their_addr)
 	if !ok {
 		p.logger.Debug("received observation by unknown guardian - is our guardian set outdated?",
 			zap.String("digest", hash),
 			zap.String("their_addr", their_addr.Hex()),
-			zap.Uint32("index", gs.Index),
+			zap.Uint32("index", obsState.gs.Index),
 			//zap.Any("keys", gs.KeysAsHexStrings()),
 		)
 		observationsFailedTotal.WithLabelValues("unknown_guardian").Inc()
+		if created {
+			p.state.delete(hash)
+		}
 		return
 	}
 
@@ -184,7 +201,7 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 	observationsReceivedByGuardianAddressTotal.WithLabelValues(their_addr.Hex()).Inc()
 
 	// []byte isn't hashable in a map. Paying a small extra cost for encoding for easier debugging.
-	if s == nil {
+	if created {
 		// We haven't yet seen this event ourselves, and therefore do not know what the VAA looks like.
 		// However, we have established that a valid guardian has signed it, and therefore we can
 		// already start aggregating signatures for it.
@@ -194,30 +211,21 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 		// signatures - such byzantine behavior would be plainly visible and would be dealt with by kicking them.
 
 		observationsUnknownTotal.Inc()
-
-		s = &state{
-			firstObserved: time.Now(),
-			nextRetry:     time.Now().Add(nextRetryDuration(0)),
-			signatures:    map[common.Address][]byte{},
-			source:        "unknown",
-		}
-
-		p.state.signatures[hash] = s
 	}
 
-	s.signatures[their_addr] = m.Signature
+	obsState.signatures[their_addr] = m.Signature
 
-	if s.ourObservation != nil {
+	if obsState.ourObservation != nil {
 		// We have made this observation on chain!
 
-		quorum := vaa.CalculateQuorum(len(gs.Keys))
+		quorum := vaa.CalculateQuorum(len(obsState.gs.Keys))
 
 		// Check if we have more signatures than required for quorum.
 		// s.signatures may contain signatures from multiple guardian sets during guardian set updates
 		// Hence, if len(s.signatures) < quorum, then there is definitely no quorum and we can return early to save additional computation,
 		// but if len(s.signatures) >= quorum, there is not necessarily quorum for the active guardian set.
 		// We will later check for quorum again after assembling the VAA for a particular guardian set.
-		if len(s.signatures) < quorum {
+		if len(obsState.signatures) < quorum {
 			// no quorum yet, we're done here
 			p.logger.Debug("quorum not yet met",
 				zap.String("digest", hash),
@@ -228,13 +236,13 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 
 		// Now we *may* have quorum, depending on the guardian set in use.
 		// Let's construct the VAA and check if we actually have quorum.
-		sigsVaaFormat, agg := signaturesToVaaFormat(s.signatures, gs.Keys)
+		sigsVaaFormat, agg := signaturesToVaaFormat(obsState.signatures, obsState.gs.Keys)
 
 		if p.logger.Level().Enabled(zapcore.DebugLevel) {
 			p.logger.Debug("aggregation state for observation", // 1.3M out of 3M info messages / hour / guardian
 				zap.String("digest", hash),
-				zap.Any("set", gs.KeysAsHexStrings()),
-				zap.Uint32("index", gs.Index),
+				zap.Any("set", obsState.gs.KeysAsHexStrings()),
+				zap.Uint32("index", obsState.gs.Index),
 				zap.Bools("aggregation", agg),
 				zap.Int("required_sigs", quorum),
 				zap.Int("have_sigs", len(sigsVaaFormat)),
@@ -242,9 +250,9 @@ func (p *Processor) handleObservation(ctx context.Context, obs *node_common.MsgW
 			)
 		}
 
-		if len(sigsVaaFormat) >= quorum && !s.submitted {
+		if len(sigsVaaFormat) >= quorum && !obsState.submitted {
 			// we have reached quorum *with the active guardian set*
-			s.ourObservation.HandleQuorum(sigsVaaFormat, hash, p)
+			obsState.ourObservation.HandleQuorum(sigsVaaFormat, hash, p)
 		} else {
 			p.logger.Debug("quorum not met or already submitted, doing nothing", // 1.2M out of 3M info messages / hour / guardian
 				zap.String("digest", hash))
@@ -276,7 +284,8 @@ func (p *Processor) handleInboundSignedVAAWithQuorum(ctx context.Context, m *gos
 		return
 	}
 
-	if p.gs == nil {
+	gs := p.gst.Get()
+	if gs == nil {
 		p.logger.Warn("dropping SignedVAAWithQuorum message since we haven't initialized our guardian set yet",
 			zap.String("digest", hex.EncodeToString(v.SigningDigest().Bytes())),
 			zap.Any("message", m),
@@ -285,7 +294,7 @@ func (p *Processor) handleInboundSignedVAAWithQuorum(ctx context.Context, m *gos
 	}
 
 	// Check if guardianSet doesn't have any keys
-	if len(p.gs.Keys) == 0 {
+	if len(gs.Keys) == 0 {
 		p.logger.Warn("dropping SignedVAAWithQuorum message since we have a guardian set without keys",
 			zap.String("digest", hex.EncodeToString(v.SigningDigest().Bytes())),
 			zap.Any("message", m),
@@ -293,7 +302,7 @@ func (p *Processor) handleInboundSignedVAAWithQuorum(ctx context.Context, m *gos
 		return
 	}
 
-	if err := v.Verify(p.gs.Keys); err != nil {
+	if err := v.Verify(gs.Keys); err != nil {
 		p.logger.Warn("dropping SignedVAAWithQuorum message because it failed verification: " + err.Error())
 		return
 	}
