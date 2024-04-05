@@ -4,14 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 
 	ethAbi "github.com/certusone/wormhole/node/pkg/watchers/evm/connectors/ethabi"
 
@@ -26,13 +31,16 @@ import (
 
 // mockConnectorForPoller implements the connector interface for testing purposes.
 type mockConnectorForPoller struct {
-	address         ethCommon.Address
-	client          *ethClient.Client
-	mutex           sync.Mutex
-	err             error
-	persistentError bool
-	blockNumbers    []uint64
-	prevBlockNumber uint64
+	address           ethCommon.Address
+	client            *ethClient.Client
+	mutex             sync.Mutex
+	headSink          chan<- *ethTypes.Header
+	sub               ethEvent.Subscription
+	err               error
+	persistentError   bool
+	blockNumbers      []uint64
+	prevBlockNumber   uint64
+	latestBlockNumber uint64
 }
 
 // setError takes an error which will be returned on the next RPC call. The error will persist until cleared.
@@ -85,8 +93,7 @@ func (e *mockConnectorForPoller) ParseLogMessagePublished(log ethTypes.Log) (*et
 }
 
 func (e *mockConnectorForPoller) SubscribeForBlocks(ctx context.Context, errC chan error, sink chan<- *NewBlock) (ethereum.Subscription, error) {
-	var s ethEvent.Subscription
-	return s, fmt.Errorf("not implemented")
+	return e.sub, fmt.Errorf("not implemented")
 }
 
 func (e *mockConnectorForPoller) RawCallContext(ctx context.Context, result interface{}, method string, args ...interface{}) (err error) {
@@ -94,25 +101,34 @@ func (e *mockConnectorForPoller) RawCallContext(ctx context.Context, result inte
 		panic("method not implemented by mockConnectorForPoller")
 	}
 
+	if len(args) != 2 {
+		panic("invalid args in RawCallContext")
+	}
+
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	// If they set the error, return that immediately.
 	if e.err != nil {
 		err = e.err
 		if !e.persistentError {
 			e.err = nil
 		}
-	} else {
-		blockNumber := e.prevBlockNumber
-		if len(e.blockNumbers) > 0 {
-			blockNumber = e.blockNumbers[0]
-			e.blockNumbers = e.blockNumbers[1:]
-		}
-		str := fmt.Sprintf(`{"author":"0x24c275f0719fdaec6356c4eb9f39ecb9c4d37ce1","baseFeePerGas":"0x3b9aca00","difficulty":"0x0","extraData":"0x","gasLimit":"0xe4e1c0","gasUsed":"0x0","hash":"0xfc8b62a31110121c57cfcccfaf2b147cc2c13b6d01bde4737846cefd29f045cf","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0x24c275f0719fdaec6356c4eb9f39ecb9c4d37ce1","nonce":"0x0000000000000000","number":"0x%x","parentHash":"0x09d6d33a658b712f41db7fb9f775f94911ae0132123116aa4f8cf3da9f774e89","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x201","stateRoot":"0x0409ed10e03fd49424ae1489c6fbc6ff1897f45d0e214655ebdb8df94eedc3c0","timestamp":"0x6373ec24","totalDifficulty":"0x0","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`, blockNumber)
-		err = json.Unmarshal([]byte(str), &result)
-		e.prevBlockNumber = blockNumber
+		return
 	}
-	e.mutex.Unlock()
 
+	var blockNumber uint64
+	if args[0] == "latest" {
+		blockNumber = e.latestBlockNumber
+	} else {
+		blockNumber, err = strconv.ParseUint(strings.TrimPrefix(args[0].(string), "0x"), 16, 64)
+		if err != nil {
+			panic("failed to parse block number")
+		}
+	}
+	str := fmt.Sprintf(`{"author":"0x24c275f0719fdaec6356c4eb9f39ecb9c4d37ce1","baseFeePerGas":"0x3b9aca00","difficulty":"0x0","extraData":"0x","gasLimit":"0xe4e1c0","gasUsed":"0x0","hash":"0xfc8b62a31110121c57cfcccfaf2b147cc2c13b6d01bde4737846cefd29f045cf","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0x24c275f0719fdaec6356c4eb9f39ecb9c4d37ce1","nonce":"0x0000000000000000","number":"0x%x","parentHash":"0x09d6d33a658b712f41db7fb9f775f94911ae0132123116aa4f8cf3da9f774e89","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x201","stateRoot":"0x0409ed10e03fd49424ae1489c6fbc6ff1897f45d0e214655ebdb8df94eedc3c0","timestamp":"0x6373ec24","totalDifficulty":"0x0","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`, blockNumber)
+	err = json.Unmarshal([]byte(str), &result)
+	e.prevBlockNumber = blockNumber
 	return
 }
 
@@ -120,16 +136,20 @@ func (e *mockConnectorForPoller) RawBatchCallContext(ctx context.Context, b []et
 	panic("method not implemented by mockConnectorForPoller")
 }
 
-func (e *mockConnectorForPoller) setBlockNumber(blockNumber uint64) {
+func (e *mockConnectorForPoller) setLatestBlockNumber(blockNumber uint64) {
 	e.mutex.Lock()
-	e.blockNumbers = []uint64{blockNumber}
+	e.latestBlockNumber = blockNumber
 	e.mutex.Unlock()
 }
 
-func (e *mockConnectorForPoller) setBlockNumbers(blockNumbers []uint64) {
+func (e *mockConnectorForPoller) postLatestBlockNumber(blockNumber uint64) {
 	e.mutex.Lock()
-	e.blockNumbers = blockNumbers
+	e.latestBlockNumber = blockNumber
 	e.mutex.Unlock()
+	e.headSink <- &ethTypes.Header{
+		Number: big.NewInt(int64(blockNumber)),
+		Time:   blockNumber,
+	}
 }
 
 func (e *mockConnectorForPoller) expectedHash() ethCommon.Hash {
@@ -141,68 +161,88 @@ func (e *mockConnectorForPoller) Client() *ethClient.Client {
 }
 
 func (e *mockConnectorForPoller) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
-	return nil, nil
+	e.headSink = ch
+	return mockSubscription{}, nil
 }
 
 type mockFinalizerForPoller struct {
-	mutex     sync.Mutex
-	finalized bool
+	mutex          sync.Mutex
+	finalizedBlock uint64
 }
 
-func newMockFinalizerForPoller(initialState bool) *mockFinalizerForPoller {
-	return &mockFinalizerForPoller{finalized: initialState}
+func newMockFinalizerForPoller(finalizedBlock uint64) *mockFinalizerForPoller {
+	return &mockFinalizerForPoller{finalizedBlock: finalizedBlock}
 }
 
-func (f *mockFinalizerForPoller) setFinalized(finalized bool) {
+func (f *mockFinalizerForPoller) setFinalizedBlock(finalizedBlock uint64) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	f.finalized = finalized
+	f.finalizedBlock = finalizedBlock
 }
 
 func (f *mockFinalizerForPoller) IsBlockFinalized(ctx context.Context, block *NewBlock) (bool, error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	return f.finalized, nil
+	return block.Number.Uint64() <= f.finalizedBlock, nil
 }
 
-func shouldHaveAllThree(t *testing.T, block []*NewBlock, blockNum uint64, expectedHash ethCommon.Hash) {
-	require.Equal(t, 3, len(block))
+func shouldHaveLatestOnly(t *testing.T, block []*NewBlock, blockNum uint64) {
+	require.Equal(t, 1, len(block))
 	assert.Equal(t, uint64(blockNum), block[0].Number.Uint64())
 	assert.Equal(t, Latest, block[0].Finality)
+	// Can't check hash on latest because it's generated on the fly by geth.
+}
+
+func shouldHaveMultipleLatest(t *testing.T, block []*NewBlock, blockNum uint64, count int) {
+	require.Equal(t, count, len(block))
+	for idx := 0; idx < count; idx++ {
+		assert.Equal(t, uint64(blockNum+uint64(idx)), block[idx].Number.Uint64())
+		assert.Equal(t, Latest, block[idx].Finality)
+		// Can't check hash on latest because it's generated on the fly by geth.
+	}
+}
+
+func shouldHaveFinalizedAndSafeButNotLatest(t *testing.T, block []*NewBlock, blockNum uint64, expectedHash ethCommon.Hash) {
+	require.Equal(t, 2, len(block))
+	assert.Equal(t, uint64(blockNum), block[0].Number.Uint64())
+	assert.Equal(t, Finalized, block[0].Finality)
 	assert.Equal(t, expectedHash, block[0].Hash)
 	assert.Equal(t, uint64(blockNum), block[1].Number.Uint64())
 	assert.Equal(t, Safe, block[1].Finality)
 	assert.Equal(t, expectedHash, block[1].Hash)
-	assert.Equal(t, uint64(blockNum), block[2].Number.Uint64())
-	assert.Equal(t, Finalized, block[2].Finality)
-	assert.Equal(t, expectedHash, block[2].Hash)
 }
 
-func shouldHaveLatestOnly(t *testing.T, block []*NewBlock, blockNum uint64, expectedHash ethCommon.Hash) {
-	require.Equal(t, 1, len(block))
-	assert.Equal(t, uint64(blockNum), block[0].Number.Uint64())
-	assert.Equal(t, Latest, block[0].Finality)
-	assert.Equal(t, expectedHash, block[0].Hash)
+func shouldHaveMultipleFinalizedAndSafe(t *testing.T, block []*NewBlock, blockNum uint64, expectedPairsOfBlocks int, expectedHash ethCommon.Hash) {
+	require.Equal(t, expectedPairsOfBlocks*2, len(block))
+	for count := 0; count < expectedPairsOfBlocks; count++ {
+		finalizedIdx := count * 2
+		assert.Equal(t, uint64(blockNum), block[finalizedIdx].Number.Uint64())
+		assert.Equal(t, Finalized, block[finalizedIdx].Finality)
+		assert.Equal(t, expectedHash, block[finalizedIdx].Hash)
+		assert.Equal(t, uint64(blockNum), block[finalizedIdx+1].Number.Uint64())
+		assert.Equal(t, Safe, block[finalizedIdx+1].Finality)
+		assert.Equal(t, expectedHash, block[finalizedIdx+1].Hash)
+		blockNum += 1
+	}
 }
 
-func shouldHaveSafeAndFinalizedButNotLatest(t *testing.T, block []*NewBlock, blockNum uint64, expectedHash ethCommon.Hash) {
-	require.Equal(t, 2, len(block))
-	assert.Equal(t, uint64(blockNum), block[0].Number.Uint64())
-	assert.Equal(t, Safe, block[0].Finality)
-	assert.Equal(t, expectedHash, block[0].Hash)
-	assert.Equal(t, uint64(blockNum), block[1].Number.Uint64())
-	assert.Equal(t, Finalized, block[1].Finality)
-	assert.Equal(t, expectedHash, block[1].Hash)
+// setupLogsCapture is a helper function for making a zap logger/observer combination for testing that certain logs have been made
+func setupLogsCapture(t testing.TB, options ...zap.Option) (*zap.Logger, *observer.ObservedLogs) {
+	t.Helper()
+	observedCore, observedLogs := observer.New(zap.InfoLevel)
+	consoleLogger := zaptest.NewLogger(t, zaptest.Level(zap.InfoLevel))
+	parentLogger := zap.New(zapcore.NewTee(observedCore, consoleLogger.Core()), options...)
+	return parentLogger, observedLogs
 }
 
 // TestBlockPoller is one big, ugly test because of all the set up required.
 func TestBlockPoller(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger, logObserver := setupLogsCapture(t)
 	baseConnector := mockConnectorForPoller{blockNumbers: []uint64{}}
 
-	finalizer := newMockFinalizerForPoller(true) // Start by assuming blocks are finalized.
-	assert.NotNil(t, finalizer)
+	finalizer := newMockFinalizerForPoller(3185160)
+	require.NotNil(t, finalizer)
 
 	poller := &FinalizerPollConnector{
 		Connector: &baseConnector,
@@ -211,37 +251,25 @@ func TestBlockPoller(t *testing.T) {
 		finalizer: finalizer,
 	}
 
-	// Set the starting block[0].
-	baseConnector.setBlockNumber(0x309a0c)
-
 	// The go routines will post results here.
 	var mutex sync.Mutex
 	var block []*NewBlock
-	var err error
-	var pollerStatus int
+	var publishedErr error
+	var publishedSubErr error
 
-	const pollerRunning = 1
-	const pollerExited = 2
-
-	// Start the poller running.
-	go func() {
-		mutex.Lock()
-		pollerStatus = pollerRunning
-		mutex.Unlock()
-		err := poller.run(ctx)
-		require.NoError(t, err)
-		mutex.Lock()
-		pollerStatus = pollerExited
-		mutex.Unlock()
-	}()
+	// Set the initial block number. This gets read at the start of SubscribeForBlocks.
+	baseConnector.setLatestBlockNumber(3185164)
 
 	// Subscribe for events to be processed by our go routine.
 	headSink := make(chan *NewBlock, 2)
 	errC := make(chan error)
 
-	headerSubscription, suberr := poller.SubscribeForBlocks(ctx, errC, headSink)
-	require.NoError(t, suberr)
+	headerSubscription, subErr := poller.SubscribeForBlocks(ctx, errC, headSink)
+	require.NoError(t, subErr)
+	require.NotNil(t, headerSubscription)
+	defer headerSubscription.Unsubscribe()
 
+	// This routine receives the output of the poller and updates our local state.
 	go func() {
 		for {
 			select {
@@ -249,11 +277,11 @@ func TestBlockPoller(t *testing.T) {
 				return
 			case thisErr := <-errC:
 				mutex.Lock()
-				err = thisErr
+				publishedErr = thisErr
 				mutex.Unlock()
 			case thisErr := <-headerSubscription.Err():
 				mutex.Lock()
-				err = thisErr
+				publishedSubErr = thisErr
 				mutex.Unlock()
 			case thisBlock := <-headSink:
 				require.NotNil(t, thisBlock)
@@ -267,173 +295,175 @@ func TestBlockPoller(t *testing.T) {
 	// First sleep a bit and make sure there were no start up errors.
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
 	assert.Nil(t, block)
 	mutex.Unlock()
 
-	// Post the first new block and verify we get it.
-	baseConnector.setBlockNumber(0x309a0d)
-
+	// Post the first new block and verify we see it as latest with nothing else.
+	baseConnector.postLatestBlockNumber(3185165)
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
-	shouldHaveAllThree(t, block, 0x309a0d, baseConnector.expectedHash())
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveLatestOnly(t, block, 3185165)
 	block = nil
 	mutex.Unlock()
 
 	// Sleep some more and verify we don't see any more blocks, since we haven't posted a new one.
-	baseConnector.setBlockNumber(0x309a0d)
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
 	require.Nil(t, block)
 	mutex.Unlock()
 
-	// Post the next block and verify we get it.
-	baseConnector.setBlockNumber(0x309a0e)
+	// Post the next block and verify we see it as latest with nothing else.
+	baseConnector.postLatestBlockNumber(3185166)
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
-	shouldHaveAllThree(t, block, 0x309a0e, baseConnector.expectedHash())
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveLatestOnly(t, block, 3185166)
 	block = nil
 	mutex.Unlock()
 
-	// Post the next block but mark it as not finalized, so we should only see latest.
-	mutex.Lock()
-	finalizer.setFinalized(false)
-	baseConnector.setBlockNumber(0x309a0f)
-	mutex.Unlock()
-
+	// Set a finalized block and verify we get it as finalized and safe.
+	finalizer.setFinalizedBlock(3185165)
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
-	shouldHaveLatestOnly(t, block, 0x309a0f, baseConnector.expectedHash())
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveMultipleFinalizedAndSafe(t, block, 3185161, 5, baseConnector.expectedHash())
 	block = nil
 	mutex.Unlock()
 
-	// Once it goes finalized we should see safe and finalized, but not latest again.
-	mutex.Lock()
-	finalizer.setFinalized(true)
-	mutex.Unlock()
-
+	// Post the next latest block. We should only see latest.
+	baseConnector.postLatestBlockNumber(3185167)
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
-	shouldHaveSafeAndFinalizedButNotLatest(t, block, 0x309a0f, baseConnector.expectedHash())
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveLatestOnly(t, block, 3185167)
 	block = nil
 	mutex.Unlock()
 
-	// An RPC error should be returned to us.
-	err = nil
+	// Post another finalized block. We should see finalized and safe for it.
+	finalizer.setFinalizedBlock(3185166)
+	time.Sleep(10 * time.Millisecond)
+	mutex.Lock()
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveFinalizedAndSafeButNotLatest(t, block, 3185166, baseConnector.expectedHash())
+	block = nil
+	mutex.Unlock()
+
+	// A single RPC error should not be returned to us.
+	publishedErr = nil
+	baseConnector.setSingleError(fmt.Errorf("RPC failed"))
+
+	time.Sleep(10 * time.Millisecond)
+	mutex.Lock()
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	assert.Equal(t, 0, len(block))
+
+	// Verify that we got the expected error in the logs.
+	loggedEntries := logObserver.FilterMessage("polling encountered an error").All()
+	require.Equal(t, 1, len(loggedEntries))
+
+	block = nil
+	mutex.Unlock()
+
+	// And we should be able to continue after a single error.
+	baseConnector.postLatestBlockNumber(3185168)
+	time.Sleep(10 * time.Millisecond)
+	mutex.Lock()
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveLatestOnly(t, block, 3185168)
+	block = nil
+	mutex.Unlock()
+
+	// Post the next five latest blocks.
+	for count := 0; count < 5; count++ {
+		baseConnector.postLatestBlockNumber(3185169 + uint64(count))
+	}
+	time.Sleep(10 * time.Millisecond)
+	mutex.Lock()
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveMultipleLatest(t, block, 3185169, 5)
+	block = nil
+	mutex.Unlock()
+
+	// Then move the finalized block forward multiple blocks and it should play out the gap.
+	finalizer.setFinalizedBlock(3185172)
+	time.Sleep(10 * time.Millisecond)
+	mutex.Lock()
+	require.NoError(t, publishedErr)
+	require.NoError(t, publishedSubErr)
+	shouldHaveMultipleFinalizedAndSafe(t, block, 3185167, 6, baseConnector.expectedHash())
+	block = nil
+	mutex.Unlock()
+
+	//
+	// NOTE: This should be the last part of this test because it kills the poller!
+	//
+
+	// A persistent RPC error should be returned to us.
 	baseConnector.setError(fmt.Errorf("RPC failed"))
-
 	time.Sleep(10 * time.Millisecond)
 	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	assert.Error(t, err)
+	assert.Error(t, publishedErr)
+	require.NoError(t, publishedSubErr)
 	assert.Nil(t, block)
 	baseConnector.setError(nil)
-	err = nil
+	publishedErr = nil
 	mutex.Unlock()
+}
 
-	// Post the next block and verify we get it (so we survived the RPC error).
-	baseConnector.setBlockNumber(0x309a10)
+type finalizedTester struct {
+	latestFinalized uint64
+}
 
-	// There may be a few errors already queued up. Loop for a bit before we give up.
-	success := false
-	for count := 0; (count < 20) && (!success); count++ {
-		time.Sleep(10 * time.Millisecond)
-		mutex.Lock()
-		if err == nil {
-			success = true
-		} else {
-			err = nil
-		}
-		mutex.Unlock()
+func (obj finalizedTester) checkIfBlockIsFinalized(ctx context.Context, blockNum uint64) (bool, *NewBlock, error) {
+	block := &NewBlock{
+		Number:   big.NewInt(int64(blockNum)),
+		Time:     123456,
+		Hash:     ethCommon.HexToHash("0xfc8b62a31110121c57cfcccfaf2b147cc2c13b6d01bde4737846cefd29f045cf"),
+		Finality: Latest,
 	}
-	require.True(t, success)
+	return blockNum <= obj.latestFinalized, block, nil
+}
 
-	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
+func Test_findLatestFinalizedBlock(t *testing.T) {
+	ctx := context.Background()
+
+	latestFinalized := uint64(123456)
+	block, err := findLatestFinalizedBlock(ctx, 123000, 124000, finalizedTester{latestFinalized: latestFinalized})
 	require.NoError(t, err)
-	shouldHaveAllThree(t, block, 0x309a10, baseConnector.expectedHash())
-	block = nil
-	mutex.Unlock()
+	require.NotNil(t, block)
+	assert.Equal(t, latestFinalized, block.Number.Uint64())
 
-	// Post an old block and we should not hear about it.
-	baseConnector.setBlockNumber(0x309a0c)
-
-	time.Sleep(10 * time.Millisecond)
-	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
+	latestFinalized = uint64(123000)
+	block, err = findLatestFinalizedBlock(ctx, 123000, 123001, finalizedTester{latestFinalized: latestFinalized})
 	require.NoError(t, err)
-	require.Nil(t, block)
-	mutex.Unlock()
+	require.NotNil(t, block)
+	assert.Equal(t, latestFinalized, block.Number.Uint64())
 
-	// But we should keep going when we get a new one.
-	baseConnector.setBlockNumber(0x309a11)
-
-	time.Sleep(10 * time.Millisecond)
-	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
+	latestFinalized = uint64(123500)
+	block, err = findLatestFinalizedBlock(ctx, 123000, 124000, finalizedTester{latestFinalized: latestFinalized})
 	require.NoError(t, err)
-	shouldHaveAllThree(t, block, 0x309a11, baseConnector.expectedHash())
-	block = nil
+	require.NotNil(t, block)
+	assert.Equal(t, latestFinalized, block.Number.Uint64())
 
-	// If there's a gap in the blocks, we play out the gap.
-	baseConnector.setBlockNumbers([]uint64{
-		0x309a13, // New Latest
-		0x309a12, // Gap Latest
-		0x309a12, // Gap Safe & Finalized
-		0x309a13, // New Safe & Finalized
-	})
-	mutex.Unlock()
-
-	time.Sleep(10 * time.Millisecond)
-	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
-	require.Equal(t, 6, len(block))
-
-	assert.Equal(t, uint64(0x309a12), block[0].Number.Uint64())
-	assert.Equal(t, baseConnector.expectedHash(), block[0].Hash)
-	assert.Equal(t, Latest, block[0].Finality)
-	assert.Equal(t, uint64(0x309a13), block[1].Number.Uint64())
-	assert.Equal(t, baseConnector.expectedHash(), block[1].Hash)
-	assert.Equal(t, Latest, block[1].Finality)
-
-	assert.Equal(t, uint64(0x309a12), block[2].Number.Uint64())
-	assert.Equal(t, baseConnector.expectedHash(), block[2].Hash)
-	assert.Equal(t, Safe, block[2].Finality)
-	assert.Equal(t, uint64(0x309a12), block[3].Number.Uint64())
-	assert.Equal(t, baseConnector.expectedHash(), block[3].Hash)
-	assert.Equal(t, Finalized, block[3].Finality)
-
-	assert.Equal(t, uint64(0x309a13), block[4].Number.Uint64())
-	assert.Equal(t, baseConnector.expectedHash(), block[4].Hash)
-	assert.Equal(t, Safe, block[4].Finality)
-	assert.Equal(t, uint64(0x309a13), block[5].Number.Uint64())
-	assert.Equal(t, baseConnector.expectedHash(), block[5].Hash)
-	assert.Equal(t, Finalized, block[5].Finality)
-
-	block = nil
-	mutex.Unlock()
-
-	// Should retry on a transient error and be able to continue.
-	baseConnector.setSingleError(fmt.Errorf("RPC failed"))
-	baseConnector.setBlockNumber(0x309a14)
-
-	time.Sleep(10 * time.Millisecond)
-	mutex.Lock()
-	require.Equal(t, pollerRunning, pollerStatus)
-	require.NoError(t, err)
-	shouldHaveAllThree(t, block, 0x309a14, baseConnector.expectedHash())
-	block = nil
-	mutex.Unlock()
+	startBlock := uint64(123000)
+	endBlock := uint64(124000)
+	for latestFinalized := startBlock; latestFinalized < endBlock; latestFinalized++ {
+		block, err = findLatestFinalizedBlock(ctx, startBlock, endBlock, finalizedTester{latestFinalized: latestFinalized})
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		assert.Equal(t, latestFinalized, block.Number.Uint64())
+	}
 }

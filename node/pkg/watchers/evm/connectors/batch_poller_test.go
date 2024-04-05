@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	ethAbi "github.com/certusone/wormhole/node/pkg/watchers/evm/connectors/ethabi"
 
@@ -237,7 +236,7 @@ func batchShouldHaveSafeAndFinalizedButNotLatest(t *testing.T, block []*NewBlock
 // TestBatchPoller is one big, ugly test because of all the set up required.
 func TestBatchPoller(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger, logObserver := setupLogsCapture(t)
 	baseConnector := mockConnectorForBatchPoller{blockNumbers: []uint64{}}
 	poller := NewBatchPollConnector(ctx, logger, &baseConnector, true, 1*time.Millisecond)
 
@@ -430,6 +429,11 @@ func TestBatchPoller(t *testing.T) {
 	require.NoError(t, publishedErr)
 	require.NoError(t, publishedSubErr)
 	assert.Equal(t, 0, len(block))
+
+	// Verify that we got the expected error in the logs.
+	loggedEntries := logObserver.FilterMessage("batch polling encountered an error").All()
+	require.Equal(t, 1, len(loggedEntries))
+
 	block = nil
 	mutex.Unlock()
 
