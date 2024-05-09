@@ -1,6 +1,6 @@
 {
   "name": "@certusone/wormhole-sdk",
-  "version": "0.10.15",
+  "version": "0.10.16",
   "description": "SDK for interacting with Wormhole",
   "homepage": "https://wormhole.com",
   "main": "./lib/cjs/index.js",
@@ -87,9 +87,7 @@
     "bs58": "^4.0.1",
     "elliptic": "^6.5.4",
     "js-base64": "^3.6.1",
-    "near-api-js": "^1.0.0"
-  },
-  "optionalDependencies": {
+    "near-api-js": "^1.0.0",
     "@injectivelabs/networks": "1.10.12",
     "@injectivelabs/sdk-ts": "1.10.72",
     "@injectivelabs/utils": "1.10.12"
