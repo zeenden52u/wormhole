@@ -107,7 +107,11 @@ func (p *Processor) cleanUpStateEntry(hash string, s *state) bool {
 				//
 				// This is a rare case, and we can safely expire the state, since we
 				// have a quorum VAA.
-				p.logger.Info("Expiring late VAA", zap.String("digest", hash), zap.Duration("delta", delta))
+				p.logger.Info("Expiring late VAA",
+					zap.String("message_id", ourVaa.VAA.MessageID()),
+					zap.String("digest", hash),
+					zap.Duration("delta", delta),
+				)
 				aggregationStateLate.Inc()
 				return true
 			}
@@ -135,14 +139,17 @@ func (p *Processor) cleanUpStateEntry(hash string, s *state) bool {
 			chain = s.ourObservation.GetEmitterChain()
 		}
 
-		p.logger.Debug("observation considered settled",
-			zap.String("digest", hash),
-			zap.Duration("delta", delta),
-			zap.Int("have_sigs", hasSigs),
-			zap.Int("required_sigs", wantSigs),
-			zap.Bool("quorum", quorum),
-			zap.Stringer("emitter_chain", chain),
-		)
+		if p.logger.Level().Enabled(zapcore.DebugLevel) {
+			p.logger.Debug("observation considered settled",
+				zap.String("message_id", s.LoggingID()),
+				zap.String("digest", hash),
+				zap.Duration("delta", delta),
+				zap.Int("have_sigs", hasSigs),
+				zap.Int("required_sigs", wantSigs),
+				zap.Bool("quorum", quorum),
+				zap.Stringer("emitter_chain", chain),
+			)
+		}
 
 		for _, k := range gs.Keys {
 			if _, ok := s.signatures[k]; ok {
@@ -156,12 +163,23 @@ func (p *Processor) cleanUpStateEntry(hash string, s *state) bool {
 		// observation that come in. Therefore, keep it for a reasonable amount of time.
 		// If a very late observation arrives after cleanup, a nil aggregation state will be created
 		// and then expired after a while (as noted in observation.go, this can be abused by a byzantine guardian).
-		p.logger.Debug("expiring submitted observation", zap.String("digest", hash), zap.Duration("delta", delta))
+		if p.logger.Level().Enabled(zapcore.DebugLevel) {
+			p.logger.Debug("expiring submitted observation",
+				zap.String("message_id", s.LoggingID()),
+				zap.String("digest", hash),
+				zap.Duration("delta", delta),
+			)
+		}
 		aggregationStateExpiration.Inc()
 		return true
 	case !s.submitted && ((s.ourMsg != nil && delta > retryLimitOurs) || (s.ourMsg == nil && delta > retryLimitNotOurs)):
 		// Clearly, this horse is dead and continued beatings won't bring it closer to quorum.
-		p.logger.Info("expiring unsubmitted observation after exhausting retries", zap.String("digest", hash), zap.Duration("delta", delta))
+		p.logger.Info("expiring unsubmitted observation after exhausting retries",
+			zap.String("message_id", s.LoggingID()),
+			zap.String("digest", hash),
+			zap.Duration("delta", delta),
+			zap.Bool("weObserved", s.ourMsg != nil),
+		)
 		aggregationStateTimeout.Inc()
 		return true
 	case !s.submitted && delta >= FirstRetryMinWait && time.Since(s.nextRetry) >= 0:
@@ -174,31 +192,57 @@ func (p *Processor) cleanUpStateEntry(hash string, s *state) bool {
 		if s.ourMsg != nil {
 			// Unreliable observations cannot be resubmitted and can be considered failed after 5 minutes
 			if !s.ourObservation.IsReliable() {
-				p.logger.Info("expiring unsubmitted unreliable observation", zap.String("digest", hash), zap.Duration("delta", delta))
+				p.logger.Info("expiring unsubmitted unreliable observation",
+					zap.String("message_id", s.LoggingID()),
+					zap.String("digest", hash),
+					zap.Duration("delta", delta),
+				)
 				aggregationStateTimeout.Inc()
 				return true
+			}
+
+			// Reobservation requests should not be resubmitted but we will keep waiting for more observations.
+			if s.ourObservation.IsReobservation() {
+				if p.logger.Level().Enabled(zapcore.DebugLevel) {
+					p.logger.Debug("not submitting reobservation request for reobservation",
+						zap.String("message_id", s.LoggingID()),
+						zap.String("digest", hash),
+						zap.Duration("delta", delta),
+					)
+				}
+				break
 			}
 
 			// If we have already stored this VAA, there is no reason for us to request reobservation.
 			alreadyInDB, err := p.signedVaaAlreadyInDB(hash, s)
 			if err != nil {
-				p.logger.Error("failed to check if observation is already in DB, requesting reobservation", zap.String("hash", hash), zap.Error(err))
+				p.logger.Error("failed to check if observation is already in DB, requesting reobservation",
+					zap.String("message_id", s.LoggingID()),
+					zap.String("hash", hash),
+					zap.Error(err))
 			}
 
 			if alreadyInDB {
-				p.logger.Debug("observation already in DB, not requesting reobservation", zap.String("digest", hash))
+				if p.logger.Level().Enabled(zapcore.DebugLevel) {
+					p.logger.Debug("observation already in DB, not requesting reobservation",
+						zap.String("message_id", s.LoggingID()),
+						zap.String("digest", hash),
+					)
+				}
 			} else {
 				p.logger.Info("resubmitting observation",
+					zap.String("message_id", s.LoggingID()),
 					zap.String("digest", hash),
 					zap.Duration("delta", delta),
 					zap.String("firstObserved", s.firstObserved.String()),
+					zap.Int("numSignatures", len(s.signatures)),
 				)
 				req := &gossipv1.ObservationRequest{
 					ChainId: uint32(s.ourObservation.GetEmitterChain()),
 					TxHash:  s.txHash,
 				}
 				if err := common.PostObservationRequest(p.obsvReqSendC, req); err != nil {
-					p.logger.Warn("failed to broadcast re-observation request", zap.Error(err))
+					p.logger.Warn("failed to broadcast re-observation request", zap.String("message_id", s.LoggingID()), zap.Error(err))
 				}
 				p.gossipSendC <- s.ourMsg
 				s.retryCtr++
@@ -213,13 +257,16 @@ func (p *Processor) cleanUpStateEntry(hash string, s *state) bool {
 			hasSigs := len(s.signatures)
 			wantSigs := vaa.CalculateQuorum(len(gs.Keys))
 
-			p.logger.Debug("expiring unsubmitted nil observation",
-				zap.String("digest", hash),
-				zap.Duration("delta", delta),
-				zap.Int("have_sigs", hasSigs),
-				zap.Int("required_sigs", wantSigs),
-				zap.Bool("quorum", hasSigs >= wantSigs),
-			)
+			if p.logger.Level().Enabled(zapcore.DebugLevel) {
+				p.logger.Debug("expiring unsubmitted nil observation",
+					zap.String("message_id", s.LoggingID()),
+					zap.String("digest", hash),
+					zap.Duration("delta", delta),
+					zap.Int("have_sigs", hasSigs),
+					zap.Int("required_sigs", wantSigs),
+					zap.Bool("quorum", hasSigs >= wantSigs),
+				)
+			}
 			aggregationStateUnobserved.Inc()
 			return true
 		}
